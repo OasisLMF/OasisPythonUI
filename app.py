@@ -39,17 +39,72 @@ def generate_column_config(col_names, display_cols, date_time_cols=None):
 
     return config
 
-display_cols = [
-    'id',
-    'name',
-    'created',
-    'modified',
-    'storage_links',
-]
+display_cols = [ 'id', 'name', 'created', 'modified', 'storage_links', ]
+
 column_config = generate_column_config(portfolios.columns.values, display_cols,
                                        date_time_cols=date_time_cols)
 
 st.dataframe(portfolios, hide_index=True, column_config=column_config, column_order=display_cols)
+
+def validate_name(name):
+    if not name or len(name) == 0:
+        return False, f"Name is required"
+    return True, ""
+
+@st.fragment
+def new_portfolio():
+    files = st.file_uploader("Upload portfolio files", accept_multiple_files=True)
+    filesDict = { f.name: f for f in files}
+
+    options = [f.name for f in files]
+
+    if 'portfolio_form_data' not in st.session_state:
+        st.session_state.portfolio_form_data = {
+            'name': None,
+            'location_file': None,
+            'accounts_file': None,
+            'reinsurance_info_file': None,
+            'reinsurance_scope_file': None,
+            'submitted': False
+        }
+
+    with st.form("create_portfolio_form"):
+        name = st.text_input('Portfolio Name', value=None)
+        loc_file = st.selectbox('Select Location File', options, index=None)
+        acc_file = st.selectbox('Select Accounts File', options, index=None)
+        ri_file = st.selectbox('Select Reinsurance Info File', options, index=None)
+        rs_file = st.selectbox('Select Reinsurance Scope File', options, index=None)
+
+        submitted = st.form_submit_button("Create Portfolio")
+
+        if submitted:
+            validation = validate_name(name)
+            if validation[0]:
+                st.session_state.portfolio_form_data.update({
+                    'name': name,
+                    'location_file': loc_file,
+                    'accounts_file': acc_file,
+                    'reinsurance_info_file': ri_file,
+                    'reinsurance_scope_file': rs_file,
+                    'submitted': True
+                })
+            else:
+                st.error(validation[1])
+
+    if submitted:
+        st.write("Form submitted successfully")
+        try:
+            # Need to be able to stream bytes through API
+            st.write('Submit file to API endpoint')
+        except Exception as e:
+            st.error(e)
+
+    else:
+        st.write("Form not submitted")
+
+
+"### Create New Portfolio"
+new_portfolio()
 
 "## Analyses"
 
@@ -66,9 +121,8 @@ analyses = convert_datetime_cols(analyses, date_time_cols)
 # - Status Details
 # - Status
 
-display_cols = [
-    'id', 'name', 'portfolio', 'model', 'created', 'modified', 'status'
-]
+display_cols = [ 'id', 'name', 'portfolio', 'model', 'created', 'modified',
+                'status' ]
 
 column_config = generate_column_config(analyses.columns.values, display_cols,
                                        date_time_cols=date_time_cols)
