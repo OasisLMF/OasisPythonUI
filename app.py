@@ -37,9 +37,14 @@ def generate_column_config(col_names, display_cols, date_time_cols=None):
 date_time_cols = ['created', 'modified']
 
 def display_portfolios(portfolios):
-    portfolios = convert_datetime_cols(portfolios, date_time_cols)
-
     display_cols = [ 'id', 'name', 'created', 'modified', 'storage_links', ]
+    if portfolios.empty:
+        column_config = generate_column_config(display_cols, display_cols)
+        st.dataframe(pd.DataFrame(columns=display_cols), hide_index=True, column_config=column_config,
+                     column_order=display_cols)
+        return None
+
+    portfolios = convert_datetime_cols(portfolios, date_time_cols)
 
     column_config = generate_column_config(portfolios.columns.values, display_cols,
                                            date_time_cols=date_time_cols)
@@ -47,9 +52,8 @@ def display_portfolios(portfolios):
     st.dataframe(portfolios, hide_index=True, column_config=column_config, column_order=display_cols)
 
 portfolios = client.portfolios.get().json()
-if len(portfolios) > 0:
-    portfolios =  pd.json_normalize(portfolios)
-    display_portfolios(portfolios)
+portfolios =  pd.json_normalize(portfolios)
+display_portfolios(portfolios)
 
 "### Create New Portfolio"
 
@@ -136,6 +140,15 @@ new_portfolio()
 "## Analyses"
 
 def display_analyses(analyses):
+    display_cols = [ 'id', 'name', 'portfolio', 'model', 'created', 'modified',
+                    'status' ]
+
+    if analyses.empty:
+        column_config = generate_column_config(display_cols, display_cols)
+        st.dataframe(pd.DataFrame(columns=display_cols), hide_index=True, column_config=column_config,
+                     column_order=display_cols)
+        return None
+
     analyses = convert_datetime_cols(analyses, date_time_cols)
 
     # Following need to be combined with other df
@@ -147,15 +160,13 @@ def display_analyses(analyses):
     # - Status Details
     # - Status
 
-    display_cols = [ 'id', 'name', 'portfolio', 'model', 'created', 'modified',
-                    'status' ]
-
     column_config = generate_column_config(analyses.columns.values, display_cols,
                                            date_time_cols=date_time_cols)
 
     st.dataframe(analyses, hide_index=True, column_config=column_config, column_order=display_cols)
 
+'### Current Analysis'
 analyses = client.analyses.get().json()
-if len(analyses) > 0:
-    analyses = pd.json_normalize(analyses)
-    display_analyses(analyses)
+analyses = pd.json_normalize(analyses)
+
+display_analyses(analyses)
