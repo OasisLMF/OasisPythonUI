@@ -1,6 +1,7 @@
 import streamlit as st
 from oasislmf.platform_api.client import APIClient
 import pandas as pd
+from requests.exceptions import HTTPError
 
 "# OasisLMF UI"
 
@@ -46,6 +47,8 @@ column_config = generate_column_config(portfolios.columns.values, display_cols,
 
 st.dataframe(portfolios, hide_index=True, column_config=column_config, column_order=display_cols)
 
+"### Create New Portfolio"
+
 def validate_name(name):
     if not name or len(name) == 0:
         return False, f"Name is required"
@@ -68,7 +71,7 @@ def new_portfolio():
             'submitted': False
         }
 
-    with st.form("create_portfolio_form"):
+    with st.form("create_portfolio_form", clear_on_submit=True):
         name = st.text_input('Portfolio Name', value=None)
         loc_file = st.selectbox('Select Location File', options, index=None)
         acc_file = st.selectbox('Select Accounts File', options, index=None)
@@ -90,20 +93,43 @@ def new_portfolio():
                 })
             else:
                 st.error(validation[1])
+                submitted = False
 
-    if submitted:
-        st.write("Form submitted successfully")
-        try:
-            # Need to be able to stream bytes through API
-            st.write('Submit file to API endpoint')
-        except Exception as e:
-            st.error(e)
+        if submitted:
+            st.write("Form submitted successfully")
+            form_data = st.session_state.portfolio_form_data
+            def prepare_upload_dict(fname):
+                upload_f = form_data.get(fname)
+                if upload_f:
+                    upload_f = {'name': upload_f, 'bytes': filesDict[upload_f]}
+                return upload_f
 
-    else:
-        st.write("Form not submitted")
+            pname = form_data['name']
+            location_f = prepare_upload_dict('location_file')
+            accounts_f = prepare_upload_dict('accounts_file')
+            ri_info_f = prepare_upload_dict('reinsurance_info_file')
+            ri_scope_f = prepare_upload_dict('reinsurance_scope_file')
 
+            try:
+                client.upload_inputs(portfolio_name=pname,
+                                     location_f = location_f,
+                                     accounts_f = accounts_f,
+                                     ri_info_f = ri_info_f,
+                                     ri_scope_f = ri_scope_f)
+                # Reset form
+                st.session_state.portfolio_form_data = {
+                    'name': None,
+                    'location_file': None,
+                    'accounts_file': None,
+                    'reinsurance_info_file': None,
+                    'reinsurance_scope_file': None,
+                    'submitted': False
+                }
+            except HTTPError as e:
+                st.error(e)
 
-"### Create New Portfolio"
+        else:
+            st.write("Form not submitted")
 new_portfolio()
 
 "## Analyses"
