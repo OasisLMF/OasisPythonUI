@@ -19,12 +19,6 @@ def convert_datetime_cols(df, cols):
         df[c] = pd.to_datetime(df[c])
     return df
 
-portfolios = client.portfolios.get().json()
-portfolios =  pd.json_normalize(portfolios)
-
-date_time_cols = ['created', 'modified']
-portfolios = convert_datetime_cols(portfolios, date_time_cols)
-
 @st.cache_data
 def generate_column_config(col_names, display_cols, date_time_cols=None):
     config = {name: None for name in col_names}
@@ -40,12 +34,22 @@ def generate_column_config(col_names, display_cols, date_time_cols=None):
 
     return config
 
-display_cols = [ 'id', 'name', 'created', 'modified', 'storage_links', ]
+date_time_cols = ['created', 'modified']
 
-column_config = generate_column_config(portfolios.columns.values, display_cols,
-                                       date_time_cols=date_time_cols)
+def display_portfolios(portfolios):
+    portfolios = convert_datetime_cols(portfolios, date_time_cols)
 
-st.dataframe(portfolios, hide_index=True, column_config=column_config, column_order=display_cols)
+    display_cols = [ 'id', 'name', 'created', 'modified', 'storage_links', ]
+
+    column_config = generate_column_config(portfolios.columns.values, display_cols,
+                                           date_time_cols=date_time_cols)
+
+    st.dataframe(portfolios, hide_index=True, column_config=column_config, column_order=display_cols)
+
+portfolios = client.portfolios.get().json()
+if len(portfolios) > 0:
+    portfolios =  pd.json_normalize(portfolios)
+    display_portfolios(portfolios)
 
 "### Create New Portfolio"
 
@@ -96,7 +100,6 @@ def new_portfolio():
                 submitted = False
 
         if submitted:
-            st.write("Form submitted successfully")
             form_data = st.session_state.portfolio_form_data
             def prepare_upload_dict(fname):
                 upload_f = form_data.get(fname)
@@ -128,29 +131,31 @@ def new_portfolio():
             except HTTPError as e:
                 st.error(e)
 
-        else:
-            st.write("Form not submitted")
 new_portfolio()
 
 "## Analyses"
 
+def display_analyses(analyses):
+    analyses = convert_datetime_cols(analyses, date_time_cols)
+
+    # Following need to be combined with other df
+    # - Portfolio Name
+    # - Model Version
+    # - Supplier
+    # - Created
+    # - Modified
+    # - Status Details
+    # - Status
+
+    display_cols = [ 'id', 'name', 'portfolio', 'model', 'created', 'modified',
+                    'status' ]
+
+    column_config = generate_column_config(analyses.columns.values, display_cols,
+                                           date_time_cols=date_time_cols)
+
+    st.dataframe(analyses, hide_index=True, column_config=column_config, column_order=display_cols)
+
 analyses = client.analyses.get().json()
-analyses = pd.json_normalize(analyses)
-analyses = convert_datetime_cols(analyses, date_time_cols)
-
-# Following need to be combined with other df
-# - Portfolio Name
-# - Model Version
-# - Supplier
-# - Created
-# - Modified
-# - Status Details
-# - Status
-
-display_cols = [ 'id', 'name', 'portfolio', 'model', 'created', 'modified',
-                'status' ]
-
-column_config = generate_column_config(analyses.columns.values, display_cols,
-                                       date_time_cols=date_time_cols)
-
-st.dataframe(analyses, hide_index=True, column_config=column_config, column_order=display_cols)
+if len(analyses) > 0:
+    analyses = pd.json_normalize(analyses)
+    display_analyses(analyses)
