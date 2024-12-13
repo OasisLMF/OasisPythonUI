@@ -13,6 +13,7 @@ client = get_client()
 
 "## Portfolios"
 
+
 @st.cache_data
 def convert_datetime_cols(df, cols):
     for c in cols:
@@ -51,15 +52,16 @@ def display_portfolios(portfolios):
 
     st.dataframe(portfolios, hide_index=True, column_config=column_config, column_order=display_cols)
 
-portfolios = client.portfolios.get().json()
-portfolios =  pd.json_normalize(portfolios)
-display_portfolios(portfolios)
+show_portfolio, create_portfolio = st.tabs(['Show Portfolios', 'Create Portfolio'])
 
-"### Create New Portfolio"
+with show_portfolio:
+    portfolios = client.portfolios.get().json()
+    portfolios =  pd.json_normalize(portfolios)
+    display_portfolios(portfolios)
 
 def validate_name(name):
     if not name or len(name) == 0:
-        return False, f"Name is required"
+        return False, "Name is required"
     return True, ""
 
 @st.fragment
@@ -135,7 +137,8 @@ def new_portfolio():
             except HTTPError as e:
                 st.error(e)
 
-new_portfolio()
+with create_portfolio:
+    new_portfolio()
 
 "## Analyses"
 
@@ -165,8 +168,67 @@ def display_analyses(analyses):
 
     st.dataframe(analyses, hide_index=True, column_config=column_config, column_order=display_cols)
 
-'### Current Analysis'
 analyses = client.analyses.get().json()
 analyses = pd.json_normalize(analyses)
 
-display_analyses(analyses)
+
+show_analyses, create_analysis = st.tabs(['Show Analysis', 'Create Analysis'])
+
+with show_analyses:
+    display_analyses(analyses)
+
+def display_select_models(models):
+    display_cols = ['id', 'supplier_id', 'model_id', 'version_id', 'created', 'modified']
+
+    if models.empty:
+        column_config = generate_column_config(display_cols, display_cols)
+        st.dataframe(pd.DataFrame(columns=display_cols), hide_index=True, column_config=column_config,
+                     column_order=display_cols)
+        return None
+
+    models = convert_datetime_cols(models, date_time_cols)
+
+    column_config = generate_column_config(models.columns.values, display_cols,
+                                           date_time_cols=date_time_cols)
+
+    st.write('Select Model')
+    selected = st.dataframe(models, hide_index=True, column_config=column_config, column_order=display_cols,
+                     selection_mode="single-row", on_select="rerun")
+
+    selected = selected["selection"]["rows"]
+    if len(selected) > 0:
+        return models.iloc[selected[0]]
+
+    return None
+
+@st.fragment
+def new_analysis():
+    portfolios = client.portfolios.get().json()
+    models = client.models.get().json()
+    models = pd.json_normalize(models)
+
+    def format_portfolio(portfolio):
+        return f"{portfolio['id']}: {portfolio['name']}"
+
+    with st.form("create_analysis_form", clear_on_submit=True):
+        name = st.text_input("Analysis Name")
+        portfolio = st.selectbox('Select Portfolio', options = portfolios,
+                                    index=None, format_func=format_portfolio)
+
+
+        model = display_select_models(models)
+        submitted = st.form_submit_button("Create Analysis")
+
+    if submitted:
+        # todo: add validation
+        st.write('Submitted')
+        st.write(f'Name submitted: {name}')
+        st.write(f'Portfolio submitted: {portfolio["id"]}')
+        st.write(f'Model submitted: {model["id"]}')
+    else:
+        st.write('Not Submitted')
+
+with create_analysis:
+    new_analysis()
+
+
