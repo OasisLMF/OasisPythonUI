@@ -81,7 +81,7 @@ def new_portfolio():
             'submitted': False
         }
 
-    with st.form("create_portfolio_form", clear_on_submit=True):
+    with st.form("create_portfolio_form", clear_on_submit=True, enter_to_submit=False):
         name = st.text_input('Portfolio Name', value=None)
         loc_file = st.selectbox('Select Location File', options, index=None)
         acc_file = st.selectbox('Select Accounts File', options, index=None)
@@ -215,7 +215,7 @@ def new_analysis():
     def format_portfolio(portfolio):
         return f"{portfolio['id']}: {portfolio['name']}"
 
-    with st.form("create_analysis_form", clear_on_submit=True):
+    with st.form("create_analysis_form", clear_on_submit=True, enter_to_submit=False):
         name = st.text_input("Analysis Name")
         portfolio = st.selectbox('Select Portfolio', options = portfolios,
                                     index=None, format_func=format_portfolio)
