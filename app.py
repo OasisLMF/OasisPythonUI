@@ -201,6 +201,11 @@ def display_select_models(models):
 
     return None
 
+def validate_not_none(param, paramName='parameter'):
+    if param is None:
+        return False, f'{paramName} is not set'
+    return True, ""
+
 @st.fragment
 def new_analysis():
     portfolios = client.portfolios.get().json()
@@ -219,14 +224,21 @@ def new_analysis():
         model = display_select_models(models)
         submitted = st.form_submit_button("Create Analysis")
 
-    if submitted:
-        # todo: add validation
-        st.write('Submitted')
-        st.write(f'Name submitted: {name}')
-        st.write(f'Portfolio submitted: {portfolio["id"]}')
-        st.write(f'Model submitted: {model["id"]}')
-    else:
-        st.write('Not Submitted')
+        if submitted:
+            # todo: add validation requiring name
+            validations = []
+            validations.append(validate_name(name))
+            validations.append(validate_not_none(portfolio, 'Porfolio'))
+            validations.append(validate_not_none(model, 'Model'))
+
+            if all([v[0] for v  in validations]):
+                client.create_analysis(portfolio_id=int(portfolio["id"]), model_id=int(model["id"]),
+                                       analysis_name=name)
+            else:
+                for v in validations:
+                    if v[0] is False:
+                        st.error(v[1])
+                submitted = False
 
 with create_analysis:
     new_analysis()
