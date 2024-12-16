@@ -3,7 +3,7 @@ from oasislmf.platform_api.client import APIClient
 import pandas as pd
 from requests.exceptions import HTTPError
 from modules.nav import SidebarNav
-from modules.validation import validate_name, validate_not_none
+from modules.validation import validate_name, validate_not_none, validate_col_val, validate_key_is_not_null
 
 st.set_page_config(
         page_title = "Analysis"
@@ -16,6 +16,14 @@ SidebarNav()
 @st.cache_resource
 def get_client():
     return APIClient()
+
+@st.cache_data
+def selected_to_row(selected, df):
+    selected = selected["selection"]["rows"]
+
+    if len(selected) > 0:
+        return df.iloc[selected[0]]
+    return None
 
 client = get_client()
 
@@ -58,7 +66,8 @@ def display_portfolios(portfolios):
     column_config = generate_column_config(portfolios.columns.values, display_cols,
                                            date_time_cols=date_time_cols)
 
-    st.dataframe(portfolios, hide_index=True, column_config=column_config, column_order=display_cols)
+    st.dataframe(portfolios, hide_index=True, column_config=column_config, column_order=display_cols,
+                 use_container_width=True)
 
 show_portfolio, create_portfolio = st.tabs(['Show Portfolios', 'Create Portfolio'])
 
@@ -169,16 +178,14 @@ def display_analyses(analyses):
     column_config = generate_column_config(analyses.columns.values, display_cols,
                                            date_time_cols=date_time_cols)
 
-    st.dataframe(analyses, hide_index=True, column_config=column_config, column_order=display_cols)
+    selected = st.dataframe(analyses, hide_index=True,
+                                     column_config=column_config,
+                                     column_order=display_cols,
+                                     use_container_width=True,
+                                     selection_mode="single-row",
+                                     on_select="rerun")
+    return selected_to_row(selected, analyses)
 
-analyses = client.analyses.get().json()
-analyses = pd.json_normalize(analyses)
-
-
-show_analyses, create_analysis = st.tabs(['Show Analysis', 'Create Analysis'])
-
-with show_analyses:
-    display_analyses(analyses)
 
 def display_select_models(models):
     display_cols = ['id', 'supplier_id', 'model_id', 'version_id', 'created', 'modified']
@@ -198,11 +205,8 @@ def display_select_models(models):
     selected = st.dataframe(models, hide_index=True, column_config=column_config, column_order=display_cols,
                      selection_mode="single-row", on_select="rerun")
 
-    selected = selected["selection"]["rows"]
-    if len(selected) > 0:
-        return models.iloc[selected[0]]
+    return selected_to_row(selected, models)
 
-    return None
 
 @st.fragment
 def new_analysis():
@@ -238,7 +242,67 @@ def new_analysis():
                         st.error(v[1])
                 submitted = False
 
+analyses = client.analyses.get().json()
+analyses = pd.json_normalize(analyses)
+
+# Tabs for show and create
+show_analyses, create_analysis = st.tabs(['Show Analysis', 'Create Analysis'])
+
+selected = None
+with show_analyses:
+    selected = display_analyses(analyses)
+
 with create_analysis:
     new_analysis()
 
+# Anlaysis run buttons
+left, middle, right = st.columns(3)
 
+validation_list = [[validate_not_none, (selected,)],
+               [validate_col_val, (selected, 'status', 'NEW')]]
+
+validations = []
+for validation in validation_list:
+    vfunc, vargs = validation
+    validations.append(vfunc(*vargs))
+    if not validations[-1][0]:
+        break
+
+generateDisabled = True
+if all([v[0] for v in validations]):
+    generateDisabeld = False
+
+if left.button("Generate Inputs", use_container_width=True, disabled=generateDisabled):
+    try:
+        client.analyses.generate(selected['id'])
+    except HTTPError as e:
+        st.error(e)
+
+validation_list = [[validate_not_none, (selected, 'Anlaysis row')],
+                   [validate_col_val, (selected, 'status', 'READY')],
+                   [validate_key_is_not_null, (selected, 'settings')]]
+validations = []
+for validation in validation_list:
+    vfunc, vargs = validation
+    validations.append(vfunc(*vargs))
+    if not validations[-1][0]:
+        break
+
+runDisabled = True
+if all([v[0] for v in validations]):
+    runDisabled = False
+    help = None
+else:
+    help = ''
+    for v in validations:
+        if v[0] is False:
+            help += v[1]
+            help += '\n'
+
+if middle.button("Run", use_container_width=True, disabled=runDisabled, help=help):
+    try:
+        client.analyses.run(selected['id'])
+    except HTTPError as e:
+        st.error(e)
+
+# ToDo make new section for analysis settings, move Run button underneath this
