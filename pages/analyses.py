@@ -3,14 +3,13 @@ from oasislmf.platform_api.client import APIClient
 import pandas as pd
 from requests.exceptions import HTTPError
 from modules.nav import SidebarNav
+from modules.validation import validate_name, validate_not_none
 
 st.set_page_config(
         page_title = "Analysis"
 )
 
 SidebarNav()
-
-
 
 "# OasisLMF UI"
 
@@ -67,11 +66,6 @@ with show_portfolio:
     portfolios = client.portfolios.get().json()
     portfolios =  pd.json_normalize(portfolios)
     display_portfolios(portfolios)
-
-def validate_name(name):
-    if not name or len(name) == 0:
-        return False, "Name is required"
-    return True, ""
 
 @st.fragment
 def new_portfolio():
@@ -209,11 +203,6 @@ def display_select_models(models):
         return models.iloc[selected[0]]
 
     return None
-
-def validate_not_none(param, paramName='parameter'):
-    if param is None:
-        return False, f'{paramName} is not set'
-    return True, ""
 
 @st.fragment
 def new_analysis():
