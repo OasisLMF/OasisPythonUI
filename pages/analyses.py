@@ -3,7 +3,7 @@ from oasislmf.platform_api.client import APIClient
 import pandas as pd
 from requests.exceptions import HTTPError
 from modules.nav import SidebarNav
-from modules.validation import validate_name, validate_not_none, validate_col_val, validate_key_is_not_null
+from modules.validation import validate_name, validate_not_none, validate_key_val, validate_key_is_not_null
 import json
 from json import JSONDecodeError
 
@@ -14,6 +14,9 @@ st.set_page_config(
 SidebarNav()
 
 "# OasisLMF UI"
+
+if st.button("♻️ "):
+    st.rerun()
 
 @st.cache_resource
 def get_client():
@@ -260,7 +263,7 @@ with show_analyses:
     left, middle, right = st.columns(3)
 
     validation_list = [[validate_not_none, (selected,)],
-                   [validate_col_val, (selected, 'status', 'NEW')]]
+                   [validate_key_val, (selected, 'status', 'NEW')]]
 
     validations = []
     for validation in validation_list:
@@ -280,7 +283,7 @@ with show_analyses:
             st.error(e)
 
     validation_list = [[validate_not_none, (selected, 'Anlaysis row')],
-                       [validate_col_val, (selected, 'status', 'READY')],
+                       [validate_key_val, (selected, 'status', 'READY')],
                        [validate_key_is_not_null, (selected, 'settings')]]
     validations = []
     for validation in validation_list:
@@ -305,8 +308,6 @@ with show_analyses:
             client.analyses.run(selected['id'])
         except HTTPError as e:
             st.error(e)
-
-    # ToDo make new section for analysis settings, move Run button underneath this
 
 with create_analysis:
     new_analysis()
