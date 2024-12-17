@@ -35,13 +35,6 @@ def summarise_inputs(inputs_dict):
 
     return pd.DataFrame(input_summary)
 
-"## Input Summary"
-if analysis:
-    inputs_dict = client.analyses.input_file.get_dataframe(analysis["id"])
-    input_summary = summarise_inputs(inputs_dict)
-    st.dataframe(input_summary, hide_index=True)
-
-"## Model Summary"
 def add_info_summary(df, spec, value):
     df["Specification"].append(spec)
     df["Value"].append(value)
@@ -73,21 +66,7 @@ def summarise_model_settings(settings):
         k = k.replace('_', ' ').title()
         settings_summary = add_info_summary(settings_summary, k, v)
     return settings_summary
-
-
-
-if analysis:
-    settings = get_analysis_settings(analysis["id"])
-    model_summary = summarise_model(settings)
-    settings_summary = summarise_model_settings(settings)
-
-    "Basic Info"
-    st.dataframe(model_summary, hide_index=True)
-
-    "Model Settings"
-    st.dataframe(settings_summary, hide_index=True)
-
-"## Ouput Summary"
+type_dict = {1: "Analytical", 2: "Sample"}
 
 @st.cache_data
 def summarise_outputs(outputs_dict):
@@ -96,48 +75,123 @@ def summarise_outputs(outputs_dict):
     output_summary = {"component": [], "perspective": [], "type": [],  "value": []}
 
     component = "AAL"
-    types = [1, 2]
 
     for aal_key in aalcalc_keys:
         curr_summary = outputs_dict[aal_key].groupby(["type"])["mean"].sum()
-        for t in types:
+        for t in type_dict:
             output_summary["component"].append(component)
             output_summary["perspective"].append(aal_key.split('_')[0])
-            output_summary["type"].append(t)
+            output_summary["type"].append(type_dict[t])
             output_summary["value"].append(curr_summary.loc[t])
 
     return pd.DataFrame(output_summary)
 
 @st.cache_data
 def view_output_summary(output_summary):
-    type_dict = {1: "(Analytical)", 2: "(Sample)"}
     def combine_cols(row):
-        return f'{row["component"]} {row["perspective"]} {type_dict[row["type"]]}'
+        return f'{row["component"]} {row["perspective"]} ({row["type"]})'
 
     output_summary['specification'] = output_summary.apply(combine_cols, axis=1)
     return output_summary[['specification', 'value']]
-
 
 @st.cache_data
 def get_outputs(id):
     return client.analyses.output_file.get_dataframe(id)
 
-if analysis:
-    outputs_dict = get_outputs(analysis["id"])
-    output_summary = summarise_outputs(outputs_dict)
-    output_view = view_output_summary(output_summary)
-    st.dataframe(output_view.style.format(precision=0, thousands=','),
-                 hide_index=True)
+summary, graphs = st.columns([1, 2])
 
-"## AAL Summary"
+with summary:
+    "### Input Summary"
+    if analysis:
+        inputs_dict = client.analyses.input_file.get_dataframe(analysis["id"])
+        input_summary = summarise_inputs(inputs_dict)
+        st.dataframe(input_summary, hide_index=True, use_container_width=True)
 
-if analysis:
-    bar_data = output_summary[['perspective', 'type', 'value']]
-    type_dict = {1: "Analytical", 2: "Sample"}
-    bar_data['type'] = bar_data['type'].apply(lambda x: type_dict[x])
-    bar_chart = alt.Chart(bar_data).mark_bar().encode(x=alt.X('perspective:N'),
-                                                      xOffset="type:N",
-                                                      y=alt.Y('value'),
-                                                      color='type:N')
+    "### Model Summary"
 
-    st.altair_chart(bar_chart)
+    if analysis:
+        settings = get_analysis_settings(analysis["id"])
+        model_summary = summarise_model(settings)
+        settings_summary = summarise_model_settings(settings)
+
+        "Basic Info"
+        st.dataframe(model_summary, hide_index=True, use_container_width=True)
+
+        "Model Settings"
+        st.dataframe(settings_summary, hide_index=True, use_container_width=True)
+
+    "### Ouput Summary"
+
+    if analysis:
+        outputs_dict = get_outputs(analysis["id"])
+        output_summary = summarise_outputs(outputs_dict)
+        output_view = view_output_summary(output_summary)
+        st.dataframe(output_view.style.format(precision=0, thousands=','),
+                     hide_index=True, use_container_width=True)
+
+
+@st.cache_data
+def leccalc_plot_data(oep_df, aep_df):
+    oep_df['ep_type'] = 'oep'
+    aep_df['ep_type'] = 'aep'
+
+    # Filter only sampled
+    oep_df = oep_df[oep_df['type'] == 2]
+    aep_df = aep_df[aep_df['type'] == 2]
+
+    # Extract relevent columns
+    oep_df = oep_df[['return_period', 'loss', 'ep_type']]
+    aep_df = aep_df[['return_period', 'loss', 'ep_type']]
+
+    return pd.concat([oep_df, aep_df], axis=0)
+
+with graphs:
+    "### AAL Plots"
+
+    if analysis:
+        bar_data = output_summary[['perspective', 'type', 'value']]
+        bar_chart = alt.Chart(bar_data).mark_bar().encode(x=alt.X('perspective:N'),
+                                                          xOffset="type:N",
+                                                          y=alt.Y('value'),
+                                                          color='type:N')
+
+        st.altair_chart(bar_chart)
+
+
+    "### EP Sample Plots"
+
+    if analysis:
+        leccalc_dict = {'gul': {'aep': None, 'oep': None},
+                        'ri': {'aep': None, 'oep': None},
+                        'il': {'aep': None, 'oep': None}}
+        for k in outputs_dict.keys():
+            if 'S1_leccalc_full_uncertainty' in k:
+                k_split = k.split('.')[0].split('_')
+                leccalc_dict[k_split[0]][k_split[-1]] = k
+
+        gul_oep_df = outputs_dict[leccalc_dict['gul']['oep']]
+        gul_aep_df = outputs_dict[leccalc_dict['gul']['aep']]
+        gul_data = leccalc_plot_data(gul_oep_df, gul_aep_df)
+
+        il_oep_df = outputs_dict[leccalc_dict['il']['oep']]
+        il_aep_df = outputs_dict[leccalc_dict['il']['aep']]
+        il_data = leccalc_plot_data(il_oep_df, il_aep_df)
+
+        ri_oep_df = outputs_dict[leccalc_dict['ri']['oep']]
+        ri_aep_df = outputs_dict[leccalc_dict['ri']['aep']]
+        ri_data = leccalc_plot_data(ri_oep_df, ri_aep_df)
+
+        gul_chart = alt.Chart(gul_data, title='GUL EP Sample').mark_line(point=True)
+        gul_chart = gul_chart.encode(x=alt.X('return_period').scale(type="log"),
+                                     y='loss', color='ep_type')
+        st.altair_chart(gul_chart)
+
+        il_chart = alt.Chart(il_data, title='IL EP Sample').mark_line(point=True)
+        il_chart = il_chart.encode(x=alt.X('return_period').scale(type="log"),
+                                   y='loss', color='ep_type')
+        st.altair_chart(il_chart)
+
+        ri_chart = alt.Chart(ri_data, title='RI EP Sample').mark_line(point=True)
+        ri_chart = ri_chart.encode(x=alt.X('return_period').scale(type="log"),
+                                   y='loss', color='ep_type')
+        st.altair_chart(ri_chart)
