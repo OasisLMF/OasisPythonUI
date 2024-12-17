@@ -274,7 +274,7 @@ with show_analyses:
 
     generateDisabled = True
     if all([v[0] for v in validations]):
-        generateDisabeld = False
+        generateDisabled = False
 
     if left.button("Generate Inputs", use_container_width=True, disabled=generateDisabled):
         try:
