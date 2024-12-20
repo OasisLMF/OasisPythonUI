@@ -3,12 +3,14 @@ from oasislmf.platform_api.client import APIClient
 import pandas as pd
 from requests.exceptions import HTTPError
 from modules.nav import SidebarNav
+from modules.client import get_client
 from modules.validation import validate_name, validate_not_none, validate_key_val, validate_key_is_not_null
 import json
 from json import JSONDecodeError
 
 st.set_page_config(
-        page_title = "Analysis"
+    page_title = "Analysis",
+    layout = "centered"
 )
 
 SidebarNav()
@@ -17,10 +19,6 @@ SidebarNav()
 
 if st.button("♻️ "):
     st.rerun()
-
-@st.cache_resource
-def get_client():
-    return APIClient()
 
 @st.cache_data
 def selected_to_row(selected, df):
@@ -336,3 +334,42 @@ def upload_settings_file():
 
 with upload_settings:
     upload_settings_file()
+
+
+'## Model Settings WIP'
+models = client.models.get().json()
+
+def format_model(model):
+    return f'{model["model_id"]} {model["supplier_id"]} {model["version_id"]}'
+
+model = st.selectbox('Select Model', options = models, index=None, format_func = format_model)
+
+model_settings = client.models.settings.get(2).json()['model_settings']
+
+# Handle categorical settings
+valid_settings = [
+    'event_set',
+    'event_occurrence_id',
+    'footprint_set',
+    'vulnerability_set',
+    'pla_loss_factor_set',
+]
+
+def format_option(opt):
+    return f'{opt["id"]} : {opt["desc"]}'
+
+def get_default_index(options, default=None):
+    if default is None:
+        return None
+    return [i for i in range(len(options)) if options[i]['id'] == default][0]
+
+user_settings = {}
+for k, v in model_settings.items():
+    if k in valid_settings:
+        default = v.get('default', None)
+        options = v['options']
+        default_index = get_default_index(options, default)
+        user_settings[k] = st.selectbox(f"Set {v['name']}", options=v['options'], format_func=format_option, index=default_index)
+
+st.write(user_settings)
+

@@ -4,6 +4,11 @@ from modules.client import get_client
 import pandas as pd
 import altair as alt
 
+st.set_page_config(
+    page_title = "Dashboard",
+    layout = "centered"
+)
+
 SidebarNav()
 
 client = get_client()
@@ -98,18 +103,18 @@ def view_output_summary(output_summary):
 def get_outputs(id):
     return client.analyses.output_file.get_dataframe(id)
 
-summary, graphs = st.columns([1, 2])
+col1, col2, col3 = st.columns([1, 1, 1])
 
-with summary:
-    "### Input Summary"
+with col1:
     if analysis:
+        "### Input Summary"
         inputs_dict = client.analyses.input_file.get_dataframe(analysis["id"])
         input_summary = summarise_inputs(inputs_dict)
         st.dataframe(input_summary, hide_index=True, use_container_width=True)
 
-    "### Model Summary"
-
+with col2:
     if analysis:
+        "### Model Summary"
         settings = get_analysis_settings(analysis["id"])
         model_summary = summarise_model(settings)
         settings_summary = summarise_model_settings(settings)
@@ -120,9 +125,9 @@ with summary:
         "Model Settings"
         st.dataframe(settings_summary, hide_index=True, use_container_width=True)
 
-    "### Ouput Summary"
-
+with col3:
     if analysis:
+        "### Ouput Summary"
         outputs_dict = get_outputs(analysis["id"])
         output_summary = summarise_outputs(outputs_dict)
         output_view = view_output_summary(output_summary)
@@ -145,53 +150,53 @@ def leccalc_plot_data(oep_df, aep_df):
 
     return pd.concat([oep_df, aep_df], axis=0)
 
-with graphs:
+if analysis:
+    '## Graphs'
     "### AAL Plots"
+    outputs_dict = get_outputs(analysis["id"])
+    output_summary = summarise_outputs(outputs_dict)
+    bar_data = output_summary[['perspective', 'type', 'value']]
+    bar_chart = alt.Chart(bar_data).mark_bar().encode(x=alt.X('perspective:N'),
+                                                      xOffset="type:N",
+                                                      y=alt.Y('value'),
+                                                      color='type:N')
 
-    if analysis:
-        bar_data = output_summary[['perspective', 'type', 'value']]
-        bar_chart = alt.Chart(bar_data).mark_bar().encode(x=alt.X('perspective:N'),
-                                                          xOffset="type:N",
-                                                          y=alt.Y('value'),
-                                                          color='type:N')
-
-        st.altair_chart(bar_chart)
+    st.altair_chart(bar_chart, use_container_width=True)
 
 
     "### EP Sample Plots"
 
-    if analysis:
-        leccalc_dict = {'gul': {'aep': None, 'oep': None},
-                        'ri': {'aep': None, 'oep': None},
-                        'il': {'aep': None, 'oep': None}}
-        for k in outputs_dict.keys():
-            if 'S1_leccalc_full_uncertainty' in k:
-                k_split = k.split('.')[0].split('_')
-                leccalc_dict[k_split[0]][k_split[-1]] = k
+    leccalc_dict = {'gul': {'aep': None, 'oep': None},
+                    'ri': {'aep': None, 'oep': None},
+                    'il': {'aep': None, 'oep': None}}
+    for k in outputs_dict.keys():
+        if 'S1_leccalc_full_uncertainty' in k:
+            k_split = k.split('.')[0].split('_')
+            leccalc_dict[k_split[0]][k_split[-1]] = k
 
-        gul_oep_df = outputs_dict[leccalc_dict['gul']['oep']]
-        gul_aep_df = outputs_dict[leccalc_dict['gul']['aep']]
-        gul_data = leccalc_plot_data(gul_oep_df, gul_aep_df)
+    gul_oep_df = outputs_dict[leccalc_dict['gul']['oep']]
+    gul_aep_df = outputs_dict[leccalc_dict['gul']['aep']]
+    gul_data = leccalc_plot_data(gul_oep_df, gul_aep_df)
 
-        il_oep_df = outputs_dict[leccalc_dict['il']['oep']]
-        il_aep_df = outputs_dict[leccalc_dict['il']['aep']]
-        il_data = leccalc_plot_data(il_oep_df, il_aep_df)
+    il_oep_df = outputs_dict[leccalc_dict['il']['oep']]
+    il_aep_df = outputs_dict[leccalc_dict['il']['aep']]
+    il_data = leccalc_plot_data(il_oep_df, il_aep_df)
 
-        ri_oep_df = outputs_dict[leccalc_dict['ri']['oep']]
-        ri_aep_df = outputs_dict[leccalc_dict['ri']['aep']]
-        ri_data = leccalc_plot_data(ri_oep_df, ri_aep_df)
+    ri_oep_df = outputs_dict[leccalc_dict['ri']['oep']]
+    ri_aep_df = outputs_dict[leccalc_dict['ri']['aep']]
+    ri_data = leccalc_plot_data(ri_oep_df, ri_aep_df)
 
-        gul_chart = alt.Chart(gul_data, title='GUL EP Sample').mark_line(point=True)
-        gul_chart = gul_chart.encode(x=alt.X('return_period').scale(type="log"),
-                                     y='loss', color='ep_type')
-        st.altair_chart(gul_chart)
+    gul_chart = alt.Chart(gul_data, title='GUL EP Sample').mark_line(point=True)
+    gul_chart = gul_chart.encode(x=alt.X('return_period').scale(type="log"),
+                                 y='loss', color='ep_type')
+    st.altair_chart(gul_chart, use_container_width=True)
 
-        il_chart = alt.Chart(il_data, title='IL EP Sample').mark_line(point=True)
-        il_chart = il_chart.encode(x=alt.X('return_period').scale(type="log"),
-                                   y='loss', color='ep_type')
-        st.altair_chart(il_chart)
+    il_chart = alt.Chart(il_data, title='IL EP Sample').mark_line(point=True)
+    il_chart = il_chart.encode(x=alt.X('return_period').scale(type="log"),
+                               y='loss', color='ep_type')
+    st.altair_chart(il_chart, use_container_width=True)
 
-        ri_chart = alt.Chart(ri_data, title='RI EP Sample').mark_line(point=True)
-        ri_chart = ri_chart.encode(x=alt.X('return_period').scale(type="log"),
-                                   y='loss', color='ep_type')
-        st.altair_chart(ri_chart)
+    ri_chart = alt.Chart(ri_data, title='RI EP Sample').mark_line(point=True)
+    ri_chart = ri_chart.encode(x=alt.X('return_period').scale(type="log"),
+                               y='loss', color='ep_type')
+    st.altair_chart(ri_chart, use_container_width=True)
