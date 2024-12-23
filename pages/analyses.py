@@ -363,13 +363,75 @@ def get_default_index(options, default=None):
         return None
     return [i for i in range(len(options)) if options[i]['id'] == default][0]
 
-user_settings = {}
+analysis_settings = {"model_supplier_id": model["supplier_id"],
+                     "model_name_id": model["model_id"]}
+analysis_model_settings = {}
 for k, v in model_settings.items():
     if k in valid_settings:
         default = v.get('default', None)
         options = v['options']
         default_index = get_default_index(options, default)
-        user_settings[k] = st.selectbox(f"Set {v['name']}", options=v['options'], format_func=format_option, index=default_index)
+        selected = st.selectbox(f"Set {v['name']}", options=v['options'], format_func=format_option, index=default_index)
+        analysis_model_settings[k] = selected["id"]
 
-st.write(user_settings)
+analysis_settings["model_settings"] = analysis_model_settings
+
+valid_outputs = ['gul', 'il', 'ri']
+if "valid_output_perspectives" in model_settings:
+    valid_outputs = model_settings["valid_output_perspectives"]
+
+opt_cols = st.columns(5)
+with opt_cols[0]:
+    gul_opt = st.checkbox("GUL", help="Ground up loss", value=True, disabled=("gul" not in valid_outputs))
+with opt_cols[1]:
+    il_opt = st.checkbox("IL", help="Insured loss", disabled=("il" not in valid_outputs))
+with opt_cols[2]:
+    ri_opt = st.checkbox("RI", help="Reinsurance net loss", disabled=("ri" not in valid_outputs))
+
+default_summary = {
+    "aalcalc": True,
+    "eltcalc": True,
+    "id": 1,
+    "lec_output": True,
+    "leccalc": {
+        "full_uncertainty_aep": True,
+        "full_uncertainty_oep": True,
+        "return_period_file": True
+    }
+}
+
+analysis_settings["gul_output"] = gul_opt
+analysis_settings["gul_summaries"] = [default_summary,]
+analysis_settings["il_output"] = il_opt
+analysis_settings["il_summaries"] = [default_summary,]
+analysis_settings["ri_otuput"] = ri_opt
+analysis_settings["ri_summaries"] = [default_summary,]
+analysis_settings["number_of_samples"] = st.number_input("Number of samples", min_value = 1, value = 10)
+
+def get_oed_fields(analysis_id):
+    oed_fields = client.analyses.input_file.get_dataframe(analysis_id)['account.csv'].columns.to_list()
+    oed_fields.append("AllRisks")
+    return oed_fields
+
+with st.expander("Drill-down options"):
+    st.write("Some stuff in the drill down")
+    oed_fields = get_oed_fields(2)
+
+    if "num_summary_levels" not in st.session_state:
+        st.session_state['num_summary_levels'] = 0
+    for i in range(st.session_state.num_summary_levels):
+        remove_button, multi_select = st.columns([1, 9])
+        with remove_button:
+            if st.button("➖", key=f"remove_summary_level_{i}"):
+                st.session_state.num_summary_levels -= 1
+                st.rerun()
+        with multi_select:
+            st.multiselect("Summary Levels", key=f"summary_level_{i}",
+                           options=oed_fields, label_visibility="collapsed")
+
+    if st.button("➕"):
+        st.session_state.num_summary_levels += 1
+        st.rerun()
+
+st.write(analysis_settings)
 
