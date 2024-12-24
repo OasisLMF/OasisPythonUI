@@ -249,9 +249,7 @@ analyses = client.analyses.get().json()
 analyses = pd.json_normalize(analyses)
 
 # Tabs for show and create
-show_analyses, create_analysis, upload_settings = st.tabs(['Show Analysis',
-                                                           'Create Analysis',
-                                                           'Upload Settings'])
+show_analyses, create_analysis = st.tabs(['Show Analysis', 'Create Analysis'])
 
 selected = None
 with show_analyses:
@@ -310,15 +308,15 @@ with show_analyses:
 with create_analysis:
     new_analysis()
 
+def format_analysis(analysis):
+    return f"{analysis['id']}: {analysis['name']}"
+
 def upload_settings_file():
     analyses = client.analyses.get().json()
 
-    def format_analyses(analysis):
-        return f"{analysis['id']}: {analysis['name']}"
-
     with st.form("upload_settings_form", clear_on_submit=True, enter_to_submit=False):
         selected = st.selectbox('Select Anlaysis', options = analyses,
-                                     index=None, format_func=format_analyses)
+                                     index=None, format_func=format_analysis)
 
 
         uploadedFile = st.file_uploader("Upload Analysis Settins JSON file")
@@ -332,106 +330,132 @@ def upload_settings_file():
         except (JSONDecodeError, HTTPError) as e:
             st.error(f'Invalid Settings File: {e}')
 
+'## Analysis Settings'
+
+create_settings, upload_settings = st.tabs(["Create Settings", "Upload Settings"])
+
+@st.fragment
+def set_analysis_settings(analysis):
+    model_id = analysis['model']
+    model = client.models.get(model_id).json()
+    settings = client.models.settings.get(model_id).json()
+    model_settings = settings["model_settings"]
+    default_samples = settings.get("model_default_samples", 10)
+
+    # Handle categorical settings
+    valid_settings = [
+        'event_set',
+        'event_occurrence_id',
+        'footprint_set',
+        'vulnerability_set',
+        'pla_loss_factor_set',
+    ]
+
+    def format_option(opt):
+        return f'{opt["id"]} : {opt["desc"]}'
+
+    def get_default_index(options, default=None):
+        if default is None:
+            return None
+        return [i for i in range(len(options)) if options[i]['id'] == default][0]
+
+    analysis_settings = {"model_supplier_id": model["supplier_id"],
+                         "model_name_id": model["model_id"]}
+    analysis_model_settings = {}
+    for k, v in model_settings.items():
+        if k in valid_settings:
+            default = v.get('default', None)
+            options = v['options']
+            default_index = get_default_index(options, default)
+            selected = st.selectbox(f"Set {v['name']}", options=v['options'], format_func=format_option, index=default_index)
+            analysis_model_settings[k] = selected["id"]
+
+    analysis_settings["model_settings"] = analysis_model_settings
+
+    valid_outputs = ['gul', 'il', 'ri']
+    if "valid_output_perspectives" in model_settings:
+        valid_outputs = model_settings["valid_output_perspectives"]
+
+    opt_cols = st.columns(5)
+    with opt_cols[0]:
+        gul_opt = st.checkbox("GUL", help="Ground up loss", value=True, disabled=("gul" not in valid_outputs))
+    with opt_cols[1]:
+        il_opt = st.checkbox("IL", help="Insured loss", disabled=("il" not in valid_outputs))
+    with opt_cols[2]:
+        ri_opt = st.checkbox("RI", help="Reinsurance net loss", disabled=("ri" not in valid_outputs))
+
+    default_summary = {
+        "aalcalc": True,
+        "eltcalc": True,
+        "id": 1,
+        "lec_output": True,
+        "leccalc": {
+            "full_uncertainty_aep": True,
+            "full_uncertainty_oep": True,
+            "return_period_file": True
+        }
+    }
+
+    analysis_settings["gul_output"] = gul_opt
+    analysis_settings["gul_summaries"] = [default_summary,]
+    analysis_settings["il_output"] = il_opt
+    analysis_settings["il_summaries"] = [default_summary,]
+    analysis_settings["ri_otuput"] = ri_opt
+    analysis_settings["ri_summaries"] = [default_summary,]
+    analysis_settings["number_of_samples"] = st.number_input("Number of samples",
+                                                             min_value = 1,
+                                                             value = default_samples)
+
+    def get_oed_fields(analysis_id):
+        oed_fields = client.analyses.input_file.get_dataframe(analysis_id)['account.csv'].columns.to_list()
+        # oed_fields.append("AllRisks") # Is this options necessary?
+        return oed_fields
+
+    # TODO: Add these drill down options to analysis settings
+    with st.expander("Drill-down options"):
+        oed_fields = get_oed_fields(analysis["id"])
+
+        if "num_summary_levels" not in st.session_state:
+            st.session_state['num_summary_levels'] = 0
+        for i in range(st.session_state.num_summary_levels):
+            remove_button, multi_select = st.columns([1, 9])
+            with remove_button:
+                if st.button(":material/remove:", key=f"remove_summary_level_{i}"):
+                    st.session_state.num_summary_levels -= 1
+                    st.rerun(scope="fragment")
+            with multi_select:
+                st.multiselect("Summary Levels", key=f"summary_level_{i}",
+                               options=oed_fields, label_visibility="collapsed")
+
+        if st.button("Add Summary Level", icon=":material/add:"):
+            st.session_state.num_summary_levels += 1
+            st.rerun(scope="fragment")
+
+    if st.button("Submit"):
+        try:
+            client.upload_settings(analysis['id'], analysis_settings)
+            st.session_state.analysis_settings_submitted = True
+        except (JSONDecodeError, HTTPError) as e:
+            st.error(f'Invalid Settings File: {e}')
+        st.rerun()
+
 with upload_settings:
     upload_settings_file()
 
+with create_settings:
+    analyses = client.analyses.get().json()
+    analyses = [a for a in analyses if a['status'] in ['READY', 'NEW']]
 
-'## Model Settings WIP'
-models = client.models.get().json()
+    if "analysis_settings_submitted" not in st.session_state:
+        st.session_state.analysis_settings_submitted = False
 
-def format_model(model):
-    return f'{model["model_id"]} {model["supplier_id"]} {model["version_id"]}'
+    if st.session_state.analysis_settings_submitted:
+        st.session_state.analysis_settings_select = None
+        st.session_state.analysis_settings_submitted = False
 
-model = st.selectbox('Select Model', options = models, index=None, format_func = format_model)
+    analysis = st.selectbox('Select Analysis', options = analyses, index=None, format_func = format_analysis,
+                            key="analysis_settings_select")
+    if analysis is not None:
+        set_analysis_settings(analysis)
 
-model_settings = client.models.settings.get(2).json()['model_settings']
-
-# Handle categorical settings
-valid_settings = [
-    'event_set',
-    'event_occurrence_id',
-    'footprint_set',
-    'vulnerability_set',
-    'pla_loss_factor_set',
-]
-
-def format_option(opt):
-    return f'{opt["id"]} : {opt["desc"]}'
-
-def get_default_index(options, default=None):
-    if default is None:
-        return None
-    return [i for i in range(len(options)) if options[i]['id'] == default][0]
-
-analysis_settings = {"model_supplier_id": model["supplier_id"],
-                     "model_name_id": model["model_id"]}
-analysis_model_settings = {}
-for k, v in model_settings.items():
-    if k in valid_settings:
-        default = v.get('default', None)
-        options = v['options']
-        default_index = get_default_index(options, default)
-        selected = st.selectbox(f"Set {v['name']}", options=v['options'], format_func=format_option, index=default_index)
-        analysis_model_settings[k] = selected["id"]
-
-analysis_settings["model_settings"] = analysis_model_settings
-
-valid_outputs = ['gul', 'il', 'ri']
-if "valid_output_perspectives" in model_settings:
-    valid_outputs = model_settings["valid_output_perspectives"]
-
-opt_cols = st.columns(5)
-with opt_cols[0]:
-    gul_opt = st.checkbox("GUL", help="Ground up loss", value=True, disabled=("gul" not in valid_outputs))
-with opt_cols[1]:
-    il_opt = st.checkbox("IL", help="Insured loss", disabled=("il" not in valid_outputs))
-with opt_cols[2]:
-    ri_opt = st.checkbox("RI", help="Reinsurance net loss", disabled=("ri" not in valid_outputs))
-
-default_summary = {
-    "aalcalc": True,
-    "eltcalc": True,
-    "id": 1,
-    "lec_output": True,
-    "leccalc": {
-        "full_uncertainty_aep": True,
-        "full_uncertainty_oep": True,
-        "return_period_file": True
-    }
-}
-
-analysis_settings["gul_output"] = gul_opt
-analysis_settings["gul_summaries"] = [default_summary,]
-analysis_settings["il_output"] = il_opt
-analysis_settings["il_summaries"] = [default_summary,]
-analysis_settings["ri_otuput"] = ri_opt
-analysis_settings["ri_summaries"] = [default_summary,]
-analysis_settings["number_of_samples"] = st.number_input("Number of samples", min_value = 1, value = 10)
-
-def get_oed_fields(analysis_id):
-    oed_fields = client.analyses.input_file.get_dataframe(analysis_id)['account.csv'].columns.to_list()
-    oed_fields.append("AllRisks")
-    return oed_fields
-
-with st.expander("Drill-down options"):
-    st.write("Some stuff in the drill down")
-    oed_fields = get_oed_fields(2)
-
-    if "num_summary_levels" not in st.session_state:
-        st.session_state['num_summary_levels'] = 0
-    for i in range(st.session_state.num_summary_levels):
-        remove_button, multi_select = st.columns([1, 9])
-        with remove_button:
-            if st.button("➖", key=f"remove_summary_level_{i}"):
-                st.session_state.num_summary_levels -= 1
-                st.rerun()
-        with multi_select:
-            st.multiselect("Summary Levels", key=f"summary_level_{i}",
-                           options=oed_fields, label_visibility="collapsed")
-
-    if st.button("➕"):
-        st.session_state.num_summary_levels += 1
-        st.rerun()
-
-st.write(analysis_settings)
-
+# TODO: Move the RUN / GENERATE INPUTS buttons to after analysis settings
