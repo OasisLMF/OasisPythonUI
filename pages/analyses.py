@@ -7,6 +7,7 @@ from modules.client import get_client
 from modules.validation import validate_name, validate_not_none, validate_key_val, validate_key_is_not_null
 import json
 from json import JSONDecodeError
+import pydeck as pdk
 
 st.set_page_config(
     page_title = "Analysis",
@@ -444,3 +445,37 @@ if middle.button("Run", use_container_width=True, disabled=runDisabled, help=hel
         st.error(e)
 
 # TODO: Move the RUN / GENERATE INPUTS buttons to after analysis settings
+
+'## Display Analysis'
+
+input_files = client.analyses.input_file.get_dataframe(5)
+locations = input_files['location.csv']
+
+layer = pdk.Layer(
+    'ScatterplotLayer',
+    locations,
+    get_position=["Longitude", "Latitude"],
+    get_line_color = [0, 0, 0],
+    get_fill_color = [255, 140, 0],
+    radius_min_pixels = 1,
+    radius_max_pixels = 50,
+    radius_scale = 2,
+    pickable=True,
+    stroked=True,
+)
+
+# Use pydeck.data_utils.viewport_helpers.compute_view to auto set the view
+viewstate = pdk.ViewState(
+    latitude=locations['Latitude'][0],
+    longitude=locations['Longitude'][0],
+    zoom=18,
+    pitch=0
+)
+
+deck = pdk.Deck(layers=[layer], initial_view_state=viewstate,
+                tooltip={"text": "Peril: {LocPerilsCovered}\nBuilding TIV: {BuildingTIV}"},
+                map_style='light')
+
+st.dataframe(locations)
+
+st.pydeck_chart(deck)
