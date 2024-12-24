@@ -255,84 +255,26 @@ selected = None
 with show_analyses:
     selected = display_analyses(analyses)
 
-# Anlaysis run buttons
-    left, middle, right = st.columns(3)
-
-    validation_list = [[validate_not_none, (selected,)],
-                   [validate_key_val, (selected, 'status', 'NEW')]]
-
-    validations = []
-    for validation in validation_list:
-        vfunc, vargs = validation
-        validations.append(vfunc(*vargs))
-        if not validations[-1][0]:
-            break
-
-    generateDisabled = True
-    if all([v[0] for v in validations]):
-        generateDisabled = False
-
-    if left.button("Generate Inputs", use_container_width=True, disabled=generateDisabled):
-        try:
-            client.analyses.generate(selected['id'])
-        except HTTPError as e:
-            st.error(e)
-
-    validation_list = [[validate_not_none, (selected, 'Anlaysis row')],
-                       [validate_key_val, (selected, 'status', 'READY')],
-                       [validate_key_is_not_null, (selected, 'settings')]]
-    validations = []
-    for validation in validation_list:
-        vfunc, vargs = validation
-        validations.append(vfunc(*vargs))
-        if not validations[-1][0]:
-            break
-
-    runDisabled = True
-    if all([v[0] for v in validations]):
-        runDisabled = False
-        help = None
-    else:
-        help = ''
-        for v in validations:
-            if v[0] is False:
-                help += v[1]
-                help += '\n'
-
-    if middle.button("Run", use_container_width=True, disabled=runDisabled, help=help):
-        try:
-            client.analyses.run(selected['id'])
-        except HTTPError as e:
-            st.error(e)
-
 with create_analysis:
     new_analysis()
 
 def format_analysis(analysis):
     return f"{analysis['id']}: {analysis['name']}"
 
-def upload_settings_file():
-    analyses = client.analyses.get().json()
-
+@st.dialog("Upload Settings File")
+def upload_settings_file(analysis):
     with st.form("upload_settings_form", clear_on_submit=True, enter_to_submit=False):
-        selected = st.selectbox('Select Anlaysis', options = analyses,
-                                     index=None, format_func=format_analysis)
-
-
-        uploadedFile = st.file_uploader("Upload Analysis Settins JSON file")
+        uploadedFile = st.file_uploader("Analysis Settings JSON file")
 
         submitted = st.form_submit_button("Submit")
 
     if submitted:
         try:
             analysis_settings = json.load(uploadedFile)
-            client.upload_settings(selected['id'], analysis_settings)
+            client.upload_settings(analysis['id'], analysis_settings)
+            st.rerun()
         except (JSONDecodeError, HTTPError) as e:
             st.error(f'Invalid Settings File: {e}')
-
-'## Analysis Settings'
-
-create_settings, upload_settings = st.tabs(["Create Settings", "Upload Settings"])
 
 @st.fragment
 def set_analysis_settings(analysis):
@@ -439,23 +381,66 @@ def set_analysis_settings(analysis):
             st.error(f'Invalid Settings File: {e}')
         st.rerun()
 
-with upload_settings:
-    upload_settings_file()
+left, middle, right = st.columns(3)
 
-with create_settings:
-    analyses = client.analyses.get().json()
-    analyses = [a for a in analyses if a['status'] in ['READY', 'NEW']]
+# Settings buttons
+disable_button = (selected is None or selected['status'] not in ['READY', 'NEW'])
+if left.button("Upload Settings File", disabled=disable_button,
+               use_container_width=True):
+    upload_settings_file(selected)
 
-    if "analysis_settings_submitted" not in st.session_state:
-        st.session_state.analysis_settings_submitted = False
+disable_button = (selected is None or selected['status'] not in ['READY'])
+if middle.button("Set Analysis Settings", disabled=disable_button,
+                 use_container_width=True):
+    set_analysis_settings(selected)
 
-    if st.session_state.analysis_settings_submitted:
-        st.session_state.analysis_settings_select = None
-        st.session_state.analysis_settings_submitted = False
 
-    analysis = st.selectbox('Select Analysis', options = analyses, index=None, format_func = format_analysis,
-                            key="analysis_settings_select")
-    if analysis is not None:
-        set_analysis_settings(analysis)
+# Anlaysis run buttons
+validation_list = [[validate_not_none, (selected,)],
+               [validate_key_val, (selected, 'status', 'NEW')]]
+
+validations = []
+for validation in validation_list:
+    vfunc, vargs = validation
+    validations.append(vfunc(*vargs))
+    if not validations[-1][0]:
+        break
+
+generateDisabled = True
+if all([v[0] for v in validations]):
+    generateDisabled = False
+
+if left.button("Generate Inputs", use_container_width=True, disabled=generateDisabled):
+    try:
+        client.analyses.generate(selected['id'])
+    except HTTPError as e:
+        st.error(e)
+
+validation_list = [[validate_not_none, (selected, 'Anlaysis row')],
+                   [validate_key_val, (selected, 'status', 'READY')],
+                   [validate_key_is_not_null, (selected, 'settings')]]
+validations = []
+for validation in validation_list:
+    vfunc, vargs = validation
+    validations.append(vfunc(*vargs))
+    if not validations[-1][0]:
+        break
+
+runDisabled = True
+if all([v[0] for v in validations]):
+    runDisabled = False
+    help = None
+else:
+    help = ''
+    for v in validations:
+        if v[0] is False:
+            help += v[1]
+            help += '\n'
+
+if middle.button("Run", use_container_width=True, disabled=runDisabled, help=help):
+    try:
+        client.analyses.run(selected['id'])
+    except HTTPError as e:
+        st.error(e)
 
 # TODO: Move the RUN / GENERATE INPUTS buttons to after analysis settings
