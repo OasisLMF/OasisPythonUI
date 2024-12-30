@@ -8,6 +8,7 @@ from modules.validation import validate_name, validate_not_none, validate_key_va
 import json
 from json import JSONDecodeError
 import pydeck as pdk
+import altair as alt
 
 st.set_page_config(
     page_title = "Analysis",
@@ -462,6 +463,7 @@ layer = pdk.Layer(
     radius_scale = 2,
     pickable=True,
     stroked=True,
+    get_line_width=0.5,
 )
 
 # Use pydeck.data_utils.viewport_helpers.compute_view to auto set the view
@@ -476,6 +478,34 @@ deck = pdk.Deck(layers=[layer], initial_view_state=viewstate,
                 tooltip={"text": "Peril: {LocPerilsCovered}\nBuilding TIV: {BuildingTIV}"},
                 map_style='light')
 
+st.pydeck_chart(deck, use_container_width=True)
+
+'### Locations'
 st.dataframe(locations)
 
-st.pydeck_chart(deck)
+'### Keys'
+st.dataframe(input_files['keys.csv'])
+
+'### Keys Error'
+st.dataframe(input_files['keys-errors.csv'])
+
+'### Coverages'
+st.dataframe(input_files['coverages.csv'])
+
+
+num_locations = len(locations['loc_id'].unique())
+st.write(num_locations)
+
+df = input_files['keys.csv']
+df = df.groupby('PerilID')['LocID'].nunique()
+
+st.write(df)
+success_locations = df / num_locations
+success_locations = success_locations.rename("success_locations")
+success_locations = pd.DataFrame(success_locations.reset_index())
+st.write(success_locations)
+
+bar_chart = alt.Chart(success_locations).mark_bar().encode(x='PerilID',
+                                                           y=alt.Y('success_locations').title('Percentage Success Locations'))
+
+st.altair_chart(bar_chart, use_container_width=True)
