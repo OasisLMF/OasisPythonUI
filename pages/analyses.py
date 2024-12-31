@@ -414,7 +414,7 @@ if middle.button("Generate", use_container_width=True, disabled=generateDisabled
 with run_analyses:
     left, middle, right = st.columns(3, vertical_alignment='center')
 
-left.markdown("3) Analysis Settings:")
+left.markdown("3) Setup Analysis:")
 disable_button = (selected is None or selected['status'] not in ['READY', 'NEW'])
 if middle.button("Upload Settings File", disabled=disable_button,
                use_container_width=True):
@@ -470,7 +470,6 @@ def analysis_summary_expander(selected):
 
         input_files = client.analyses.input_file.get_dataframe(analysis_id)
         locations = input_files['location.csv']
-        coverages = input_files['coverages.csv']
 
         layer = pdk.Layer(
             'ScatterplotLayer',
@@ -505,7 +504,6 @@ def analysis_summary_expander(selected):
         # st.dataframe(locations)
 
         num_locations = len(locations['loc_id'].unique())
-        total_tiv = coverages['tiv'].sum()
 
         df = input_files['keys.csv']
         df = df.groupby('PerilID')['LocID'].nunique()
@@ -520,7 +518,6 @@ def analysis_summary_expander(selected):
         #todo: include keys-error.csv data
         df = input_files['keys.csv']
         num_locations = df['LocID'].nunique()
-        groupeddf = df.groupby(['PerilID', 'CoverageTypeID'])
         coverage_type_map = {
             1 : 'Building',
             2 : 'Other',
@@ -528,15 +525,31 @@ def analysis_summary_expander(selected):
             4 : 'BI',
         }
 
-        groupeddf_loc = groupeddf['LocID'].nunique()
-        groupeddf_loc = groupeddf_loc.reset_index()
-        groupeddf_loc['CoverageTypeID'] = groupeddf_loc['CoverageTypeID'].replace(coverage_type_map)
+        locations = input_files['location.csv']
+        locations = locations[['loc_id', 'BuildingTIV', 'OtherTIV', 'ContentsTIV', 'BITIV']]
+        keys = input_files['keys.csv']
 
-        column_config = {'LocID': 'No. Locations',
-                         'CoverageTypeID': 'Coverage Type'}
+        combineddf = keys[['LocID', 'PerilID', 'CoverageTypeID']]
+        combineddf = combineddf.join(locations.set_index('loc_id'), on='LocID')
+
+        coverage_tiv_map = {k: v + 'TIV' for k, v in coverage_type_map.items()}
+
+        combineddf['CoverageTypeID_'] = combineddf['CoverageTypeID'].replace(coverage_tiv_map)
+        def find_tiv(row):
+            row['TIV'] = row[row['CoverageTypeID_']]
+            return row
+
+        combineddf = combineddf.apply(find_tiv, axis=1)
+        combineddf = combineddf[['LocID', 'PerilID', 'CoverageTypeID', 'TIV']]
+        groupeddf = combineddf.groupby(['PerilID', 'CoverageTypeID'])
+        groupeddf_final = groupeddf.agg({"LocID" : "nunique", "TIV": "sum"})
+        groupeddf_final = groupeddf_final.reset_index()
+        column_config = {"LocID" : "No. Locations"}
+        groupeddf_final = groupeddf_final.replace(coverage_type_map)
+
         with summary_tab:
             '### Keys Summary'
-            st.dataframe(groupeddf_loc, hide_index=True, column_config=column_config)
+            st.dataframe(groupeddf_final, hide_index=True, column_config=column_config, use_container_width=True)
 
             '### Keys Error'
             st.dataframe(input_files['keys-errors.csv'])
