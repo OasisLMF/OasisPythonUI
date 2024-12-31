@@ -460,65 +460,89 @@ if middle.button("Run", use_container_width=True, disabled=runDisabled, help=hel
 
 # TODO: Move the RUN / GENERATE INPUTS buttons to after analysis settings
 
-'## Display Analysis'
+show_summary, _ = validate_key_vals(selected, 'status', ['READY', 'RUN_COMPLETED'])
 
-input_files = client.analyses.input_file.get_dataframe(5)
-locations = input_files['location.csv']
+def analysis_summary_expander(selected):
+    analysis_id = selected['id']
+    with st.expander("Analysis Summary"):
 
-layer = pdk.Layer(
-    'ScatterplotLayer',
-    locations,
-    get_position=["Longitude", "Latitude"],
-    get_line_color = [0, 0, 0],
-    get_fill_color = [255, 140, 0],
-    radius_min_pixels = 1,
-    radius_max_pixels = 50,
-    radius_scale = 2,
-    pickable=True,
-    stroked=True,
-    get_line_width=0.5,
-)
+        summary_tab, map_tab, inputs_tab = st.tabs(["Summary", "Map", "Inputs"])
+
+        input_files = client.analyses.input_file.get_dataframe(analysis_id)
+        locations = input_files['location.csv']
+        coverages = input_files['coverages.csv']
+
+        layer = pdk.Layer(
+            'ScatterplotLayer',
+            locations,
+            get_position=["Longitude", "Latitude"],
+            get_line_color = [0, 0, 0],
+            get_fill_color = [255, 140, 0],
+            radius_min_pixels = 1,
+            radius_max_pixels = 50,
+            radius_scale = 2,
+            pickable=True,
+            stroked=True,
+            get_line_width=0.5,
+        )
 
 # Use pydeck.data_utils.viewport_helpers.compute_view to auto set the view
-viewstate = pdk.ViewState(
-    latitude=locations['Latitude'][0],
-    longitude=locations['Longitude'][0],
-    zoom=18,
-    pitch=0
-)
+        viewstate = pdk.ViewState(
+            latitude=locations['Latitude'][0],
+            longitude=locations['Longitude'][0],
+            zoom=18,
+            pitch=0
+        )
 
-deck = pdk.Deck(layers=[layer], initial_view_state=viewstate,
-                tooltip={"text": "Peril: {LocPerilsCovered}\nBuilding TIV: {BuildingTIV}"},
-                map_style='light')
+        deck = pdk.Deck(layers=[layer], initial_view_state=viewstate,
+                        tooltip={"text": "Peril: {LocPerilsCovered}\nBuilding TIV: {BuildingTIV}"},
+                        map_style='light')
 
-st.pydeck_chart(deck, use_container_width=True)
+        with map_tab:
+            st.pydeck_chart(deck, use_container_width=True)
 
-'### Locations'
-st.dataframe(locations)
+        # '### Locations'
+        # st.dataframe(locations)
 
-'### Keys'
-st.dataframe(input_files['keys.csv'])
+        num_locations = len(locations['loc_id'].unique())
+        total_tiv = coverages['tiv'].sum()
 
-'### Keys Error'
-st.dataframe(input_files['keys-errors.csv'])
+        df = input_files['keys.csv']
+        df = df.groupby('PerilID')['LocID'].nunique()
 
-'### Coverages'
-st.dataframe(input_files['coverages.csv'])
+        success_locations = df / num_locations
+        success_locations = success_locations.rename("success_locations")
+        success_locations = pd.DataFrame(success_locations.reset_index())
+
+        bar_chart = alt.Chart(success_locations).mark_bar().encode(x='PerilID',
+                                                                   y=alt.Y('success_locations').title('Percentage Success Locations'))
+
+        #todo: include keys-error.csv data
+        df = input_files['keys.csv']
+        num_locations = df['LocID'].nunique()
+        groupeddf = df.groupby(['PerilID', 'CoverageTypeID'])
+        coverage_type_map = {
+            1 : 'Building',
+            2 : 'Other',
+            3 : 'Contents',
+            4 : 'BI',
+        }
+
+        groupeddf_loc = groupeddf['LocID'].nunique()
+        groupeddf_loc = groupeddf_loc.reset_index()
+        groupeddf_loc['CoverageTypeID'] = groupeddf_loc['CoverageTypeID'].replace(coverage_type_map)
+
+        column_config = {'LocID': 'No. Locations',
+                         'CoverageTypeID': 'Coverage Type'}
+        with summary_tab:
+            '### Keys Summary'
+            st.dataframe(groupeddf_loc, hide_index=True, column_config=column_config)
+
+            '### Keys Error'
+            st.dataframe(input_files['keys-errors.csv'])
+
+            st.altair_chart(bar_chart, use_container_width=True)
 
 
-num_locations = len(locations['loc_id'].unique())
-st.write(num_locations)
-
-df = input_files['keys.csv']
-df = df.groupby('PerilID')['LocID'].nunique()
-
-st.write(df)
-success_locations = df / num_locations
-success_locations = success_locations.rename("success_locations")
-success_locations = pd.DataFrame(success_locations.reset_index())
-st.write(success_locations)
-
-bar_chart = alt.Chart(success_locations).mark_bar().encode(x='PerilID',
-                                                           y=alt.Y('success_locations').title('Percentage Success Locations'))
-
-st.altair_chart(bar_chart, use_container_width=True)
+if show_summary:
+    analysis_summary_expander(selected)
