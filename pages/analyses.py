@@ -556,6 +556,21 @@ def analysis_summary_expander(selected):
 
             st.altair_chart(bar_chart, use_container_width=True)
 
+        @st.cache_data
+        def convert_df(df):
+            return df.to_csv().encode("utf-8")
+
+        with inputs_tab:
+            input_file_list = sorted(list(input_files.keys()))
+
+            st.write("Input files:")
+            for fname in input_file_list:
+
+                left, right, _ = st.columns([1, 1, 1])
+                left.write(fname)
+                right.download_button("Download", convert_df(input_files[fname]),
+                                      key=f'download_{fname}',
+                                      file_name=fname)
 
 if show_summary:
     analysis_summary_expander(selected)
