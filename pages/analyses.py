@@ -4,7 +4,7 @@ import pandas as pd
 from requests.exceptions import HTTPError
 from modules.nav import SidebarNav
 from modules.client import get_client
-from modules.validation import validate_name, validate_not_none, validate_key_val, validate_key_is_not_null
+from modules.validation import validate_name, validate_not_none, validate_key_vals, validate_key_is_not_null
 import json
 from json import JSONDecodeError
 import pydeck as pdk
@@ -183,6 +183,7 @@ def display_analyses(analyses):
     column_config = generate_column_config(analyses.columns.values, display_cols,
                                            date_time_cols=date_time_cols)
 
+    '1) Select an analysis:'
     selected = st.dataframe(analyses, hide_index=True,
                                      column_config=column_config,
                                      column_order=display_cols,
@@ -251,10 +252,10 @@ analyses = client.analyses.get().json()
 analyses = pd.json_normalize(analyses)
 
 # Tabs for show and create
-show_analyses, create_analysis = st.tabs(['Show Analysis', 'Create Analysis'])
+run_analyses, create_analysis = st.tabs(['Run Analysis', 'Create Analysis'])
 
 selected = None
-with show_analyses:
+with run_analyses:
     selected = display_analyses(analyses)
 
 with create_analysis:
@@ -383,23 +384,12 @@ def set_analysis_settings(analysis):
             st.error(f'Invalid Settings File: {e}')
         st.rerun()
 
-left, middle, right = st.columns(3)
-
-# Settings buttons
-disable_button = (selected is None or selected['status'] not in ['READY', 'NEW'])
-if left.button("Upload Settings File", disabled=disable_button,
-               use_container_width=True):
-    upload_settings_file(selected)
-
-disable_button = (selected is None or selected['status'] not in ['READY'])
-if middle.button("Set Analysis Settings", disabled=disable_button,
-                 use_container_width=True):
-    set_analysis_settings(selected)
-
+with run_analyses:
+    left, middle, right = st.columns(3, vertical_alignment='center')
 
 # Anlaysis run buttons
 validation_list = [[validate_not_none, (selected,)],
-               [validate_key_val, (selected, 'status', 'NEW')]]
+               [validate_key_vals, (selected, 'status', ['NEW'])]]
 
 validations = []
 for validation in validation_list:
@@ -412,14 +402,33 @@ generateDisabled = True
 if all([v[0] for v in validations]):
     generateDisabled = False
 
-if left.button("Generate Inputs", use_container_width=True, disabled=generateDisabled):
+left.markdown("2) Generate inputs:")
+if middle.button("Generate", use_container_width=True, disabled=generateDisabled):
     try:
         client.analyses.generate(selected['id'])
     except HTTPError as e:
         st.error(e)
 
+
+# Settings buttons
+with run_analyses:
+    left, middle, right = st.columns(3, vertical_alignment='center')
+
+left.markdown("3) Analysis Settings:")
+disable_button = (selected is None or selected['status'] not in ['READY', 'NEW'])
+if middle.button("Upload Settings File", disabled=disable_button,
+               use_container_width=True):
+    upload_settings_file(selected)
+
+enable_button, message = validate_key_vals(selected, 'status', ['READY'])
+if right.button("Set Analysis Settings", disabled=not enable_button, help=message,
+                 use_container_width=True):
+    set_analysis_settings(selected)
+
+
+
 validation_list = [[validate_not_none, (selected, 'Anlaysis row')],
-                   [validate_key_val, (selected, 'status', 'READY')],
+                   [validate_key_vals, (selected, 'status', ['READY'])],
                    [validate_key_is_not_null, (selected, 'settings')]]
 validations = []
 for validation in validation_list:
@@ -439,6 +448,10 @@ else:
             help += v[1]
             help += '\n'
 
+with run_analyses:
+    left, middle, right = st.columns(3, vertical_alignment='center')
+
+left.markdown("4) Run Anlaysis:")
 if middle.button("Run", use_container_width=True, disabled=runDisabled, help=help):
     try:
         client.analyses.run(selected['id'])

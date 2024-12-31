@@ -8,8 +8,8 @@ def validate_name(name):
         return False, "Name is required"
     return True, ""
 
-def validate_key_val(df, key, val):
-    if df[key] == val:
+def validate_key_vals(df, key, vals):
+    if df is not None and df[key] in vals:
         return True, ""
     return False, f"{key} has incorrect value."
 
