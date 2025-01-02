@@ -30,7 +30,11 @@ def selected_to_row(selected, df):
         return df.iloc[selected[0]]
     return None
 
-client = get_client()
+if "client" in st.session_state:
+    client = st.session_state.client
+else:
+    st.switch_page("app.py")
+
 
 "## Portfolios"
 

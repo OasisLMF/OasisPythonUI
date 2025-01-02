@@ -11,7 +11,10 @@ st.set_page_config(
 
 SidebarNav()
 
-client = get_client()
+if "client" in st.session_state:
+    client = st.session_state.client
+else:
+    st.switch_page("app.py")
 
 "# OasisLMF UI"
 
