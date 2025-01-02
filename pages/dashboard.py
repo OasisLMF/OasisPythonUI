@@ -18,7 +18,6 @@ else:
 
 "# OasisLMF UI"
 
-@st.cache_data
 def search_client_endpoint(endpoint, metadata={}):
     analyses = getattr(client, endpoint).search(metadata).json()
     return analyses
@@ -150,7 +149,6 @@ def leccalc_plot_data(oep_df, aep_df):
     # Extract relevent columns
     oep_df = oep_df[['return_period', 'loss', 'ep_type']]
     aep_df = aep_df[['return_period', 'loss', 'ep_type']]
-
     return pd.concat([oep_df, aep_df], axis=0)
 
 if analysis:
@@ -177,29 +175,31 @@ if analysis:
             k_split = k.split('.')[0].split('_')
             leccalc_dict[k_split[0]][k_split[-1]] = k
 
-    gul_oep_df = outputs_dict[leccalc_dict['gul']['oep']]
-    gul_aep_df = outputs_dict[leccalc_dict['gul']['aep']]
-    gul_data = leccalc_plot_data(gul_oep_df, gul_aep_df)
 
-    il_oep_df = outputs_dict[leccalc_dict['il']['oep']]
-    il_aep_df = outputs_dict[leccalc_dict['il']['aep']]
-    il_data = leccalc_plot_data(il_oep_df, il_aep_df)
+    @st.cache_data
+    def plot_output(outputs_dict, perspective):
+        oep_key = leccalc_dict[perspective]['oep']
+        aep_key = leccalc_dict[perspective]['aep']
+        if oep_key is not None and aep_key is not None:
+            oep_df = outputs_dict[oep_key]
+            aep_df = outputs_dict[aep_key]
+            data = leccalc_plot_data(oep_df, aep_df)
 
-    ri_oep_df = outputs_dict[leccalc_dict['ri']['oep']]
-    ri_aep_df = outputs_dict[leccalc_dict['ri']['aep']]
-    ri_data = leccalc_plot_data(ri_oep_df, ri_aep_df)
-
-    gul_chart = alt.Chart(gul_data, title='GUL EP Sample').mark_line(point=True)
-    gul_chart = gul_chart.encode(x=alt.X('return_period').scale(type="log"),
+            chart = alt.Chart(data, title=f'{perspective.upper()} EP Sample').mark_line(point=True)
+            chart = chart.encode(x=alt.X('return_period').scale(type="log"),
                                  y='loss', color='ep_type')
-    st.altair_chart(gul_chart, use_container_width=True)
+            return chart
+        return None
 
-    il_chart = alt.Chart(il_data, title='IL EP Sample').mark_line(point=True)
-    il_chart = il_chart.encode(x=alt.X('return_period').scale(type="log"),
-                               y='loss', color='ep_type')
-    st.altair_chart(il_chart, use_container_width=True)
 
-    ri_chart = alt.Chart(ri_data, title='RI EP Sample').mark_line(point=True)
-    ri_chart = ri_chart.encode(x=alt.X('return_period').scale(type="log"),
-                               y='loss', color='ep_type')
-    st.altair_chart(ri_chart, use_container_width=True)
+    gul_chart = plot_output(outputs_dict, 'gul')
+    if gul_chart:
+        st.altair_chart(gul_chart, use_container_width=True)
+
+    il_chart = plot_output(outputs_dict, 'il')
+    if il_chart:
+        st.altair_chart(il_chart, use_container_width=True)
+
+    ri_chart = plot_output(outputs_dict, 'ri')
+    if ri_chart:
+        st.altair_chart(ri_chart, use_container_width=True)
