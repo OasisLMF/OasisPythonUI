@@ -157,6 +157,8 @@ def new_portfolio():
                     'submitted': False
                 }
                 st.success("Successfully created portfolio")
+                time.sleep(0.5)
+                st.rerun()
             except HTTPError as e:
                 st.error(e)
 
