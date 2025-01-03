@@ -612,6 +612,9 @@ def analysis_fragment():
     if middle.button("Run", use_container_width=True, disabled=runDisabled, help=help):
         try:
             client.analyses.run(selected['id'])
+            st.session_state.rerun_analysis = True
+            st.session_state.rerun_queue.append((selected['id'], 'RUN_COMPLETED'))
+            st.rerun()
         except HTTPError as e:
             st.error(e)
 
