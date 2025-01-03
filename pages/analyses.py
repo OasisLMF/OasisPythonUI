@@ -1,9 +1,7 @@
 import streamlit as st
-from oasislmf.platform_api.client import APIClient
 import pandas as pd
 from requests.exceptions import HTTPError
 from modules.nav import SidebarNav
-from modules.client import get_client
 from modules.validation import validate_name, validate_not_none, validate_key_vals, validate_key_is_not_null
 import json
 from json import JSONDecodeError
@@ -459,6 +457,17 @@ left.markdown("4) Run Anlaysis:")
 if middle.button("Run", use_container_width=True, disabled=runDisabled, help=help):
     try:
         client.analyses.run(selected['id'])
+    except HTTPError as e:
+        st.error(e)
+
+with run_analyses:
+    left, middle, right = st.columns(3, vertical_alignment='center')
+
+buttonEnabled, _ = validate_not_none(selected)
+if left.button("Delete", use_container_width=True, disabled = not buttonEnabled):
+    try:
+        client.analyses.delete(selected['id'])
+        st.rerun()
     except HTTPError as e:
         st.error(e)
 

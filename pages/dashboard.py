@@ -1,6 +1,5 @@
 import streamlit as st
 from modules.nav import SidebarNav
-from modules.client import get_client
 import pandas as pd
 import altair as alt
 
