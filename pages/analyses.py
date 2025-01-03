@@ -556,7 +556,7 @@ def analysis_fragment():
     if all([v[0] for v in validations]):
         generateDisabled = False
 
-    left.markdown("2) Generate inputs:")
+    left.markdown("2) Generate Inputs:")
     if middle.button("Generate", use_container_width=True, disabled=generateDisabled):
         try:
             client.analyses.generate(selected['id'])
@@ -608,7 +608,7 @@ def analysis_fragment():
     with run_analyses:
         left, middle, right = st.columns(3, vertical_alignment='center')
 
-    left.markdown("4) Run Anlaysis:")
+    left.markdown("4) Run Analysis:")
     if middle.button("Run", use_container_width=True, disabled=runDisabled, help=help):
         try:
             client.analyses.run(selected['id'])
