@@ -3,10 +3,12 @@ import pandas as pd
 from requests.exceptions import HTTPError
 from modules.nav import SidebarNav
 from modules.validation import validate_name, validate_not_none, validate_key_vals, validate_key_is_not_null
+from modules.client import check_analysis_status
 import json
 from json import JSONDecodeError
 import pydeck as pdk
 import altair as alt
+import time
 
 st.set_page_config(
     page_title = "Analysis",
@@ -139,11 +141,12 @@ def new_portfolio():
             ri_scope_f = prepare_upload_dict('reinsurance_scope_file')
 
             try:
-                client.upload_inputs(portfolio_name=pname,
-                                     location_f = location_f,
-                                     accounts_f = accounts_f,
-                                     ri_info_f = ri_info_f,
-                                     ri_scope_f = ri_scope_f)
+                with st.spinner(text="Creating portfolio..."):
+                    client.upload_inputs(portfolio_name=pname,
+                                         location_f = location_f,
+                                         accounts_f = accounts_f,
+                                         ri_info_f = ri_info_f,
+                                         ri_scope_f = ri_scope_f)
                 # Reset form
                 st.session_state.portfolio_form_data = {
                     'name': None,
@@ -153,6 +156,7 @@ def new_portfolio():
                     'reinsurance_scope_file': None,
                     'submitted': False
                 }
+                st.success("Successfully created portfolio")
             except HTTPError as e:
                 st.error(e)
 
@@ -161,7 +165,12 @@ with create_portfolio:
 
 "## Analyses"
 
-def display_analyses(analyses):
+rerun_interval_analysis = None
+
+def display_analyses(client):
+    analyses = client.analyses.get().json()
+    analyses = pd.json_normalize(analyses)
+
     display_cols = [ 'id', 'name', 'portfolio', 'model', 'created', 'modified',
                     'status' ]
 
@@ -192,7 +201,9 @@ def display_analyses(analyses):
                                      use_container_width=True,
                                      selection_mode="single-row",
                                      on_select="rerun")
-    return selected_to_row(selected, analyses)
+    selected =  selected_to_row(selected, analyses)
+
+    return selected
 
 
 def display_select_models(models):
@@ -244,24 +255,16 @@ def new_analysis():
             if all([v[0] for v  in validations]):
                 client.create_analysis(portfolio_id=int(portfolio["id"]), model_id=int(model["id"]),
                                        analysis_name=name)
+                st.success("Analysis created")
+                time.sleep(0.5) # Briefly display the message
+                st.rerun()
             else:
                 for v in validations:
                     if v[0] is False:
                         st.error(v[1])
                 submitted = False
 
-analyses = client.analyses.get().json()
-analyses = pd.json_normalize(analyses)
-
 # Tabs for show and create
-run_analyses, create_analysis = st.tabs(['Run Analysis', 'Create Analysis'])
-
-selected = None
-with run_analyses:
-    selected = display_analyses(analyses)
-
-with create_analysis:
-    new_analysis()
 
 def format_analysis(analysis):
     return f"{analysis['id']}: {analysis['name']}"
@@ -386,94 +389,7 @@ def set_analysis_settings(analysis):
             st.error(f'Invalid Settings File: {e}')
         st.rerun()
 
-with run_analyses:
-    left, middle, right = st.columns(3, vertical_alignment='center')
-
-# Anlaysis run buttons
-validation_list = [[validate_not_none, (selected,)],
-               [validate_key_vals, (selected, 'status', ['NEW'])]]
-
-validations = []
-for validation in validation_list:
-    vfunc, vargs = validation
-    validations.append(vfunc(*vargs))
-    if not validations[-1][0]:
-        break
-
-generateDisabled = True
-if all([v[0] for v in validations]):
-    generateDisabled = False
-
-left.markdown("2) Generate inputs:")
-if middle.button("Generate", use_container_width=True, disabled=generateDisabled):
-    try:
-        client.analyses.generate(selected['id'])
-    except HTTPError as e:
-        st.error(e)
-
-
-# Settings buttons
-with run_analyses:
-    left, middle, right = st.columns(3, vertical_alignment='center')
-
-left.markdown("3) Setup Analysis:")
-disable_button = (selected is None or selected['status'] not in ['READY', 'NEW'])
-if middle.button("Upload Settings File", disabled=disable_button,
-               use_container_width=True):
-    upload_settings_file(selected)
-
-enable_button, message = validate_key_vals(selected, 'status', ['READY'])
-if right.button("Set Analysis Settings", disabled=not enable_button, help=message,
-                 use_container_width=True):
-    set_analysis_settings(selected)
-
-
-
-validation_list = [[validate_not_none, (selected, 'Anlaysis row')],
-                   [validate_key_vals, (selected, 'status', ['READY'])],
-                   [validate_key_is_not_null, (selected, 'settings')]]
-validations = []
-for validation in validation_list:
-    vfunc, vargs = validation
-    validations.append(vfunc(*vargs))
-    if not validations[-1][0]:
-        break
-
-runDisabled = True
-if all([v[0] for v in validations]):
-    runDisabled = False
-    help = None
-else:
-    help = ''
-    for v in validations:
-        if v[0] is False:
-            help += v[1]
-            help += '\n'
-
-with run_analyses:
-    left, middle, right = st.columns(3, vertical_alignment='center')
-
-left.markdown("4) Run Anlaysis:")
-if middle.button("Run", use_container_width=True, disabled=runDisabled, help=help):
-    try:
-        client.analyses.run(selected['id'])
-    except HTTPError as e:
-        st.error(e)
-
-with run_analyses:
-    left, middle, right = st.columns(3, vertical_alignment='center')
-
-buttonEnabled, _ = validate_not_none(selected)
-if left.button("Delete", use_container_width=True, disabled = not buttonEnabled):
-    try:
-        client.analyses.delete(selected['id'])
-        st.rerun()
-    except HTTPError as e:
-        st.error(e)
-
 # TODO: Move the RUN / GENERATE INPUTS buttons to after analysis settings
-
-show_summary, _ = validate_key_vals(selected, 'status', ['READY', 'RUN_COMPLETED'])
 
 def analysis_summary_expander(selected):
     analysis_id = selected['id']
@@ -585,5 +501,134 @@ def analysis_summary_expander(selected):
                                       key=f'download_{fname}',
                                       file_name=fname)
 
-if show_summary:
-    analysis_summary_expander(selected)
+if "rerun_analysis" not in st.session_state:
+    st.session_state["rerun_analysis"] = False
+
+if "rerun_queue" not in st.session_state:
+    st.session_state["rerun_queue"] = []
+
+run_every = None
+if st.session_state.rerun_analysis:
+    run_every = "5s"
+
+def clear_rerun_queue(rerun_queue):
+    while True:
+        if len(rerun_queue) == 0:
+            return []
+
+        id, required_status = rerun_queue.pop(0)
+        if not check_analysis_status(client, id, required_status):
+            rerun_queue.insert(0, (id, required_status))
+            return rerun_queue
+
+@st.fragment(run_every=run_every)
+def analysis_fragment():
+    # Handle rerun queue
+    st.session_state.rerun_queue = clear_rerun_queue(st.session_state.rerun_queue)
+    if len(st.session_state.rerun_queue) == 0 and st.session_state.rerun_analysis:
+        st.session_state.rerun_analysis = False
+        st.rerun()
+
+    run_analyses, create_analysis = st.tabs(["Run Analysis", "Create Analysis"])
+    with create_analysis:
+        new_analysis()
+
+    selected = None
+    with run_analyses:
+        selected = display_analyses(client)
+
+
+    with run_analyses:
+        left, middle, right = st.columns(3, vertical_alignment='center')
+
+    # Anlaysis run buttons
+    validation_list = [[validate_not_none, (selected,)],
+                   [validate_key_vals, (selected, 'status', ['NEW'])]]
+
+    validations = []
+    for validation in validation_list:
+        vfunc, vargs = validation
+        validations.append(vfunc(*vargs))
+        if not validations[-1][0]:
+            break
+
+    generateDisabled = True
+    if all([v[0] for v in validations]):
+        generateDisabled = False
+
+    left.markdown("2) Generate inputs:")
+    if middle.button("Generate", use_container_width=True, disabled=generateDisabled):
+        try:
+            client.analyses.generate(selected['id'])
+            st.session_state.rerun_analysis = True
+            st.session_state.rerun_queue.append((selected['id'], 'READY'))
+            st.rerun()
+        except HTTPError as e:
+            st.error(e)
+
+
+# Settings buttons
+    with run_analyses:
+        left, middle, right = st.columns(3, vertical_alignment='center')
+
+    left.markdown("3) Setup Analysis:")
+    disable_button = (selected is None or selected['status'] not in ['READY', 'NEW'])
+    if middle.button("Upload Settings File", disabled=disable_button,
+                   use_container_width=True):
+        upload_settings_file(selected)
+
+    enable_button, message = validate_key_vals(selected, 'status', ['READY'])
+    if right.button("Set Analysis Settings", disabled=not enable_button, help=message,
+                     use_container_width=True):
+        set_analysis_settings(selected)
+
+
+
+    validation_list = [[validate_not_none, (selected, 'Anlaysis row')],
+                       [validate_key_vals, (selected, 'status', ['READY'])],
+                       [validate_key_is_not_null, (selected, 'settings')]]
+    validations = []
+    for validation in validation_list:
+        vfunc, vargs = validation
+        validations.append(vfunc(*vargs))
+        if not validations[-1][0]:
+            break
+
+    runDisabled = True
+    if all([v[0] for v in validations]):
+        runDisabled = False
+        help = None
+    else:
+        help = ''
+        for v in validations:
+            if v[0] is False:
+                help += v[1]
+                help += '\n'
+
+    with run_analyses:
+        left, middle, right = st.columns(3, vertical_alignment='center')
+
+    left.markdown("4) Run Anlaysis:")
+    if middle.button("Run", use_container_width=True, disabled=runDisabled, help=help):
+        try:
+            client.analyses.run(selected['id'])
+        except HTTPError as e:
+            st.error(e)
+
+    with run_analyses:
+        left, middle, right = st.columns(3, vertical_alignment='center')
+
+    buttonEnabled, _ = validate_not_none(selected)
+    if left.button("Delete", use_container_width=True, disabled = not buttonEnabled):
+        try:
+            client.analyses.delete(selected['id'])
+            st.rerun()
+        except HTTPError as e:
+            st.error(e)
+
+    show_summary, _ = validate_key_vals(selected, 'status', ['READY', 'RUN_COMPLETED'])
+
+    if show_summary:
+        analysis_summary_expander(selected)
+
+analysis_fragment()
