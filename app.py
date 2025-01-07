@@ -2,6 +2,7 @@ import streamlit as st
 from modules.nav import SidebarNav
 from oasislmf.platform_api.client import APIClient
 from oasis_data_manager.errors import OasisException
+from modules.validation import validate_name, process_validations
 
 st.set_page_config(
         page_title = "OasisLMF",
@@ -23,8 +24,16 @@ else:
         submitted = st.form_submit_button("Login")
 
     if submitted:
-        try:
-            st.session_state["client"] = APIClient(username=user, password=password)
-            st.rerun()
-        except OasisException as _:
-            st.error("Authentication Error")
+        validations = [[validate_name, (user, "Username")],
+                       [validate_name, (password, "Password")]]
+
+        valid, msg = process_validations(validations)
+
+        if valid:
+            try:
+                st.session_state["client"] = APIClient(username=user, password=password)
+                st.rerun()
+            except OasisException as _:
+                st.error("Authentication Error")
+        else:
+            st.error(msg)
