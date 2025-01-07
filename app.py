@@ -1,6 +1,6 @@
 import streamlit as st
 from modules.nav import SidebarNav
-from oasislmf.platform_api.client import APIClient
+from modules.client import APIClient
 from oasis_data_manager.errors import OasisException
 from modules.validation import validate_name, process_validations
 
@@ -34,6 +34,6 @@ else:
                 st.session_state["client"] = APIClient(username=user, password=password)
                 st.rerun()
             except OasisException as _:
-                st.error("Authentication Error")
+                st.error("Authentication Failed")
         else:
             st.error(msg)
