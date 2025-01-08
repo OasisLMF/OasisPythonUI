@@ -35,43 +35,58 @@ class MockApiClient:
         return MockJsonObject
 
 @pytest.fixture()
-def mock_api_client_portfolios():
-    ID = 2
+def mock_api_client():
+    portfolio_ID = 2
+    model_ID = 1
+    analyses_ID = 2
     portfolios_resp = [{
-        'id' : ID,
+        'id' : portfolio_ID,
         'name': 'string',
         "created": "2023-05-26T06:48:52.524821Z",
         "modified": "2023-05-26T06:48:52.524821Z",
-        "storage_links": f"http://localhost:8000/v1/portfolios/{ID}/storage_links/"
+        "storage_links": f"http://localhost:8000/v1/portfolios/{portfolio_ID}/storage_links/"
     }]
-    return MockApiClient(portfolios=portfolios_resp)
 
-@pytest.fixture()
-def mock_api_client_empty():
-    return MockApiClient()
+    analyses_resp = [
+        {
+            "created": "2023-05-26T07:11:08.140539Z",
+            "modified": "2023-05-26T07:11:08.140539Z",
+            "name": "string",
+            "id": analyses_ID,
+            "portfolio": portfolio_ID,
+            "model": model_ID,
+            "status": "NEW",
+        }
+    ]
+    return MockApiClient(portfolios=portfolios_resp, analyses=analyses_resp)
 
-@pytest.fixture()
-def at_analyses(mock_api_client_empty):
+def test_empty_analyses_page():
     at = AppTest.from_file("app.py")
-    at.session_state["client"]  = mock_api_client_empty
+    at.session_state["client"]  = MockApiClient()
     at.switch_page("pages/analyses.py")
-    return at.run()
-
-def test_empty_portfolios(at_analyses):
-    at = at_analyses
+    at = at.run()
 
     # Empty portfolios
     portfolios_df = at.dataframe[0].value
-    expected_df = pd.DataFrame(columns=['id', 'name', 'created', 'modified',
-                                         'storage_links'])
+    columns=['id', 'name', 'created', 'modified', 'storage_links']
+    expected_df = pd.DataFrame(columns=columns)
     assert_frame_equal(expected_df, portfolios_df)
 
     assert at.tabs[0].label == 'Show Portfolios'
     assert at.tabs[1].label == 'Create Portfolio'
 
-def test_display_portfolio(mock_api_client_portfolios):
+    # Empty analyses
+    analysis_df = at.dataframe[1].value
+    columns = ["id", "name", "portfolio", "model", "created", "modified", "status"]
+    expected_df = pd.DataFrame(columns=columns)
+    assert_frame_equal(expected_df, analysis_df)
+
+    assert at.tabs[2].label == 'Run Analysis'
+    assert at.tabs[3].label == 'Create Analysis'
+
+def test_display_portfolio(mock_api_client):
     at = AppTest.from_file("app.py")
-    at.session_state["client"]  = mock_api_client_portfolios
+    at.session_state["client"]  = mock_api_client
     at.switch_page("pages/analyses.py")
     at.run()
 
@@ -89,4 +104,31 @@ def test_display_portfolio(mock_api_client_portfolios):
     expected_df['modified'] = pd.to_datetime(expected_df['modified'])
     app_df = at.dataframe[0].value
 
+    assert_frame_equal(expected_df, app_df)
+
+def test_display_analyses(mock_api_client):
+    at = AppTest.from_file("app.py")
+    at.session_state["client"]  = mock_api_client
+    at.switch_page("pages/analyses.py")
+    at.run()
+
+    portfolio_ID = 2
+    model_ID = 1
+    analyses_ID = 2
+
+    expected_data = {
+        "created": ["2023-05-26T07:11:08.140539Z",],
+        "modified": ["2023-05-26T07:11:08.140539Z",],
+        "name": ["string",],
+        "id": [analyses_ID],
+        "portfolio": [portfolio_ID],
+        "model": [model_ID],
+        "status": ["NEW",],
+    }
+
+    expected_df = pd.DataFrame.from_dict(expected_data)
+    expected_df['created'] = pd.to_datetime(expected_df['created'])
+    expected_df['modified'] = pd.to_datetime(expected_df['modified'])
+
+    app_df = at.dataframe[1].value
     assert_frame_equal(expected_df, app_df)
