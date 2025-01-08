@@ -393,94 +393,114 @@ def set_analysis_settings(analysis):
 
 # TODO: Move the RUN / GENERATE INPUTS buttons to after analysis settings
 
+@st.cache_data
+def generate_location_map(locations):
+    layer = pdk.Layer(
+        'ScatterplotLayer',
+        locations,
+        get_position=["Longitude", "Latitude"],
+        get_line_color = [0, 0, 0],
+        get_fill_color = [255, 140, 0],
+        radius_min_pixels = 1,
+        radius_max_pixels = 50,
+        radius_scale = 2,
+        pickable=True,
+        stroked=True,
+        get_line_width=0.5,
+    )
+
+# Use pydeck.data_utils.viewport_helpers.compute_view to auto set the view
+    viewstate = pdk.ViewState(
+        latitude=locations['Latitude'][0],
+        longitude=locations['Longitude'][0],
+        zoom=18,
+        pitch=0
+    )
+
+    deck = pdk.Deck(layers=[layer], initial_view_state=viewstate,
+                    tooltip={"text": "Peril: {LocPerilsCovered}\nBuilding TIV: {BuildingTIV}"},
+                    map_style='light')
+
+    return deck
+
+@st.cache_data
+def calculate_locations_success(locations, keys_df):
+    num_locations = len(locations['loc_id'].unique())
+
+    df = keys_df.groupby('PerilID')['LocID'].nunique()
+
+    success_locations = df / num_locations
+    success_locations = success_locations.rename("success_locations")
+    success_locations = pd.DataFrame(success_locations.reset_index())
+    return success_locations
+
+@st.cache_data
+def summarise_keys_generation(keys_df, locations):
+    df = keys_df
+    num_locations = df['LocID'].nunique()
+    coverage_type_map = {
+        1 : 'Building',
+        2 : 'Other',
+        3 : 'Contents',
+        4 : 'BI',
+    }
+
+    locations = locations[['loc_id', 'BuildingTIV', 'OtherTIV', 'ContentsTIV', 'BITIV']]
+
+    combineddf = keys_df[['LocID', 'PerilID', 'CoverageTypeID']]
+    combineddf = combineddf.join(locations.set_index('loc_id'), on='LocID')
+
+    coverage_tiv_map = {k: v + 'TIV' for k, v in coverage_type_map.items()}
+
+    combineddf['CoverageTypeID_'] = combineddf['CoverageTypeID'].replace(coverage_tiv_map)
+    def find_tiv(row):
+        row['TIV'] = row[row['CoverageTypeID_']]
+        return row
+
+    combineddf = combineddf.apply(find_tiv, axis=1)
+    combineddf = combineddf[['LocID', 'PerilID', 'CoverageTypeID', 'TIV']]
+    groupeddf = combineddf.groupby(['PerilID', 'CoverageTypeID'])
+    groupeddf_final = groupeddf.agg({"LocID" : "nunique", "TIV": "sum"})
+    groupeddf_final = groupeddf_final.reset_index()
+    groupeddf_final = groupeddf_final.replace(coverage_type_map)
+    return groupeddf_final
+
+@st.dialog("Locations Map", width='large')
+def show_locations_map(locations):
+    deck = generate_location_map(locations)
+    with Profiler():
+        st.pydeck_chart(deck, use_container_width=True)
+
+
 def analysis_summary_expander(selected):
     analysis_id = selected['id']
     with st.expander("Analysis Summary"):
 
-        summary_tab, map_tab, inputs_tab = st.tabs(["Summary", "Map", "Inputs"])
+        summary_tab, inputs_tab = st.tabs(["Summary", "Inputs"])
 
         input_files = client.analyses.input_file.get_dataframe(analysis_id)
         locations = input_files['location.csv']
+        keys_df = input_files['keys.csv']
 
-        layer = pdk.Layer(
-            'ScatterplotLayer',
-            locations,
-            get_position=["Longitude", "Latitude"],
-            get_line_color = [0, 0, 0],
-            get_fill_color = [255, 140, 0],
-            radius_min_pixels = 1,
-            radius_max_pixels = 50,
-            radius_scale = 2,
-            pickable=True,
-            stroked=True,
-            get_line_width=0.5,
-        )
+        if st.button("Show Locations Map"):
+            show_locations_map(locations)
 
-# Use pydeck.data_utils.viewport_helpers.compute_view to auto set the view
-        viewstate = pdk.ViewState(
-            latitude=locations['Latitude'][0],
-            longitude=locations['Longitude'][0],
-            zoom=18,
-            pitch=0
-        )
+        # deck = generate_location_map(locations)
 
-        deck = pdk.Deck(layers=[layer], initial_view_state=viewstate,
-                        tooltip={"text": "Peril: {LocPerilsCovered}\nBuilding TIV: {BuildingTIV}"},
-                        map_style='light')
+        # with map_tab:
+        #     st.pydeck_chart(deck, use_container_width=True)
 
-        with map_tab:
-            st.pydeck_chart(deck, use_container_width=True)
-
-        # '### Locations'
-        # st.dataframe(locations)
-
-        num_locations = len(locations['loc_id'].unique())
-
-        df = input_files['keys.csv']
-        df = df.groupby('PerilID')['LocID'].nunique()
-
-        success_locations = df / num_locations
-        success_locations = success_locations.rename("success_locations")
-        success_locations = pd.DataFrame(success_locations.reset_index())
+        success_locations = calculate_locations_success(locations, keys_df)
 
         bar_chart = alt.Chart(success_locations).mark_bar().encode(x='PerilID',
                                                                    y=alt.Y('success_locations').title('Percentage Success Locations'))
 
-        #todo: include keys-error.csv data
-        df = input_files['keys.csv']
-        num_locations = df['LocID'].nunique()
-        coverage_type_map = {
-            1 : 'Building',
-            2 : 'Other',
-            3 : 'Contents',
-            4 : 'BI',
-        }
-
-        locations = input_files['location.csv']
-        locations = locations[['loc_id', 'BuildingTIV', 'OtherTIV', 'ContentsTIV', 'BITIV']]
-        keys = input_files['keys.csv']
-
-        combineddf = keys[['LocID', 'PerilID', 'CoverageTypeID']]
-        combineddf = combineddf.join(locations.set_index('loc_id'), on='LocID')
-
-        coverage_tiv_map = {k: v + 'TIV' for k, v in coverage_type_map.items()}
-
-        combineddf['CoverageTypeID_'] = combineddf['CoverageTypeID'].replace(coverage_tiv_map)
-        def find_tiv(row):
-            row['TIV'] = row[row['CoverageTypeID_']]
-            return row
-
-        combineddf = combineddf.apply(find_tiv, axis=1)
-        combineddf = combineddf[['LocID', 'PerilID', 'CoverageTypeID', 'TIV']]
-        groupeddf = combineddf.groupby(['PerilID', 'CoverageTypeID'])
-        groupeddf_final = groupeddf.agg({"LocID" : "nunique", "TIV": "sum"})
-        groupeddf_final = groupeddf_final.reset_index()
+        keys_summary = summarise_keys_generation(keys_df, locations)
         column_config = {"LocID" : "No. Locations"}
-        groupeddf_final = groupeddf_final.replace(coverage_type_map)
 
         with summary_tab:
             '### Keys Summary'
-            st.dataframe(groupeddf_final, hide_index=True, column_config=column_config, use_container_width=True)
+            st.dataframe(keys_summary, hide_index=True, column_config=column_config, use_container_width=True)
 
             '### Keys Error'
             st.dataframe(input_files['keys-errors.csv'])
