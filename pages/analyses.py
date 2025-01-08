@@ -468,7 +468,7 @@ def summarise_keys_generation(keys_df, locations):
 @st.dialog("Locations Map", width='large')
 def show_locations_map(locations):
     deck = generate_location_map(locations)
-    with Profiler():
+    with st.spinner('Loading map...'):
         st.pydeck_chart(deck, use_container_width=True)
 
 
