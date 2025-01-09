@@ -202,7 +202,8 @@ def display_analyses(client):
                                      column_order=display_cols,
                                      use_container_width=True,
                                      selection_mode="single-row",
-                                     on_select="rerun")
+                                     on_select="rerun",
+                            )
     selected =  selected_to_row(selected, analyses)
 
     return selected
@@ -391,9 +392,6 @@ def set_analysis_settings(analysis):
             st.error(f'Invalid Settings File: {e}')
         st.rerun()
 
-# TODO: Move the RUN / GENERATE INPUTS buttons to after analysis settings
-
-@st.cache_data
 def generate_location_map(locations):
     layer = pdk.Layer(
         'ScatterplotLayer',
@@ -409,13 +407,11 @@ def generate_location_map(locations):
         get_line_width=0.5,
     )
 
-# Use pydeck.data_utils.viewport_helpers.compute_view to auto set the view
-    viewstate = pdk.ViewState(
-        latitude=locations['Latitude'][0],
-        longitude=locations['Longitude'][0],
-        zoom=18,
-        pitch=0
-    )
+    viewstate = pdk.data_utils.compute_view(locations[['Longitude', 'Latitude']])
+
+    # Prevent over zooming
+    if viewstate.zoom > 18:
+        viewstate.zoom = 18
 
     deck = pdk.Deck(layers=[layer], initial_view_state=viewstate,
                     tooltip={"text": "Peril: {LocPerilsCovered}\nBuilding TIV: {BuildingTIV}"},
@@ -467,8 +463,8 @@ def summarise_keys_generation(keys_df, locations):
 
 @st.dialog("Locations Map", width='large')
 def show_locations_map(locations):
-    deck = generate_location_map(locations)
     with st.spinner('Loading map...'):
+        deck = generate_location_map(locations)
         st.pydeck_chart(deck, use_container_width=True)
 
 
@@ -484,11 +480,6 @@ def analysis_summary_expander(selected):
 
         if st.button("Show Locations Map"):
             show_locations_map(locations)
-
-        # deck = generate_location_map(locations)
-
-        # with map_tab:
-        #     st.pydeck_chart(deck, use_container_width=True)
 
         success_locations = calculate_locations_success(locations, keys_df)
 
