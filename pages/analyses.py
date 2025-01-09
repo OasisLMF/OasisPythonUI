@@ -103,7 +103,7 @@ def new_portfolio():
         }
 
     with st.form("create_portfolio_form", clear_on_submit=True, enter_to_submit=False):
-        name = st.text_input('Portfolio Name', value=None)
+        name = st.text_input('Portfolio Name', value=None, key='portfolio_name')
         loc_file = st.selectbox('Select Location File', options, index=None)
         acc_file = st.selectbox('Select Accounts File', options, index=None)
         ri_file = st.selectbox('Select Reinsurance Info File', options, index=None)
@@ -432,8 +432,6 @@ def calculate_locations_success(locations, keys_df):
 
 @st.cache_data
 def summarise_keys_generation(keys_df, locations):
-    df = keys_df
-    num_locations = df['LocID'].nunique()
     coverage_type_map = {
         1 : 'Building',
         2 : 'Other',
@@ -579,8 +577,7 @@ def analysis_fragment():
         except HTTPError as e:
             st.error(e)
 
-
-# Settings buttons
+    # Settings buttons
     with run_analyses:
         left, middle, right = st.columns(3, vertical_alignment='center')
 

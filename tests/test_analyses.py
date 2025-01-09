@@ -25,7 +25,7 @@ class MockEndpoint:
 
 class MockApiClient:
     def __init__(self, username="", password="",
-                 portfolios={}, models={}, analyses={}):
+                 portfolios=[], models=[], analyses=[]):
         self.portfolios = MockEndpoint(portfolios)
         self.models = MockEndpoint(models)
         self.analyses = MockEndpoint(analyses)
@@ -33,6 +33,21 @@ class MockApiClient:
     @staticmethod
     def server_info():
         return MockJsonObject
+
+    def upload_inputs(self, portfolio_name=None,**kwargs):
+        if portfolio_name is None:
+            raise OasisException('Portfolio name required')
+
+        if len(self.portfolios.json_data) == 1:
+            self.portfolios.json_data[0]['name'] = portfolio_name
+
+        else:
+            self.portfolios = [
+                {
+                    'name': portfolio_name
+                }
+            ]
+
 
 @pytest.fixture()
 def mock_api_client():
@@ -132,3 +147,23 @@ def test_display_analyses(mock_api_client):
 
     app_df = at.dataframe[1].value
     assert_frame_equal(expected_df, app_df)
+
+def test_create_portfolio_form(mock_api_client):
+    at = AppTest.from_file("app.py")
+    at.session_state["client"]  = mock_api_client
+    at.switch_page("pages/analyses.py")
+    at.run()
+
+    portfolio_data = {
+        'name': 'new-string',
+    }
+
+    at = at.tabs[1].button[0].click().run()
+
+    assert 'Name' in at.error[0].value
+
+    at = at.text_input(key='portfolio_name').input(portfolio_data['name']).run()
+    at = at.tabs[1].button[0].click().run()
+
+    assert at.dataframe[0].value['name'][0] == portfolio_data['name']
+    assert at.success[0].value == 'Successfully created portfolio'
