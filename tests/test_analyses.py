@@ -48,32 +48,53 @@ class MockApiClient:
                 }
             ]
 
+portfolio_ID = 2
+portfolios_data = [{
+    'id' : portfolio_ID,
+    'name': 'string',
+    "created": "2023-05-26T06:48:52.524821Z",
+    "modified": "2023-05-26T06:48:52.524821Z",
+    "storage_links": f"http://localhost:8000/v1/portfolios/{portfolio_ID}/storage_links/"
+}]
 
+model_ID = 1
+models_data = [
+    {
+        'id': model_ID,
+        'supplier_id': 'OasisLMF',
+        'model_id': 'model',
+        'version_id': 'v2',
+        "created": "2023-05-26T07:11:08.140539Z",
+        "modified": "2023-05-26T07:11:08.140539Z",
+    }
+]
+
+analyses_ID = 2
+analyses_data = [
+    {
+        "created": "2023-05-26T07:11:08.140539Z",
+        "modified": "2023-05-26T07:11:08.140539Z",
+        "name": "string",
+        "id": analyses_ID,
+        "portfolio": portfolio_ID,
+        "model": model_ID,
+        "status": "NEW",
+    }
+]
 @pytest.fixture()
 def mock_api_client():
-    portfolio_ID = 2
-    model_ID = 1
-    analyses_ID = 2
-    portfolios_resp = [{
-        'id' : portfolio_ID,
-        'name': 'string',
-        "created": "2023-05-26T06:48:52.524821Z",
-        "modified": "2023-05-26T06:48:52.524821Z",
-        "storage_links": f"http://localhost:8000/v1/portfolios/{portfolio_ID}/storage_links/"
-    }]
+    return MockApiClient(portfolios=portfolios_data,
+                         analyses=analyses_data,
+                         models=models_data)
 
-    analyses_resp = [
-        {
-            "created": "2023-05-26T07:11:08.140539Z",
-            "modified": "2023-05-26T07:11:08.140539Z",
-            "name": "string",
-            "id": analyses_ID,
-            "portfolio": portfolio_ID,
-            "model": model_ID,
-            "status": "NEW",
-        }
-    ]
-    return MockApiClient(portfolios=portfolios_resp, analyses=analyses_resp)
+@pytest.fixture()
+def mock_app_test(mock_api_client):
+    at = AppTest.from_file("app.py")
+    at.session_state["client"]  = mock_api_client
+    at.switch_page("pages/analyses.py")
+    at.run()
+    return at
+
 
 def test_empty_analyses_page():
     at = AppTest.from_file("app.py")
@@ -99,19 +120,16 @@ def test_empty_analyses_page():
     assert at.tabs[2].label == 'Run Analysis'
     assert at.tabs[3].label == 'Create Analysis'
 
-def test_display_portfolio(mock_api_client):
-    at = AppTest.from_file("app.py")
-    at.session_state["client"]  = mock_api_client
-    at.switch_page("pages/analyses.py")
-    at.run()
+def test_display_portfolio(mock_app_test):
+    at = mock_app_test
+    _portfolio_data = portfolios_data[0]
 
-    ID = 2
     df_data = {
-        'id' : [ID],
-        'name': ['string'],
-        "created": ["2023-05-26T06:48:52.524821Z"],
-        "modified": ["2023-05-26T06:48:52.524821Z"],
-        "storage_links": [f"http://localhost:8000/v1/portfolios/{ID}/storage_links/"]
+        'id' : [portfolio_ID],
+        'name': [_portfolio_data['name']],
+        "created": [_portfolio_data['created']],
+        "modified": [_portfolio_data['modified']],
+        "storage_links": [_portfolio_data['storage_links']]
     }
 
     expected_df = pd.DataFrame.from_dict(df_data)
@@ -121,24 +139,18 @@ def test_display_portfolio(mock_api_client):
 
     assert_frame_equal(expected_df, app_df)
 
-def test_display_analyses(mock_api_client):
-    at = AppTest.from_file("app.py")
-    at.session_state["client"]  = mock_api_client
-    at.switch_page("pages/analyses.py")
-    at.run()
-
-    portfolio_ID = 2
-    model_ID = 1
-    analyses_ID = 2
+def test_display_analyses(mock_app_test):
+    at = mock_app_test
+    _analyses_data = analyses_data[0]
 
     expected_data = {
-        "created": ["2023-05-26T07:11:08.140539Z",],
-        "modified": ["2023-05-26T07:11:08.140539Z",],
-        "name": ["string",],
+        "created": [_analyses_data['created']],
+        "modified": [_analyses_data['modified']],
+        "name": [_analyses_data['name']],
         "id": [analyses_ID],
         "portfolio": [portfolio_ID],
         "model": [model_ID],
-        "status": ["NEW",],
+        "status": [_analyses_data['status']],
     }
 
     expected_df = pd.DataFrame.from_dict(expected_data)
@@ -148,13 +160,10 @@ def test_display_analyses(mock_api_client):
     app_df = at.dataframe[1].value
     assert_frame_equal(expected_df, app_df)
 
-def test_create_portfolio_form(mock_api_client):
-    at = AppTest.from_file("app.py")
-    at.session_state["client"]  = mock_api_client
-    at.switch_page("pages/analyses.py")
-    at.run()
+def test_create_portfolio_form(mock_app_test):
+    at = mock_app_test
 
-    portfolio_data = {
+    _portfolio_data = {
         'name': 'new-string',
     }
 
@@ -162,8 +171,8 @@ def test_create_portfolio_form(mock_api_client):
 
     assert 'Name' in at.error[0].value
 
-    at = at.text_input(key='portfolio_name').input(portfolio_data['name']).run()
+    at = at.text_input(key='portfolio_name').input(_portfolio_data['name']).run()
     at = at.tabs[1].button[0].click().run()
 
-    assert at.dataframe[0].value['name'][0] == portfolio_data['name']
+    assert at.dataframe[0].value['name'][0] == _portfolio_data['name']
     assert at.success[0].value == 'Successfully created portfolio'
