@@ -4,6 +4,7 @@ from requests.exceptions import HTTPError
 from modules.nav import SidebarNav
 from modules.validation import validate_name, validate_not_none, validate_key_vals, validate_key_is_not_null
 from modules.client import check_analysis_status
+import os
 import json
 from json import JSONDecodeError
 import pydeck as pdk
@@ -312,18 +313,20 @@ def set_analysis_settings(analysis):
             return None
         return [i for i in range(len(options)) if options[i]['id'] == default][0]
 
-    analysis_settings = {"model_supplier_id": model["supplier_id"],
-                         "model_name_id": model["model_id"]}
-    analysis_model_settings = {}
+    if os.path.exists('defaults/analysis_settings.json'):
+        with open('defaults/analysis_settings.json', 'r') as f:
+            analysis_settings = json.load(f)
+    else:
+        analysis_settings = {'model_settings': {}}
+    analysis_settings["model_supplier_id"] = model["supplier_id"]
+    analysis_settings["model_name_id"] = model["model_id"]
     for k, v in model_settings.items():
         if k in valid_settings:
             default = v.get('default', None)
             options = v['options']
             default_index = get_default_index(options, default)
             selected = st.selectbox(f"Set {v['name']}", options=v['options'], format_func=format_option, index=default_index)
-            analysis_model_settings[k] = selected["id"]
-
-    analysis_settings["model_settings"] = analysis_model_settings
+            analysis_settings['model_settings'][k] = selected["id"]
 
     valid_outputs = ['gul', 'il', 'ri']
     if "valid_output_perspectives" in model_settings:
@@ -332,29 +335,14 @@ def set_analysis_settings(analysis):
     opt_cols = st.columns(5)
     with opt_cols[0]:
         gul_opt = st.checkbox("GUL", help="Ground up loss", value=True, disabled=("gul" not in valid_outputs))
+        analysis_settings["gul_output"] = gul_opt
     with opt_cols[1]:
         il_opt = st.checkbox("IL", help="Insured loss", disabled=("il" not in valid_outputs))
+        analysis_settings["il_output"] = il_opt
     with opt_cols[2]:
         ri_opt = st.checkbox("RI", help="Reinsurance net loss", disabled=("ri" not in valid_outputs))
+        analysis_settings["ri_otuput"] = ri_opt
 
-    default_summary = {
-        "aalcalc": True,
-        "eltcalc": True,
-        "id": 1,
-        "lec_output": True,
-        "leccalc": {
-            "full_uncertainty_aep": True,
-            "full_uncertainty_oep": True,
-            "return_period_file": True
-        }
-    }
-
-    analysis_settings["gul_output"] = gul_opt
-    analysis_settings["gul_summaries"] = [default_summary,]
-    analysis_settings["il_output"] = il_opt
-    analysis_settings["il_summaries"] = [default_summary,]
-    analysis_settings["ri_otuput"] = ri_opt
-    analysis_settings["ri_summaries"] = [default_summary,]
     analysis_settings["number_of_samples"] = st.number_input("Number of samples",
                                                              min_value = 1,
                                                              value = default_samples)
