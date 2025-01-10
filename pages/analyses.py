@@ -359,31 +359,6 @@ def set_analysis_settings(analysis):
                                                              min_value = 1,
                                                              value = default_samples)
 
-    def get_oed_fields(analysis_id):
-        oed_fields = client.analyses.input_file.get_dataframe(analysis_id)['account.csv'].columns.to_list()
-        # oed_fields.append("AllRisks") # Is this options necessary?
-        return oed_fields
-
-    # TODO: Add these drill down options to analysis settings
-    with st.expander("Drill-down options"):
-        oed_fields = get_oed_fields(analysis["id"])
-
-        if "num_summary_levels" not in st.session_state:
-            st.session_state['num_summary_levels'] = 0
-        for i in range(st.session_state.num_summary_levels):
-            remove_button, multi_select = st.columns([1, 9])
-            with remove_button:
-                if st.button(":material/remove:", key=f"remove_summary_level_{i}"):
-                    st.session_state.num_summary_levels -= 1
-                    st.rerun(scope="fragment")
-            with multi_select:
-                st.multiselect("Summary Levels", key=f"summary_level_{i}",
-                               options=oed_fields, label_visibility="collapsed")
-
-        if st.button("Add Summary Level", icon=":material/add:"):
-            st.session_state.num_summary_levels += 1
-            st.rerun(scope="fragment")
-
     if st.button("Submit"):
         try:
             client.upload_settings(analysis['id'], analysis_settings)
