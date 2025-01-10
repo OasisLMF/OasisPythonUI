@@ -176,3 +176,17 @@ def test_create_portfolio_form(mock_app_test):
 
     assert at.dataframe[0].value['name'][0] == _portfolio_data['name']
     assert at.success[0].value == 'Successfully created portfolio'
+
+
+def test_create_analyses_form(mock_app_test):
+    at = mock_app_test
+
+    portfolio_select = at.tabs[3].selectbox[0].options
+    assert len(portfolio_select) == len(portfolios_data)
+    assert portfolios_data[0]['name'] in portfolio_select[0]
+
+    model_select = at.tabs[3].dataframe[0]
+    assert len(model_select.value) == len(models_data)
+    assert model_select.value['supplier_id'][0] == models_data[0]['supplier_id']
+
+    # todo: AppTest does not support selecting dataframes, use alt testing method
