@@ -4,6 +4,7 @@ from requests.exceptions import HTTPError
 from modules.nav import SidebarNav
 from modules.validation import validate_name, validate_not_none, validate_key_vals, validate_key_is_not_null
 from modules.client import check_analysis_status
+from modules.utils import selected_to_row, convert_datetime_cols, generate_column_config
 import os
 import json
 from json import JSONDecodeError
@@ -23,43 +24,12 @@ SidebarNav()
 if st.button("♻️ "):
     st.rerun()
 
-@st.cache_data
-def selected_to_row(selected, df):
-    selected = selected["selection"]["rows"]
-
-    if len(selected) > 0:
-        return df.iloc[selected[0]]
-    return None
-
 if "client" in st.session_state:
     client = st.session_state.client
 else:
     st.switch_page("app.py")
 
-
 "## Portfolios"
-
-
-@st.cache_data
-def convert_datetime_cols(df, cols):
-    for c in cols:
-        df[c] = pd.to_datetime(df[c])
-    return df
-
-@st.cache_data
-def generate_column_config(col_names, display_cols, date_time_cols=None):
-    config = {name: None for name in col_names}
-    for c in display_cols:
-        config[c] = c.replace('_', ' ').title()
-
-    if date_time_cols is None:
-        return config
-
-    for c in date_time_cols:
-        config[c] = st.column_config.DatetimeColumn(config[c],
-                                                    format="DD/MM/YY HH:mm:ss")
-
-    return config
 
 date_time_cols = ['created', 'modified']
 
