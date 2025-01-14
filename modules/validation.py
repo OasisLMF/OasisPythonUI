@@ -29,3 +29,40 @@ def process_validations(validations):
             valid = False
             break
     return valid, msg
+
+class Validator:
+    def __init__(self, valid_func, error_func=None):
+        self.vfunc = valid_func
+        self.message = ""
+
+        if error_func is None:
+            self.error_func = lambda _:  "Validation Failed"
+
+    def validate(self, val_args=None, error_args=None):
+        valid =  self.vfunc(**val_args)
+
+        if not valid:
+            self.message = self.error_func(error_args)
+
+        return valid
+
+
+class GroupValidation:
+    def __init__(self, validations=[], val_args=[], err_args=[]):
+        self.validations = validations
+        self.val_args = val_args
+        self.err_args = err_args
+        self.message = ""
+        # Group validations + args into a stack?
+
+    def validate(self):
+        for validation, val_arg, err_arg in zip(self.validations, self.val_args, self.err_args):
+            valid = validation.validate(val_arg, err_arg)
+            if not valid:
+                self.message = validation.message
+                return False
+        return True
+
+    def add_validation(validation, val_arg=None, err_arg=None):
+        # Method to add a validation to the group
+        pass
