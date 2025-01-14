@@ -3,6 +3,7 @@ from modules.nav import SidebarNav
 from modules.client import APIClient
 from oasis_data_manager.errors import OasisException
 from modules.validation import validate_name, process_validations
+import json
 
 st.set_page_config(
         page_title = "OasisLMF",
@@ -14,8 +15,12 @@ SidebarNav()
 "# OasisLMF UI"
 
 if "client" in st.session_state:
-    st.write("## Server Info")
-    st.write(st.session_state.client.server_info().json())
+    with open("ui-config.json", "r") as f:
+        config = json.load(f)
+    st.write("Logged in")
+    post_login_page = config.get("post_login_page", None)
+    if post_login_page:
+        st.switch_page(post_login_page)
 else:
     st.write("## Login")
     with st.form("login_form"):

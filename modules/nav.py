@@ -1,8 +1,15 @@
 import streamlit as st
+import json
 
 def SidebarNav():
     with st.sidebar:
-        st.page_link('app.py', label="Home")
         if "client" in st.session_state:
-            st.page_link('pages/analyses.py', label="Analyses")
-            st.page_link('pages/dashboard.py', label="Dashboard")
+            with open("ui-config.json", "r") as f:
+                config = json.load(f)
+
+            pages_config = config['pages']
+
+            for page_config in pages_config:
+                st.page_link(page_config['path'], label=page_config['label'])
+        else:
+            st.page_link('app.py', label="Login")

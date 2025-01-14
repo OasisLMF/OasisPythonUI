@@ -17,3 +17,7 @@ def get_portfolios(client):
 def get_analyses(client):
     analyses = client.analyses.get().json()
     return pd.json_normalize(analyses)
+
+def get_models(client):
+    analyses = client.models.get().json()
+    return pd.json_normalize(analyses)
