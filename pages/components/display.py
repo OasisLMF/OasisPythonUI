@@ -17,14 +17,31 @@ class DataframeView:
         self.column_config = {col_name: None for col_name in df.columns}
         for c in display_cols:
             self.column_config[c] = st.column_config.TextColumn(self.format_column_heading(c))
+            if c == 'id':
+                self.column_config[c] = st.column_config.TextColumn("ID")
 
-    def display(self, handle_empty=True):
-        if handle_empty and self.df.empty:
+    def display(self):
+        if self.df.empty:
             st.dataframe(self.df, hide_index=True, column_order=self.display_cols)
             return None
 
-        st.dataframe(self.df, hide_index=True, column_config=self.column_config,
-                     column_order=self.display_cols, use_container_width=True)
+        args = {
+            'hide_index': True,
+            'column_config': self.column_config,
+            'use_container_width': True,
+            'column_order': self.display_cols
+        }
+
+        if self.selectable:
+            args['selection_mode']="single-row"
+            args['on_select']="rerun"
+
+        ret = st.dataframe(self.df, **args)
+
+        if self.selectable:
+            return self.selected_to_row(ret)
+
+        return None
 
     def convert_datetime_cols(self, datetime_cols):
         for c in datetime_cols:
@@ -36,3 +53,10 @@ class DataframeView:
     @staticmethod
     def format_column_heading(heading):
         return heading.replace('_', ' ').title()
+
+    def selected_to_row(self, selected):
+        selected = selected["selection"]["rows"]
+
+        if len(selected) > 0:
+            return self.df.iloc[selected[0]]
+        return None
