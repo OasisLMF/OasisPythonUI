@@ -143,24 +143,16 @@ def display_analyses(client):
 
 
 def display_select_models(models):
-    display_cols = ['id', 'supplier_id', 'model_id', 'version_id', 'created', 'modified']
-
-    if models.empty:
-        column_config = generate_column_config(display_cols, display_cols)
-        st.dataframe(pd.DataFrame(columns=display_cols), hide_index=True, column_config=column_config,
-                     column_order=display_cols)
-        return None
-
-    models = convert_datetime_cols(models, datetime_cols)
-
-    column_config = generate_column_config(models.columns.values, display_cols,
-                                           date_time_cols=datetime_cols)
-
     st.write('Select Model')
-    selected = st.dataframe(models, hide_index=True, column_config=column_config, column_order=display_cols,
-                     selection_mode="single-row", on_select="rerun")
 
-    return selected_to_row(selected, models)
+    display_cols = ['id', 'supplier_id', 'model_id', 'version_id', 'created', 'modified']
+    datetime_cols = ['created', 'modified']
+
+    model_view = DataframeView(models, selectable=True, display_cols=display_cols)
+    model_view.convert_datetime_cols(datetime_cols)
+    selected = model_view.display()
+
+    return selected
 
 
 @st.fragment
