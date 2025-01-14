@@ -3,7 +3,7 @@ import pandas as pd
 from requests.exceptions import HTTPError
 from modules.nav import SidebarNav
 from modules.validation import validate_name, validate_not_none, validate_key_vals, validate_key_is_not_null
-from modules.client import check_analysis_status, get_portfolios
+from modules.client import check_analysis_status, get_analyses, get_portfolios
 from modules.utils import selected_to_row, convert_datetime_cols, generate_column_config
 import os
 import json
@@ -128,41 +128,16 @@ with create_portfolio:
 rerun_interval_analysis = None
 
 def display_analyses(client):
-    analyses = client.analyses.get().json()
-    analyses = pd.json_normalize(analyses)
+    analyses = get_analyses(client)
 
     display_cols = [ 'id', 'name', 'portfolio', 'model', 'created', 'modified',
                     'status' ]
-
-    if analyses.empty:
-        column_config = generate_column_config(display_cols, display_cols)
-        st.dataframe(pd.DataFrame(columns=display_cols), hide_index=True, column_config=column_config,
-                     column_order=display_cols)
-        return None
-
-    analyses = convert_datetime_cols(analyses, datetime_cols)
-
-    # Following need to be combined with other df
-    # - Portfolio Name
-    # - Model Version
-    # - Supplier
-    # - Created
-    # - Modified
-    # - Status Details
-    # - Status
-
-    column_config = generate_column_config(analyses.columns.values, display_cols,
-                                           date_time_cols=datetime_cols)
+    datetime_cols = ['created', 'modified']
 
     '1) Select an analysis:'
-    selected = st.dataframe(analyses, hide_index=True,
-                                     column_config=column_config,
-                                     column_order=display_cols,
-                                     use_container_width=True,
-                                     selection_mode="single-row",
-                                     on_select="rerun",
-                            )
-    selected =  selected_to_row(selected, analyses)
+    analyses_view = DataframeView(analyses, selectable=True, display_cols=display_cols)
+    analyses_view.convert_datetime_cols(datetime_cols)
+    selected = analyses_view.display()
 
     return selected
 
