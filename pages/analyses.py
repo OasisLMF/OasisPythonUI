@@ -10,6 +10,7 @@ from json import JSONDecodeError
 import pydeck as pdk
 import altair as alt
 import time
+from pages.components.create import create_analysis_form
 from pages.components.display import DataframeView
 
 st.set_page_config(
@@ -158,38 +159,8 @@ def display_select_models(models):
 def new_analysis():
     portfolios = client.portfolios.get().json()
     models = client.models.get().json()
-    models = pd.json_normalize(models)
 
-    def format_portfolio(portfolio):
-        return f"{portfolio['id']}: {portfolio['name']}"
-
-    with st.form("create_analysis_form", clear_on_submit=True, enter_to_submit=False):
-        name = st.text_input("Analysis Name")
-        portfolio = st.selectbox('Select Portfolio', options = portfolios,
-                                    index=None, format_func=format_portfolio)
-
-
-        model = display_select_models(models)
-        submitted = st.form_submit_button("Create Analysis")
-
-        if submitted:
-            # todo: add validation requiring name
-            validations = []
-            validations.append(validate_name(name))
-            validations.append(validate_not_none(portfolio, 'Porfolio'))
-            validations.append(validate_not_none(model, 'Model'))
-
-            if all([v[0] for v  in validations]):
-                client.create_analysis(portfolio_id=int(portfolio["id"]), model_id=int(model["id"]),
-                                       analysis_name=name)
-                st.success("Analysis created")
-                time.sleep(0.5) # Briefly display the message
-                st.rerun()
-            else:
-                for v in validations:
-                    if v[0] is False:
-                        st.error(v[1])
-                submitted = False
+    create_analysis_form(portfolios, models, client)
 
 # Tabs for show and create
 
