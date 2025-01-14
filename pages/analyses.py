@@ -3,7 +3,7 @@ import pandas as pd
 from requests.exceptions import HTTPError
 from modules.nav import SidebarNav
 from modules.validation import validate_name, validate_not_none, validate_key_vals, validate_key_is_not_null
-from modules.client import check_analysis_status
+from modules.client import check_analysis_status, get_portfolios
 from modules.utils import selected_to_row, convert_datetime_cols, generate_column_config
 import os
 import json
@@ -11,6 +11,7 @@ from json import JSONDecodeError
 import pydeck as pdk
 import altair as alt
 import time
+from pages.components.display import DataframeView
 
 st.set_page_config(
     page_title = "Analysis",
@@ -31,30 +32,16 @@ else:
 
 "## Portfolios"
 
-date_time_cols = ['created', 'modified']
-
-def display_portfolios(portfolios):
-    display_cols = [ 'id', 'name', 'created', 'modified', 'storage_links', ]
-    if portfolios.empty:
-        column_config = generate_column_config(display_cols, display_cols)
-        st.dataframe(pd.DataFrame(columns=display_cols), hide_index=True, column_config=column_config,
-                     column_order=display_cols)
-        return None
-
-    portfolios = convert_datetime_cols(portfolios, date_time_cols)
-
-    column_config = generate_column_config(portfolios.columns.values, display_cols,
-                                           date_time_cols=date_time_cols)
-
-    st.dataframe(portfolios, hide_index=True, column_config=column_config, column_order=display_cols,
-                 use_container_width=True)
 
 show_portfolio, create_portfolio = st.tabs(['Show Portfolios', 'Create Portfolio'])
 
+datetime_cols = ['created', 'modified']
+display_cols = [ 'id', 'name', 'created', 'modified', ]
 with show_portfolio:
-    portfolios = client.portfolios.get().json()
-    portfolios =  pd.json_normalize(portfolios)
-    display_portfolios(portfolios)
+    portfolios = get_portfolios(client)
+    portfolio_view = DataframeView(portfolios, display_cols=display_cols)
+    portfolio_view.convert_datetime_cols(datetime_cols)
+    portfolio_view.display()
 
 @st.fragment
 def new_portfolio():
@@ -153,7 +140,7 @@ def display_analyses(client):
                      column_order=display_cols)
         return None
 
-    analyses = convert_datetime_cols(analyses, date_time_cols)
+    analyses = convert_datetime_cols(analyses, datetime_cols)
 
     # Following need to be combined with other df
     # - Portfolio Name
@@ -165,7 +152,7 @@ def display_analyses(client):
     # - Status
 
     column_config = generate_column_config(analyses.columns.values, display_cols,
-                                           date_time_cols=date_time_cols)
+                                           date_time_cols=datetime_cols)
 
     '1) Select an analysis:'
     selected = st.dataframe(analyses, hide_index=True,
@@ -189,10 +176,10 @@ def display_select_models(models):
                      column_order=display_cols)
         return None
 
-    models = convert_datetime_cols(models, date_time_cols)
+    models = convert_datetime_cols(models, datetime_cols)
 
     column_config = generate_column_config(models.columns.values, display_cols,
-                                           date_time_cols=date_time_cols)
+                                           date_time_cols=datetime_cols)
 
     st.write('Select Model')
     selected = st.dataframe(models, hide_index=True, column_config=column_config, column_order=display_cols,
