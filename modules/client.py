@@ -13,3 +13,7 @@ def check_analysis_status(client, id, required_status):
 def get_portfolios(client):
     resp = client.portfolios.get().json()
     return pd.json_normalize(resp)
+
+def get_analyses(client):
+    analyses = client.analyses.get().json()
+    return pd.json_normalize(analyses)
