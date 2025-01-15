@@ -19,7 +19,8 @@ class ClientInterface:
         self.client = client
 
     def create_analysis(self, portfolio_id, model_id, analysis_name):
-        self.client.create_analysis(portfolio_id = portfolio_id,
+        resp = self.client.create_analysis(portfolio_id = portfolio_id,
                                     model_id = model_id,
                                     analysis_name = analysis_name)
 
+        return resp
