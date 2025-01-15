@@ -3,7 +3,7 @@ import streamlit as st
 import pandas as pd
 from requests.exceptions import HTTPError
 from modules.nav import SidebarNav
-from modules.validation import validate_name, validate_not_none, validate_key_vals, validate_key_is_not_null
+from modules.validation import KeyValueValidation, NameValidation, NotNoneValidation, ValidationGroup, validate_name, validate_not_none, validate_key_vals, validate_key_is_not_null
 from modules.client import ClientInterface
 import os
 import json
@@ -72,8 +72,8 @@ def new_portfolio():
         submitted = st.form_submit_button("Create Portfolio")
 
         if submitted:
-            validation = validate_name(name)
-            if validation[0]:
+            validation = NameValidation()
+            if validation.is_valid(name):
                 st.session_state.portfolio_form_data.update({
                     'name': name,
                     'location_file': loc_file,
@@ -83,7 +83,7 @@ def new_portfolio():
                     'submitted': True
                 })
             else:
-                st.error(validation[1])
+                st.error(validation.message)
                 submitted = False
 
         if submitted:
@@ -420,22 +420,12 @@ def analysis_fragment():
         left, middle, right = st.columns(3, vertical_alignment='center')
 
     # Anlaysis run buttons
-    validation_list = [[validate_not_none, (selected,)],
-                   [validate_key_vals, (selected, 'status', ['NEW'])]]
-
-    validations = []
-    for validation in validation_list:
-        vfunc, vargs = validation
-        validations.append(vfunc(*vargs))
-        if not validations[-1][0]:
-            break
-
-    generateDisabled = True
-    if all([v[0] for v in validations]):
-        generateDisabled = False
+    validations = ValidationGroup()
+    validations.add_validation(NotNoneValidation('Selected analysis'), selected)
+    validations.add_validation(KeyValueValidation('Status'), selected, 'status', 'NEW')
 
     left.markdown("2) Generate Inputs:")
-    if middle.button("Generate", use_container_width=True, disabled=generateDisabled):
+    if middle.button("Generate", use_container_width=True, disabled=not validations.is_valid()):
         try:
             client.analyses.generate(selected['id'])
             st.session_state.rerun_analysis = True

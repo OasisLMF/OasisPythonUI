@@ -36,20 +36,23 @@ class Validation:
         self.message = message
 
     @staticmethod
-    def validation_func(*args):
+    def validation_func():
         return True
 
     def set_message(self, message):
         self.message = message
         return self.message
 
-    def validate(self, *args):
-        valid =  self.validation_func(*args)
+    def validate(self, *args, **kwargs):
+        valid =  self.validation_func(*args, **kwargs)
 
         if not valid:
             raise ValidationError(self.message)
 
         return True
+
+    def is_valid(self, *args, **kwargs):
+        return self.validation_func(*args, **kwargs)
 
 
 class NameValidation(Validation):
@@ -58,7 +61,7 @@ class NameValidation(Validation):
         super().__init__(self.message)
 
     @staticmethod
-    def validation_func(name, *args):
+    def validation_func(name):
         if not name or len(name) == 0:
             return False
         return True
@@ -70,10 +73,20 @@ class NotNoneValidation(Validation):
         super().__init__(self.message)
 
     @staticmethod
-    def validation_func(name, *args):
-        if name is None:
+    def validation_func(param):
+        if param is None:
             return False
         return True
+
+
+class KeyValueValidation(Validation):
+    def __init__(self, pname="Parameter"):
+        self.message = f"{pname} has incorrect value"
+        super().__init__(self.message)
+
+    @staticmethod
+    def validation_func(map, key, value):
+        return map[key] == value
 
 
 class ValidationGroup:
@@ -85,16 +98,23 @@ class ValidationGroup:
 
         self.validation_stack = validations
         self.arg_stack = args
+        self.message = ""
 
     def validate(self):
         for validation, val_args in zip(self.validation_stack, self.arg_stack):
             validation.validate(val_args)
         return True
 
-    def add_validation(self, validation, val_args=None):
-        self.validation_stack.append(validation)
-        self.arg_stack.append(val_args)
+    def is_valid(self):
+        for validation, val_args in zip(self.validation_stack, self.arg_stack):
+            if not validation.is_valid(*val_args[0], **val_args[1]):
+                self.message = validation.message
+                return False
+        return True
 
+    def add_validation(self, validation, *args, **kwargs):
+        self.validation_stack.append(validation)
+        self.arg_stack.append((args, kwargs))
         return self
 
 

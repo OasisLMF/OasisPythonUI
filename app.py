@@ -2,7 +2,7 @@ import streamlit as st
 from modules.nav import SidebarNav
 from modules.client import APIClient
 from oasis_data_manager.errors import OasisException
-from modules.validation import validate_name, process_validations
+from modules.validation import NameValidation, ValidationError, ValidationGroup
 import json
 
 st.set_page_config(
@@ -29,10 +29,17 @@ else:
         submitted = st.form_submit_button("Login")
 
     if submitted:
-        validations = [[validate_name, (user, "Username")],
-                       [validate_name, (password, "Password")]]
+        validations = ValidationGroup()
+        validations.add_validation(NameValidation("Username"), user)
+        validations.add_validation(NameValidation("Password"), password)
 
-        valid, msg = process_validations(validations)
+        valid = True
+        msg = None
+        try:
+            validations.validate()
+        except ValidationError as e:
+            valid = False
+            msg = e.message
 
         if valid:
             try:
