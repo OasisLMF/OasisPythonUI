@@ -3,7 +3,7 @@ import streamlit as st
 import pandas as pd
 from requests.exceptions import HTTPError
 from modules.nav import SidebarNav
-from modules.validation import KeyValueValidation, NameValidation, NotNoneValidation, ValidationGroup, validate_name, validate_not_none, validate_key_vals, validate_key_is_not_null
+from modules.validation import KeyInValuesValidation, KeyValueValidation, NameValidation, NotNoneValidation, ValidationGroup, validate_name, validate_not_none, validate_key_vals, validate_key_is_not_null
 from modules.client import ClientInterface
 import os
 import json
@@ -439,8 +439,11 @@ def analysis_fragment():
         left, middle, right = st.columns(3, vertical_alignment='center')
 
     left.markdown("3) Setup Analysis:")
-    disable_button = (selected is None or selected['status'] not in ['READY', 'NEW'])
-    if middle.button("Upload Settings File", disabled=disable_button,
+
+    validations = ValidationGroup()
+    validations.add_validation(NotNoneValidation('Analysis'), selected)
+    validations.add_validation(KeyInValuesValidation('Status'), selected, 'status', ['READY', 'NEW'])
+    if middle.button("Upload Settings File", disabled=not validations.is_valid(),
                    use_container_width=True):
         upload_settings_file(selected)
 
