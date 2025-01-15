@@ -3,7 +3,7 @@ import pandas as pd
 from requests.exceptions import HTTPError
 from modules.nav import SidebarNav
 from modules.validation import validate_name, validate_not_none, validate_key_vals, validate_key_is_not_null
-from modules.client import ClientInterface, check_analysis_status
+from modules.client import ClientInterface
 import os
 import json
 from json import JSONDecodeError
@@ -386,7 +386,7 @@ def clear_rerun_queue(rerun_queue):
             return []
 
         id, required_status = rerun_queue.pop(0)
-        if not check_analysis_status(client, id, required_status):
+        if not (client_interface.analyses.get(id)['status'] == required_status):
             rerun_queue.insert(0, (id, required_status))
             return rerun_queue
 
