@@ -66,10 +66,9 @@ with create_container:
         resp = create_analysis_form(portfolios=[selected_portfolio], models=[selected_model])
         if resp:
             try:
-                resp = client_interface.create_analysis(resp['portfolio_id'], resp['model_id'], resp['name'])
+                with st.spinner("Generating analysis..."):
+                    resp = client_interface.create_and_generate_analysis(resp['portfolio_id'], resp['model_id'], resp['name'])
                 st.success('Created analysis')
-
-                st.write(resp)
                 time.sleep(0.5)
                 st.rerun()
             except OasisException as e:
@@ -78,9 +77,9 @@ with create_container:
 
 with run_container:
     analyses = client_interface.analyses.get(df=True)
-    valid_statuses = ['NEW', 'RUN_COMPLETED', 'RUN_CANCELLED', 'RUN_ERROR']
-    analyses = analyses[analyses['status'] in valid_statuses]
-    display_cols = ['id', 'name', 'portfolio', 'model', 'created', 'modified']
+    valid_statuses = ['NEW', 'READY', 'RUN_COMPLETED', 'RUN_CANCELLED', 'RUN_ERROR']
+    analyses = analyses[analyses['status'].isin(valid_statuses)]
+    display_cols = ['id', 'name', 'portfolio', 'model', 'created', 'modified', 'status']
     datetime_cols = ['created', 'modified']
 
     analyses_view = DataframeView(analyses, display_cols=display_cols, selectable=True)

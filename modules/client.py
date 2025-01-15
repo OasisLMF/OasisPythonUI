@@ -24,3 +24,8 @@ class ClientInterface:
                                     analysis_name = analysis_name)
 
         return resp
+
+    def create_and_generate_analysis(self, portfolio_id, model_id, analysis_name):
+        resp = self.create_analysis(portfolio_id, model_id, analysis_name)
+        resp = self.client.run_generate(resp["id"])
+        return resp
