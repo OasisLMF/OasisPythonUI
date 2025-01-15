@@ -1,6 +1,6 @@
 import streamlit as st
 from modules.nav import SidebarNav
-from modules.client import get_portfolios, get_analyses, get_models
+from modules.client import ClientInterface
 from pages.components.display import DataframeView
 from pages.components.create import create_analysis_form
 from modules.validation import process_validations, validate_not_none
@@ -16,21 +16,23 @@ SidebarNav()
 
 if "client" in st.session_state:
     client = st.session_state.client
+    client_interface = ClientInterface(client)
 else:
     st.switch_page("app.py")
 
-'## Portfolios'
+'## Create Analysis'
+'#### Portfolio Selection'
 
 datetime_cols = ['created', 'modified']
 display_cols = [ 'id', 'name', 'created', 'modified', ]
 
-portfolios = get_portfolios(client)
+portfolios = client_interface.portfolios.get(df=True)
 portfolio_view = DataframeView(portfolios, display_cols=display_cols, selectable=True)
 portfolio_view.convert_datetime_cols(datetime_cols)
 selected_portfolio = portfolio_view.display()
 
-'## Models'
-models = get_models(client)
+'#### Model Selection'
+models = client_interface.models.get(df=True)
 display_cols = ['id', 'supplier_id', 'model_id', 'version_id', 'created', 'modified']
 datetime_cols = ['created', 'modified']
 
@@ -46,8 +48,8 @@ with st.popover("Create Analysis", disabled=not enable_popover, help=msg):
     create_analysis_form(portfolios=[selected_portfolio], models=[selected_model], client=client)
 
 
-'## Analyses'
-analyses = get_analyses(client)
+'## Run Analysis'
+analyses = client_interface.analyses.get(df=True)
 display_cols = [ 'id', 'name', 'portfolio', 'model', 'created', 'modified',
                 'status' ]
 datetime_cols = ['created', 'modified']

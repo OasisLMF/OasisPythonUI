@@ -3,7 +3,7 @@ import pandas as pd
 from requests.exceptions import HTTPError
 from modules.nav import SidebarNav
 from modules.validation import validate_name, validate_not_none, validate_key_vals, validate_key_is_not_null
-from modules.client import check_analysis_status, get_analyses, get_portfolios
+from modules.client import ClientInterface, check_analysis_status
 import os
 import json
 from json import JSONDecodeError
@@ -27,6 +27,7 @@ if st.button("♻️ "):
 
 if "client" in st.session_state:
     client = st.session_state.client
+    client_interface = ClientInterface(client)
 else:
     st.switch_page("app.py")
 
@@ -38,7 +39,7 @@ show_portfolio, create_portfolio = st.tabs(['Show Portfolios', 'Create Portfolio
 datetime_cols = ['created', 'modified']
 display_cols = [ 'id', 'name', 'created', 'modified', ]
 with show_portfolio:
-    portfolios = get_portfolios(client)
+    portfolios = client_interface.portfolios.get(df=True)
     portfolio_view = DataframeView(portfolios, display_cols=display_cols)
     portfolio_view.convert_datetime_cols(datetime_cols)
     portfolio_view.display()
@@ -127,8 +128,8 @@ with create_portfolio:
 
 rerun_interval_analysis = None
 
-def display_analyses(client):
-    analyses = get_analyses(client)
+def display_analyses(client_interface):
+    analyses = client_interface.analyses.get(df=True)
 
     display_cols = [ 'id', 'name', 'portfolio', 'model', 'created', 'modified',
                     'status' ]
@@ -403,7 +404,7 @@ def analysis_fragment():
 
     selected = None
     with run_analyses:
-        selected = display_analyses(client)
+        selected = display_analyses(client_interface)
 
 
     with run_analyses:
