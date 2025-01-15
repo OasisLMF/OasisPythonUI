@@ -3,7 +3,7 @@ import streamlit as st
 import pandas as pd
 from requests.exceptions import HTTPError
 from modules.nav import SidebarNav
-from modules.validation import KeyInValuesValidation, KeyValueValidation, NameValidation, NotNoneValidation, ValidationGroup, validate_name, validate_not_none, validate_key_vals, validate_key_is_not_null
+from modules.validation import KeyInValuesValidation, KeyNotNoneValidation, KeyValueValidation, NameValidation, NotNoneValidation, ValidationGroup, validate_name, validate_not_none, validate_key_vals, validate_key_is_not_null
 from modules.client import ClientInterface
 import os
 import json
@@ -447,39 +447,33 @@ def analysis_fragment():
                    use_container_width=True):
         upload_settings_file(selected)
 
-    enable_button, message = validate_key_vals(selected, 'status', ['READY'])
-    if right.button("Set Analysis Settings", disabled=not enable_button, help=message,
+    validations = ValidationGroup()
+    validations.add_validation(NotNoneValidation('Analysis'), selected)
+    validations.add_validation(KeyValueValidation('Status'), selected, 'status', 'READY')
+    enable_button = validations.is_valid()
+    msg = None
+    if not enable_button:
+        msg = validations.message
+    if right.button("Set Analysis Settings", disabled=not enable_button, help=msg,
                      use_container_width=True):
         set_analysis_settings(selected)
 
 
+    validations = ValidationGroup()
+    validations.add_validation(NotNoneValidation('Analysis'), selected)
+    validations.add_validation(KeyValueValidation('Status'), selected, 'status', 'READY')
+    validations.add_validation(KeyNotNoneValidation('Settings'), selected, 'settings')
 
-    validation_list = [[validate_not_none, (selected, 'Anlaysis row')],
-                       [validate_key_vals, (selected, 'status', ['READY'])],
-                       [validate_key_is_not_null, (selected, 'settings')]]
-    validations = []
-    for validation in validation_list:
-        vfunc, vargs = validation
-        validations.append(vfunc(*vargs))
-        if not validations[-1][0]:
-            break
-
-    runDisabled = True
-    if all([v[0] for v in validations]):
-        runDisabled = False
-        help = None
-    else:
-        help = ''
-        for v in validations:
-            if v[0] is False:
-                help += v[1]
-                help += '\n'
+    run_enabled = validations.is_valid()
+    msg = None
+    if not run_enabled:
+        msg = validations.message
 
     with run_analyses:
         left, middle, right = st.columns(3, vertical_alignment='center')
 
     left.markdown("4) Run Analysis:")
-    if middle.button("Run", use_container_width=True, disabled=runDisabled, help=help):
+    if middle.button("Run", use_container_width=True, disabled=not run_enabled, help=msg):
         try:
             client.analyses.run(selected['id'])
             st.session_state.rerun_analysis = True
@@ -491,17 +485,17 @@ def analysis_fragment():
     with run_analyses:
         left, middle, right = st.columns(3, vertical_alignment='center')
 
-    buttonEnabled, _ = validate_not_none(selected)
-    if left.button("Delete", use_container_width=True, disabled = not buttonEnabled):
+    validation = NotNoneValidation('Selected analysis')
+    button_enabled = validation.is_valid(selected)
+
+    if left.button("Delete", use_container_width=True, disabled = not button_enabled, help=validation.message):
         try:
             client.analyses.delete(selected['id'])
             st.rerun()
         except HTTPError as e:
             st.error(e)
 
-    show_summary, _ = validate_key_vals(selected, 'status', ['READY', 'RUN_COMPLETED'])
-
-    if show_summary:
+    if selected and selected['status'] in ['READY', 'RUN_COMPLETED']:
         analysis_summary_expander(selected)
 
 analysis_fragment()

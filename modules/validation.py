@@ -89,6 +89,16 @@ class KeyValueValidation(Validation):
         return map[key] == value
 
 
+class KeyNotNoneValidation(Validation):
+    def __init__(self, pname="Parameter"):
+        self.message = f"{pname} is none."
+        super().__init__(self.message)
+
+    @staticmethod
+    def validation_func(map, key):
+        return map[key] is not None
+
+
 class KeyInValuesValidation(Validation):
     def __init__(self, pname="Parameter"):
         self.message = f"{pname} has incorrect value"
