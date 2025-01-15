@@ -30,39 +30,82 @@ def process_validations(validations):
             break
     return valid, msg
 
-class Validator:
-    def __init__(self, valid_func, error_func=None):
-        self.vfunc = valid_func
-        self.message = ""
 
-        if error_func is None:
-            self.error_func = lambda _:  "Validation Failed"
+class Validation:
+    def __init__(self, message=""):
+        self.message = message
 
-    def validate(self, val_args=None, error_args=None):
-        valid =  self.vfunc(**val_args)
-
-        if not valid:
-            self.message = self.error_func(error_args)
-
-        return valid
-
-
-class GroupValidation:
-    def __init__(self, validations=[], val_args=[], err_args=[]):
-        self.validations = validations
-        self.val_args = val_args
-        self.err_args = err_args
-        self.message = ""
-        # Group validations + args into a stack?
-
-    def validate(self):
-        for validation, val_arg, err_arg in zip(self.validations, self.val_args, self.err_args):
-            valid = validation.validate(val_arg, err_arg)
-            if not valid:
-                self.message = validation.message
-                return False
+    @staticmethod
+    def validation_func(*args):
         return True
 
-    def add_validation(validation, val_arg=None, err_arg=None):
-        # Method to add a validation to the group
-        pass
+    def set_message(self, message):
+        self.message = message
+        return self.message
+
+    def validate(self, *args):
+        valid =  self.validation_func(*args)
+
+        if not valid:
+            raise ValidationError(self.message)
+
+        return True
+
+
+class NameValidation(Validation):
+    def __init__(self, pname="Parameter"):
+        self.message = f"{pname} is required"
+        super().__init__(self.message)
+
+    @staticmethod
+    def validation_func(name, *args):
+        if not name or len(name) == 0:
+            return False
+        return True
+
+
+class NotNoneValidation(Validation):
+    def __init__(self, pname="Parameter"):
+        self.message = f"{pname} is not set"
+        super().__init__(self.message)
+
+    @staticmethod
+    def validation_func(name, *args):
+        if name is None:
+            return False
+        return True
+
+
+class ValidationGroup:
+    def __init__(self, validations=None, args=None):
+        if validations is None:
+            validations = []
+        if args is None:
+            args = []
+
+        self.validation_stack = validations
+        self.arg_stack = args
+
+    def validate(self):
+        for validation, val_args in zip(self.validation_stack, self.arg_stack):
+            validation.validate(val_args)
+        return True
+
+    def add_validation(self, validation, val_args=None):
+        self.validation_stack.append(validation)
+        self.arg_stack.append(val_args)
+
+        return self
+
+
+class ValidationError(Exception):
+    """
+    Custom exception class for validation errors.
+
+    Attributes
+    ----------
+        message: explanation of error
+    """
+    def __init__(self, message):
+        self.message = message
+        super().__init__(self.message)
