@@ -1,10 +1,8 @@
 # Module to display ui components for running analyses
-from oasis_data_manager.errors import OasisException
 import streamlit as st
-from modules.validation import validate_name, validate_not_none
-import time
+from modules.validation import NameValidation, NotNoneValidation, ValidationError, ValidationGroup
 
-def create_analysis_form(portfolios, models, client):
+def create_analysis_form(portfolios, models):
     """Analysis creation form ui component."""
 
     def format_portfolio(portfolio):
@@ -31,24 +29,15 @@ def create_analysis_form(portfolios, models, client):
 
         submitted = st.form_submit_button("Create Analysis")
 
-        if submitted:
-            # todo: add validation requiring name
-            validations = []
-            validations.append(validate_name(name))
-            validations.append(validate_not_none(portfolio, 'Porfolio'))
-            validations.append(validate_not_none(model, 'Model'))
+    if submitted:
+        val_group = ValidationGroup()
+        val_group.add_validation(NameValidation('Name'), name)
+        val_group.add_validation(NotNoneValidation('Portfolio'), portfolio)
+        val_group.add_validation(NotNoneValidation('Model'), model)
 
-            if all([v[0] for v  in validations]):
-                try:
-                    client.create_analysis(portfolio_id=int(portfolio["id"]), model_id=int(model["id"]),
-                                           analysis_name=name)
-                    st.success("Analysis created")
-                    time.sleep(0.5) # Briefly display the message
-                    st.rerun()
-                except OasisException as e:
-                    st.error(e)
-            else:
-                for v in validations:
-                    if v[0] is False:
-                        st.error(v[1])
-                submitted = False
+        try:
+            val_group.validate()
+            return {'name': name, 'model_id': int(model['id']), 'portfolio_id': int(portfolio['id'])}
+        except ValidationError as e:
+            st.error(e)
+    return None

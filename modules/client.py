@@ -16,3 +16,10 @@ class ClientInterface:
         self.portfolios = EndpointInterface(client, "portfolios")
         self.analyses = EndpointInterface(client, "analyses")
         self.models = EndpointInterface(client, "models")
+        self.client = client
+
+    def create_analysis(self, portfolio_id, model_id, analysis_name):
+        self.client.create_analysis(portfolio_id = portfolio_id,
+                                    model_id = model_id,
+                                    analysis_name = analysis_name)
+
