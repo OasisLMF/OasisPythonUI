@@ -1,3 +1,4 @@
+from oasis_data_manager.errors import OasisException
 import streamlit as st
 import pandas as pd
 from requests.exceptions import HTTPError
@@ -158,10 +159,18 @@ def display_select_models(models):
 
 @st.fragment
 def new_analysis():
-    portfolios = client.portfolios.get().json()
-    models = client.models.get().json()
+    portfolios = client_interface.portfolios.get()
+    models = client_interface.models.get()
 
-    create_analysis_form(portfolios, models, client)
+    resp = create_analysis_form(portfolios, models)
+    if resp:
+        try:
+            client_interface.create_analysis(resp['portfolio_id'], resp['model_id'], resp['name'])
+            st.success('Created analysis')
+            time.sleep(0.5)
+            st.rerun()
+        except OasisException as e:
+            st.error(e)
 
 # Tabs for show and create
 

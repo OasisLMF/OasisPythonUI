@@ -1,9 +1,11 @@
+from oasis_data_manager.errors import OasisException
 import streamlit as st
 from modules.nav import SidebarNav
 from modules.client import ClientInterface
 from pages.components.display import DataframeView
 from pages.components.create import create_analysis_form
 from modules.validation import process_validations, validate_not_none
+import time
 
 st.set_page_config(
     page_title = "IDF Demo",
@@ -45,7 +47,15 @@ validations_list = [(validate_not_none, [selected_portfolio, 'Portfolio']),
 enable_popover, msg = process_validations(validations_list)
 
 with st.popover("Create Analysis", disabled=not enable_popover, help=msg):
-    create_analysis_form(portfolios=[selected_portfolio], models=[selected_model], client=client)
+    resp = create_analysis_form(portfolios=[selected_portfolio], models=[selected_model])
+    if resp:
+        try:
+            client_interface.create_analysis(resp['portfolio_id'], resp['model_id'], resp['name'])
+            st.success('Created analysis')
+            time.sleep(0.5)
+            st.rerun()
+        except OasisException as e:
+            st.error(e)
 
 
 '## Run Analysis'
