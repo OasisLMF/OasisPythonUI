@@ -4,7 +4,7 @@ from modules.nav import SidebarNav
 from modules.client import ClientInterface
 from pages.components.display import DataframeView
 from pages.components.create import create_analysis_form
-from modules.validation import process_validations, validate_not_none
+from modules.validation import NotNoneValidation, ValidationError, ValidationGroup
 import time
 
 st.set_page_config(
@@ -42,9 +42,17 @@ model_view = DataframeView(models, selectable=True, display_cols=display_cols)
 model_view.convert_datetime_cols(datetime_cols)
 selected_model = model_view.display()
 
-validations_list = [(validate_not_none, [selected_portfolio, 'Portfolio']),
-                    (validate_not_none, [selected_model, 'Model'])]
-enable_popover, msg = process_validations(validations_list)
+validations = ValidationGroup()
+validations = validations.add_validation(NotNoneValidation("Portfolio"), selected_portfolio)
+validations = validations.add_validation(NotNoneValidation("Model"), selected_model)
+
+enable_popover = True
+msg = None
+try:
+    validations.validate()
+except ValidationError as e:
+    msg = e.message
+    enable_popover = False
 
 with st.popover("Create Analysis", disabled=not enable_popover, help=msg):
     resp = create_analysis_form(portfolios=[selected_portfolio], models=[selected_model])
