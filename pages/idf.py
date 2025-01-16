@@ -1,7 +1,6 @@
 from oasis_data_manager.errors import OasisException
 import streamlit as st
 from modules.nav import SidebarNav
-from modules.client import ClientInterface
 from pages.components.display import DataframeView
 from pages.components.create import create_analysis_form
 from modules.validation import NotNoneValidation, ValidationError, ValidationGroup
@@ -18,7 +17,7 @@ SidebarNav()
 
 if "client" in st.session_state:
     client = st.session_state.client
-    client_interface = ClientInterface(client)
+    client_interface = st.session_state.client_interface
 else:
     st.switch_page("app.py")
 
@@ -84,4 +83,4 @@ with run_container:
 
     analyses_view = DataframeView(analyses, display_cols=display_cols, selectable=True)
     analyses_view.convert_datetime_cols(datetime_cols)
-    selected_analyses = analyses_view.display()
+    selected = analyses_view.display()

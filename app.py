@@ -1,6 +1,6 @@
 import streamlit as st
+from modules.client import ClientInterface
 from modules.nav import SidebarNav
-from modules.client import APIClient
 from oasis_data_manager.errors import OasisException
 from modules.validation import NameValidation, ValidationError, ValidationGroup
 import json
@@ -43,7 +43,9 @@ else:
 
         if valid:
             try:
-                st.session_state["client"] = APIClient(username=user, password=password)
+                client_interface = ClientInterface(username=user, password=password)
+                st.session_state["client"] = client_interface.client
+                st.session_state["client_interface"] = client_interface
                 st.rerun()
             except OasisException as _:
                 st.error("Authentication Failed")
