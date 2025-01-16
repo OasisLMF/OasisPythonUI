@@ -122,7 +122,7 @@ class ValidationGroup:
 
     def validate(self):
         for validation, val_args in zip(self.validation_stack, self.arg_stack):
-            validation.validate(val_args)
+            validation.validate(*val_args[0], **val_args[1])
         return True
 
     def is_valid(self):
