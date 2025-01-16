@@ -1,0 +1,24 @@
+{
+    "model_name_id": "PiWind",
+    "model_supplier_id": "OasisLMF",
+    "gul_threshold": 0,
+    "gul_output": true,
+    "model_settings": {
+        "event_set": "p",
+        "event_occurrence_id": "lt"
+    },
+    "gul_summaries": [
+        {
+            "eltcalc": true,
+            "id": 1
+        }
+    ],
+    "il_output": true,
+    "il_summaries": [
+        {
+            "eltcalc": true,
+            "id": 1
+        }
+    ],
+    "number_of_samples": 10
+}
