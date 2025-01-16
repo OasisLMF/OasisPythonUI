@@ -11,7 +11,7 @@ import pydeck as pdk
 import altair as alt
 import time
 from pages.components.create import create_analysis_form
-from pages.components.display import DataframeView
+from pages.components.display import DataframeView, MapView
 
 st.set_page_config(
     page_title = "Analysis",
@@ -258,33 +258,6 @@ def set_analysis_settings(analysis):
             st.error(f'Invalid Settings File: {e}')
         st.rerun()
 
-def generate_location_map(locations):
-    layer = pdk.Layer(
-        'ScatterplotLayer',
-        locations,
-        get_position=["Longitude", "Latitude"],
-        get_line_color = [0, 0, 0],
-        get_fill_color = [255, 140, 0],
-        radius_min_pixels = 1,
-        radius_max_pixels = 50,
-        radius_scale = 2,
-        pickable=True,
-        stroked=True,
-        get_line_width=0.5,
-    )
-
-    viewstate = pdk.data_utils.compute_view(locations[['Longitude', 'Latitude']])
-
-    # Prevent over zooming
-    if viewstate.zoom > 18:
-        viewstate.zoom = 18
-
-    deck = pdk.Deck(layers=[layer], initial_view_state=viewstate,
-                    tooltip={"text": "Peril: {LocPerilsCovered}\nBuilding TIV: {BuildingTIV}"},
-                    map_style='light')
-    return deck
-
-
 @st.cache_data
 def calculate_locations_success(locations, keys_df):
     num_locations = len(locations['loc_id'].unique())
@@ -328,8 +301,8 @@ def summarise_keys_generation(keys_df, locations):
 @st.dialog("Locations Map", width='large')
 def show_locations_map(locations):
     with st.spinner('Loading map...'):
-        deck = generate_location_map(locations)
-        st.pydeck_chart(deck, use_container_width=True)
+        map_view = MapView(locations)
+        map_view.display()
 
 
 def analysis_summary_expander(selected):
@@ -494,7 +467,7 @@ def analysis_fragment():
         except HTTPError as e:
             st.error(e)
 
-    if selected and selected['status'] in ['READY', 'RUN_COMPLETED']:
+    if selected is not None and selected['status'] in ['READY', 'RUN_COMPLETED']:
         analysis_summary_expander(selected)
 
 analysis_fragment()
