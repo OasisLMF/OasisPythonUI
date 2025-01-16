@@ -1,10 +1,14 @@
 from oasis_data_manager.errors import OasisException
+from requests.exceptions import HTTPError
 import streamlit as st
 from modules.nav import SidebarNav
+from modules.settings import get_analyses_settings
 from pages.components.display import DataframeView, MapView
 from pages.components.create import create_analysis_form
-from modules.validation import NotNoneValidation, ValidationError, ValidationGroup
+from modules.validation import KeyInValuesValidation, NotNoneValidation, ValidationError, ValidationGroup
 import time
+import json
+from json import JSONDecodeError
 
 st.set_page_config(
     page_title = "Simplified Demo",
@@ -90,11 +94,9 @@ with create_container:
                     exposure_map.display()
             show_locations_map()
 
-
-
 with run_container:
     analyses = client_interface.analyses.get(df=True)
-    valid_statuses = ['NEW', 'READY', 'RUN_COMPLETED', 'RUN_CANCELLED', 'RUN_ERROR']
+    valid_statuses = ['NEW', 'READY', 'RUN_STARTED', 'RUN_COMPLETED', 'RUN_CANCELLED', 'RUN_ERROR']
     analyses = analyses[analyses['status'].isin(valid_statuses)]
     display_cols = ['id', 'name', 'portfolio', 'model', 'created', 'modified', 'status']
     datetime_cols = ['created', 'modified']
@@ -102,3 +104,32 @@ with run_container:
     analyses_view = DataframeView(analyses, display_cols=display_cols, selectable=True)
     analyses_view.convert_datetime_cols(datetime_cols)
     selected = analyses_view.display()
+
+    valid_statuses = ['NEW', 'READY','RUN_COMPLETED', 'RUN_CANCELLED', 'RUN_ERROR']
+    validations = ValidationGroup()
+    validations.add_validation(NotNoneValidation('Analysis'), selected)
+    validations.add_validation(KeyInValuesValidation('Status'), selected, 'status', valid_statuses)
+    run_enabled = validations.is_valid()
+
+    if st.button('Run', disabled = not run_enabled, help=validations.message):
+        analysis_settings = get_analyses_settings(model_id = selected['model'])[0]
+        st.write(analysis_settings)
+        st.write('Uploading analysis settings...')
+        try:
+            client_interface.upload_settings(selected['id'], analysis_settings)
+        except (JSONDecodeError, HTTPError) as _:
+            st.error('Failed to upload settings')
+        st.write('Analysis settings uploaded')
+
+        st.write('Running...')
+
+        try:
+            if selected['status'] == 'NEW':
+                client_interface.generate_and_run(selected['id'])
+            else:
+                client_interface.run(selected['id'])
+        except HTTPError as e:
+            st.error(f'Run Failed.')
+            print(e)
+        st.write('Run executed...')
+

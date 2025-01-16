@@ -42,3 +42,12 @@ class ClientInterface:
         resp = self.create_analysis(portfolio_id, model_id, analysis_name)
         resp = self.client.run_generate(resp["id"])
         return resp
+
+    def upload_settings(self, analysis_id, analysis_settings):
+        self.client.upload_settings(analysis_id, analysis_settings)
+
+    def run(self, analysis_id):
+        return self.client.analyses.run(analysis_id)
+
+    def generate_and_run(self, analysis_id):
+        return self.client.analyses.generate_and_run(analysis_id)
