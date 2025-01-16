@@ -1,6 +1,6 @@
 {
   "pages" : [{"path": "pages/analyses.py", "label": "Analyses"},
              {"path": "pages/dashboard.py", "label": "Dashboard"},
-             {"path": "pages/idf.py", "label": "IDF Demo"}],
-  "post_login_page": "pages/idf.py"
+             {"path": "pages/simplified.py", "label": "Simplified Demo"}],
+  "post_login_page": "pages/simplified.py"
 }

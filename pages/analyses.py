@@ -282,8 +282,8 @@ def generate_location_map(locations):
     deck = pdk.Deck(layers=[layer], initial_view_state=viewstate,
                     tooltip={"text": "Peril: {LocPerilsCovered}\nBuilding TIV: {BuildingTIV}"},
                     map_style='light')
-
     return deck
+
 
 @st.cache_data
 def calculate_locations_success(locations, keys_df):

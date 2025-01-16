@@ -7,13 +7,13 @@ from modules.validation import NotNoneValidation, ValidationError, ValidationGro
 import time
 
 st.set_page_config(
-    page_title = "IDF Demo",
+    page_title = "Simplified Demo",
     layout = "centered"
 )
 
 SidebarNav()
 
-"# OasisLMF UI - IDF Demo"
+"# OasisLMF UI - Simplified"
 
 if "client" in st.session_state:
     client = st.session_state.client
