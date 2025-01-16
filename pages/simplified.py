@@ -94,7 +94,36 @@ with create_container:
                     exposure_map.display()
             show_locations_map()
 
-with run_container:
+if "rerun_analysis" not in st.session_state:
+    st.session_state["rerun_analysis"] = False
+
+if "rerun_queue" not in st.session_state:
+    st.session_state["rerun_queue"] = []
+
+def clear_rerun_queue(rerun_queue):
+    while True:
+        if len(rerun_queue) == 0:
+            return []
+
+        id, required_status = rerun_queue.pop(0)
+        if not (client_interface.analyses.get(id)['status'] == required_status):
+            rerun_queue.insert(0, (id, required_status))
+            return rerun_queue
+
+run_every = None
+if st.session_state.rerun_analysis:
+    run_every = "5s"
+
+@st.fragment(run_every=run_every)
+def run_containter_fragment():
+    # todo extract this when abstracting rerunner
+    st.session_state.rerun_queue = clear_rerun_queue(st.session_state.rerun_queue)
+    if len(st.session_state.rerun_queue) == 0 and st.session_state.rerun_analysis:
+        st.session_state.rerun_analysis = False
+        st.rerun()
+
+    st.write(run_every)
+
     analyses = client_interface.analyses.get(df=True)
     valid_statuses = ['NEW', 'READY', 'RUN_STARTED', 'RUN_COMPLETED', 'RUN_CANCELLED', 'RUN_ERROR']
     analyses = analyses[analyses['status'].isin(valid_statuses)]
@@ -122,14 +151,18 @@ with run_container:
         st.write('Analysis settings uploaded')
 
         st.write('Running...')
-
         try:
             if selected['status'] == 'NEW':
                 client_interface.generate_and_run(selected['id'])
             else:
                 client_interface.run(selected['id'])
+            st.session_state.rerun_analysis = True
+            st.session_state.rerun_queue.append((selected['id'], 'RUN_COMPLETED'))
+            st.rerun()
         except HTTPError as e:
             st.error(f'Run Failed.')
             print(e)
-        st.write('Run executed...')
 
+with run_container:
+    st.write(st.session_state.rerun_analysis)
+    run_containter_fragment()
