@@ -11,6 +11,13 @@ class EndpointInterface:
             data = pd.json_normalize(data)
         return data
 
+    def get_file(self, ID, filename, df=False):
+        if df:
+            data = getattr(self.endpoint, filename).get_dataframe(ID)
+        else:
+            data = getattr(self.endpoint, filename).get(ID)
+        return data
+
 class ClientInterface:
     def __init__(self, client=None, username=None, password=None):
         if username is not None and password is not None:
