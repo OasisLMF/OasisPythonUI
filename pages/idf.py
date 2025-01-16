@@ -1,7 +1,7 @@
 from oasis_data_manager.errors import OasisException
 import streamlit as st
 from modules.nav import SidebarNav
-from pages.components.display import DataframeView
+from pages.components.display import DataframeView, MapView
 from pages.components.create import create_analysis_form
 from modules.validation import NotNoneValidation, ValidationError, ValidationGroup
 import time
@@ -61,17 +61,35 @@ with create_container:
         msg = e.message
         enable_popover = False
 
-    with st.popover("Create Analysis", disabled=not enable_popover, help=msg):
-        resp = create_analysis_form(portfolios=[selected_portfolio], models=[selected_model])
-        if resp:
-            try:
-                with st.spinner("Generating analysis..."):
-                    resp = client_interface.create_and_generate_analysis(resp['portfolio_id'], resp['model_id'], resp['name'])
-                st.success('Created analysis')
-                time.sleep(0.5)
-                st.rerun()
-            except OasisException as e:
-                st.error(e)
+    # Set up row of buttons
+    cols = st.columns([0.25, 0.25, 0.5])
+
+    with cols[0]:
+        with st.popover("Create Analysis", disabled=not enable_popover, help=msg, use_container_width=True):
+            resp = create_analysis_form(portfolios=[selected_portfolio], models=[selected_model])
+            if resp:
+                try:
+                    with st.spinner("Generating analysis..."):
+                        resp = client_interface.create_and_generate_analysis(resp['portfolio_id'], resp['model_id'], resp['name'])
+                    st.success('Created analysis')
+                    time.sleep(0.5)
+                    st.rerun()
+                except OasisException as e:
+                    st.error(e)
+
+    with cols[1]:
+        validation = NotNoneValidation("Portfolio")
+        enable_map_button = validation.is_valid(selected_portfolio)
+        if st.button("Exposure Map", disabled=not enable_map_button,
+                     help=validation.message, use_container_width=True):
+            @st.dialog("Locations Map", width='large')
+            def show_locations_map():
+                with st.spinner('Loading map...'):
+                    locations = client_interface.portfolios.endpoint.location_file.get_dataframe(selected_portfolio["id"])
+                    exposure_map = MapView(locations)
+                    exposure_map.display()
+            show_locations_map()
+
 
 
 with run_container:

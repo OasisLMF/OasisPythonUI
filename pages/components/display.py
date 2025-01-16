@@ -1,28 +1,38 @@
 # Module to display inputs and views from api
 import pandas as pd
 import streamlit as st
+import pydeck as pdk
+
+class View:
+    def __init__(self, data):
+        self.data = data
+
+    def display(self):
+        st.write(self.data)
+        return None
 
 
-class DataframeView:
-    def __init__(self, df=None, selectable=False, display_cols=None):
-        if df is None:
-            df = pd.DataFrame(columns=display_cols)
-        self.df = df
+class DataframeView(View):
+    def __init__(self, data=None, selectable=False, display_cols=None):
+        if data is None:
+            data = pd.DataFrame(columns=display_cols)
+        self.data = data
+        super().__init__(self.data)
         self.selectable = selectable
 
         if display_cols is None:
-            display_cols = df.columns
+            display_cols = data.columns
         self.display_cols = display_cols
 
-        self.column_config = {col_name: None for col_name in df.columns}
+        self.column_config = {col_name: None for col_name in data.columns}
         for c in display_cols:
             self.column_config[c] = st.column_config.TextColumn(self.format_column_heading(c))
             if c == 'id':
                 self.column_config[c] = st.column_config.TextColumn("ID")
 
     def display(self):
-        if self.df.empty:
-            st.dataframe(self.df, hide_index=True, column_order=self.display_cols)
+        if self.data.empty:
+            st.dataframe(self.data, hide_index=True, column_order=self.display_cols)
             return None
 
         args = {
@@ -36,7 +46,7 @@ class DataframeView:
             args['selection_mode']="single-row"
             args['on_select']="rerun"
 
-        ret = st.dataframe(self.df, **args)
+        ret = st.dataframe(self.data, **args)
 
         if self.selectable:
             return self.selected_to_row(ret)
@@ -45,10 +55,10 @@ class DataframeView:
 
     def convert_datetime_cols(self, datetime_cols):
         for c in datetime_cols:
-            self.df[c] = pd.to_datetime(self.df[c])
+            self.data[c] = pd.to_datetime(self.data[c])
             self.column_config[c] = st.column_config.DatetimeColumn(self.format_column_heading(c),
                                                                     format="hh:mm a, D MMM YY")
-        return self.df
+        return self.data
 
     @staticmethod
     def format_column_heading(heading):
@@ -58,5 +68,51 @@ class DataframeView:
         selected = selected["selection"]["rows"]
 
         if len(selected) > 0:
-            return self.df.iloc[selected[0]]
+            return self.data.iloc[selected[0]]
         return None
+
+
+class MapView(View):
+    def __init__(self, data, longitude="Longitude", latitude="Latitude"):
+        self.data = data
+        self.longitude_key = longitude
+        self.latitude_key = latitude
+
+    def display(self):
+        deck = self.generate_location_map()
+        st.pydeck_chart(deck, use_container_width=True)
+        return None
+
+    def generate_location_map(self):
+        locations = self.data
+
+        layer = pdk.Layer(
+            'ScatterplotLayer',
+            locations,
+            get_position=[self.longitude_key, self.latitude_key],
+            get_line_color = [0, 0, 0],
+            get_fill_color = [255, 140, 0],
+            radius_min_pixels = 1,
+            radius_max_pixels = 50,
+            radius_scale = 2,
+            pickable=True,
+            stroked=True,
+            get_line_width=0.5,
+        )
+
+        viewstate = pdk.data_utils.compute_view(locations[[self.longitude_key, self.latitude_key]])
+
+        # Prevent over zooming
+        if viewstate.zoom > 18:
+            viewstate.zoom = 18
+
+
+        tooltip = {'text': ''}
+        if 'LocPerilsCovered' in locations.columns:
+            tooltip['text'] += "Peril: {LocPerilsCovered}"
+        if 'BuildingTIV' in locations.columns:
+            tooltip['text'] += "\nBuilding TIV: {BuildingTIV}"
+        deck = pdk.Deck(layers=[layer], initial_view_state=viewstate,
+                        tooltip=tooltip,
+                        map_style='light')
+        return deck
