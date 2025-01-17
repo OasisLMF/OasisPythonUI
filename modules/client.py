@@ -1,5 +1,8 @@
 import pandas as pd
 from oasislmf.platform_api.client import APIClient
+import tempfile
+import os
+import streamlit as st
 
 class EndpointInterface:
     def __init__(self, client, endpoint_name='portfolios'):
@@ -51,3 +54,11 @@ class ClientInterface:
 
     def generate_and_run(self, analysis_id):
         return self.client.analyses.generate_and_run(analysis_id)
+
+    def download_output(self, analysis_id):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self.client.download_output(analysis_id, download_path=tmpdir)
+            fname = os.listdir(tmpdir)[0]
+            with open(os.path.join(tmpdir, fname), 'rb') as f:
+                data = f.read()
+        return data

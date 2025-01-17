@@ -1,4 +1,7 @@
 from oasis_data_manager.errors import OasisException
+import tarfile
+from io import BytesIO
+from pathlib import Path
 from requests.exceptions import HTTPError
 import streamlit as st
 from modules.nav import SidebarNav
@@ -121,25 +124,63 @@ with run_container:
         validations.add_validation(KeyInValuesValidation('Status'), selected, 'status', valid_statuses)
         run_enabled = validations.is_valid()
 
-        if st.button('Run', disabled = not run_enabled, help=validations.message):
-            analysis_settings = get_analyses_settings(model_id = selected['model'])[0]
+        columns = st.columns([0.25, 0.25, 0.25, 0.25])
 
-            try:
-                client_interface.upload_settings(selected['id'], analysis_settings)
-            except (JSONDecodeError, HTTPError) as _:
-                st.error('Failed to upload settings')
+        with columns[0]:
+            if st.button('Run', disabled = not run_enabled, help=validations.message, use_container_width=True):
+                analysis_settings = get_analyses_settings(model_id = selected['model'])[0]
 
-            try:
-                if selected['status'] == 'NEW':
-                    client_interface.generate_and_run(selected['id'])
-                else:
-                    client_interface.run(selected['id'])
+                try:
+                    client_interface.upload_settings(selected['id'], analysis_settings)
+                except (JSONDecodeError, HTTPError) as _:
+                    st.error('Failed to upload settings')
 
-                st.success("Run started.")
-                time.sleep(0.5)
+                try:
+                    if selected['status'] == 'NEW':
+                        client_interface.generate_and_run(selected['id'])
+                    else:
+                        client_interface.run(selected['id'])
 
-                re_handler.start(selected['id'], 'RUN_COMPLETED')
-            except HTTPError as _:
-                st.error('Starting run Failed.')
+                    st.success("Run started.")
+                    time.sleep(0.5)
+
+                    re_handler.start(selected['id'], 'RUN_COMPLETED')
+                except HTTPError as _:
+                    st.error('Starting run Failed.')
+
+        # Download button
+        valid_statuses = ['RUN_COMPLETED']
+        validations = ValidationGroup()
+        validations.add_validation(NotNoneValidation('Analysis'), selected)
+        validations.add_validation(KeyInValuesValidation('Status'), selected, 'status', valid_statuses)
+        download_enabled = validations.is_valid()
+
+        @st.dialog("Output")
+        def display_outputs(ci, analysis_id):
+            fname = f"analysis_{analysis_id}_output.tar.gz"
+            fdata = ci.download_output(analysis_id)
+
+            tdata = tarfile.open(fileobj=BytesIO(fdata))
+            output_files = [m.name for m in tdata.getmembers() if m.isfile()]
+            output_files = [Path(p).name for p in output_files]
+
+            st.markdown(f"Output File Name: `{fname}`")
+
+            s = "File Contents: \n```"
+            for f in output_files:
+                s += f"- {f}\n"
+            s += "```"
+            st.markdown(s)
+
+            st.download_button('Download Results File',
+                               data=fdata,
+                               file_name=fname)
+
+
+        if download_enabled:
+            with columns[1]:
+                if st.button("Show Output", use_container_width=True):
+                    display_outputs(client_interface, selected["id"])
+
 
     analysis_fragment()
