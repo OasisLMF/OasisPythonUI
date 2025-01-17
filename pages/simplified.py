@@ -2,12 +2,12 @@ from oasis_data_manager.errors import OasisException
 from requests.exceptions import HTTPError
 import streamlit as st
 from modules.nav import SidebarNav
+from modules.rerun import RefreshHandler
 from modules.settings import get_analyses_settings
 from pages.components.display import DataframeView, MapView
 from pages.components.create import create_analysis_form
 from modules.validation import KeyInValuesValidation, NotNoneValidation, ValidationError, ValidationGroup
 import time
-import json
 from json import JSONDecodeError
 
 st.set_page_config(
@@ -94,75 +94,52 @@ with create_container:
                     exposure_map.display()
             show_locations_map()
 
-if "rerun_analysis" not in st.session_state:
-    st.session_state["rerun_analysis"] = False
-
-if "rerun_queue" not in st.session_state:
-    st.session_state["rerun_queue"] = []
-
-def clear_rerun_queue(rerun_queue):
-    while True:
-        if len(rerun_queue) == 0:
-            return []
-
-        id, required_status = rerun_queue.pop(0)
-        if not (client_interface.analyses.get(id)['status'] == required_status):
-            rerun_queue.insert(0, (id, required_status))
-            return rerun_queue
-
-run_every = None
-if st.session_state.rerun_analysis:
-    run_every = "5s"
-
-@st.fragment(run_every=run_every)
-def run_containter_fragment():
-    # todo extract this when abstracting rerunner
-    st.session_state.rerun_queue = clear_rerun_queue(st.session_state.rerun_queue)
-    if len(st.session_state.rerun_queue) == 0 and st.session_state.rerun_analysis:
-        st.session_state.rerun_analysis = False
-        st.rerun()
-
-    st.write(run_every)
-
-    analyses = client_interface.analyses.get(df=True)
-    valid_statuses = ['NEW', 'READY', 'RUN_STARTED', 'RUN_COMPLETED', 'RUN_CANCELLED', 'RUN_ERROR']
-    analyses = analyses[analyses['status'].isin(valid_statuses)]
-    display_cols = ['id', 'name', 'portfolio', 'model', 'created', 'modified', 'status']
-    datetime_cols = ['created', 'modified']
-
-    analyses_view = DataframeView(analyses, display_cols=display_cols, selectable=True)
-    analyses_view.convert_datetime_cols(datetime_cols)
-    selected = analyses_view.display()
-
-    valid_statuses = ['NEW', 'READY','RUN_COMPLETED', 'RUN_CANCELLED', 'RUN_ERROR']
-    validations = ValidationGroup()
-    validations.add_validation(NotNoneValidation('Analysis'), selected)
-    validations.add_validation(KeyInValuesValidation('Status'), selected, 'status', valid_statuses)
-    run_enabled = validations.is_valid()
-
-    if st.button('Run', disabled = not run_enabled, help=validations.message):
-        analysis_settings = get_analyses_settings(model_id = selected['model'])[0]
-        st.write(analysis_settings)
-        st.write('Uploading analysis settings...')
-        try:
-            client_interface.upload_settings(selected['id'], analysis_settings)
-        except (JSONDecodeError, HTTPError) as _:
-            st.error('Failed to upload settings')
-        st.write('Analysis settings uploaded')
-
-        st.write('Running...')
-        try:
-            if selected['status'] == 'NEW':
-                client_interface.generate_and_run(selected['id'])
-            else:
-                client_interface.run(selected['id'])
-            st.session_state.rerun_analysis = True
-            st.session_state.rerun_queue.append((selected['id'], 'RUN_COMPLETED'))
-            st.rerun()
-        except HTTPError as e:
-            st.error(f'Run Failed.')
-            print(e)
-
 with run_container:
-    st.write(st.session_state.rerun_analysis)
-    run_containter_fragment()
+    re_handler = RefreshHandler(client_interface)
+    run_every = re_handler.run_every()
+
+    if run_every is not None:
+        st.write(f'Refreshing.')
+
+    @st.fragment(run_every=run_every)
+    def analysis_fragment():
+        re_handler.update_queue()
+
+        analyses = client_interface.analyses.get(df=True)
+        valid_statuses = ['NEW', 'READY', 'RUN_QUEUED', 'RUN_STARTED', 'RUN_COMPLETED', 'RUN_CANCELLED', 'RUN_ERROR']
+        analyses = analyses[analyses['status'].isin(valid_statuses)]
+        display_cols = ['id', 'name', 'portfolio', 'model', 'modified', 'status']
+        datetime_cols = ['modified']
+
+        analyses_view = DataframeView(analyses, display_cols=display_cols, selectable=True)
+        analyses_view.convert_datetime_cols(datetime_cols)
+        selected = analyses_view.display()
+
+        valid_statuses = ['NEW', 'READY', 'RUN_CANCELLED', 'RUN_ERROR']
+        validations = ValidationGroup()
+        validations.add_validation(NotNoneValidation('Analysis'), selected)
+        validations.add_validation(KeyInValuesValidation('Status'), selected, 'status', valid_statuses)
+        run_enabled = validations.is_valid()
+
+        if st.button('Run', disabled = not run_enabled, help=validations.message):
+            analysis_settings = get_analyses_settings(model_id = selected['model'])[0]
+
+            try:
+                client_interface.upload_settings(selected['id'], analysis_settings)
+            except (JSONDecodeError, HTTPError) as _:
+                st.error('Failed to upload settings')
+
+            try:
+                if selected['status'] == 'NEW':
+                    client_interface.generate_and_run(selected['id'])
+                else:
+                    client_interface.run(selected['id'])
+
+                st.success("Run started.")
+                time.sleep(0.5)
+
+                re_handler.start(selected['id'], 'RUN_COMPLETED')
+            except HTTPError as _:
+                st.error('Starting run Failed.')
+
+    analysis_fragment()
