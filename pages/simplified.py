@@ -39,21 +39,17 @@ run_container = st.container(border=True)
 with create_container:
     '#### Portfolio Selection'
 
-    datetime_cols = ['created', 'modified']
-    display_cols = [ 'id', 'name', 'created', 'modified', ]
+    display_cols = [ 'id', 'name', ]
 
     portfolios = client_interface.portfolios.get(df=True)
     portfolio_view = DataframeView(portfolios, display_cols=display_cols, selectable=True)
-    portfolio_view.convert_datetime_cols(datetime_cols)
     selected_portfolio = portfolio_view.display()
 
     '#### Model Selection'
     models = client_interface.models.get(df=True)
-    display_cols = ['id', 'supplier_id', 'model_id', 'version_id', 'created', 'modified']
-    datetime_cols = ['created', 'modified']
+    display_cols = ['id', 'supplier_id', 'model_id', 'version_id', ]
 
     model_view = DataframeView(models, selectable=True, display_cols=display_cols)
-    model_view.convert_datetime_cols(datetime_cols)
     selected_model = model_view.display()
 
     validations = ValidationGroup()
@@ -111,11 +107,9 @@ with run_container:
         analyses = client_interface.analyses.get(df=True)
         valid_statuses = ['NEW', 'READY', 'RUN_QUEUED', 'RUN_STARTED', 'RUN_COMPLETED', 'RUN_CANCELLED', 'RUN_ERROR']
         analyses = analyses[analyses['status'].isin(valid_statuses)]
-        display_cols = ['id', 'name', 'portfolio', 'model', 'modified', 'status']
-        datetime_cols = ['modified']
+        display_cols = ['id', 'name', 'portfolio', 'model', 'status']
 
         analyses_view = DataframeView(analyses, display_cols=display_cols, selectable=True)
-        analyses_view.convert_datetime_cols(datetime_cols)
         selected = analyses_view.display()
 
         valid_statuses = ['NEW', 'READY', 'RUN_CANCELLED', 'RUN_ERROR']

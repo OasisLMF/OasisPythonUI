@@ -55,6 +55,8 @@ class DataframeView(View):
 
     def convert_datetime_cols(self, datetime_cols):
         for c in datetime_cols:
+            if c not in self.display_cols:
+                continue
             self.data[c] = pd.to_datetime(self.data[c])
             self.column_config[c] = st.column_config.DatetimeColumn(self.format_column_heading(c),
                                                                     format="hh:mm a, D MMM YY")
