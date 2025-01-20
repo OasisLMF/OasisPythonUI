@@ -14,7 +14,7 @@ import time
 from json import JSONDecodeError
 from modules.client import ClientInterface
 
-from pages.components.process import enrich_portfolios
+from pages.components.process import enrich_analyses, enrich_portfolios
 
 st.set_page_config(
     page_title = "Simplified Demo",
@@ -43,19 +43,21 @@ run_container = st.container(border=True)
 with create_container:
     '#### Portfolio Selection'
 
-    display_cols = [ 'id', 'name', ]
-
     # Prepare portfolios data
     portfolios = client_interface.portfolios.get(df=True)
     portfolios = enrich_portfolios(portfolios, client_interface)
-    display_cols.extend(['number_locations', 'number_accounts'])
+
+    display_cols = ['name', 'number_locations', 'number_accounts']
 
     portfolio_view = DataframeView(portfolios, display_cols=display_cols, selectable=True)
     selected_portfolio = portfolio_view.display()
 
+    if selected_portfolio is not None:
+        st.write(selected_portfolio)
+
     '#### Model Selection'
     models = client_interface.models.get(df=True)
-    display_cols = ['id', 'supplier_id', 'model_id', 'version_id', ]
+    display_cols = [ 'supplier_id', 'model_id', 'run_mode', ]
 
     model_view = DataframeView(models, selectable=True, display_cols=display_cols)
     selected_model = model_view.display()
@@ -113,9 +115,14 @@ with run_container:
         re_handler.update_queue()
 
         analyses = client_interface.analyses.get(df=True)
+        portfolios = client_interface.portfolios.get(df=True)
+        models = client_interface.models.get(df=True)
+
         valid_statuses = ['NEW', 'READY', 'RUN_QUEUED', 'RUN_STARTED', 'RUN_COMPLETED', 'RUN_CANCELLED', 'RUN_ERROR']
         analyses = analyses[analyses['status'].isin(valid_statuses)]
-        display_cols = ['id', 'name', 'portfolio', 'model', 'status']
+        analyses = enrich_analyses(analyses, portfolios, models)
+
+        display_cols = ['name', 'portfolio_name', 'model_id', 'model_supplier', 'status']
 
         analyses_view = DataframeView(analyses, display_cols=display_cols, selectable=True)
         selected = analyses_view.display()
