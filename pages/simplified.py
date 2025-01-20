@@ -12,6 +12,9 @@ from pages.components.create import create_analysis_form
 from modules.validation import KeyInValuesValidation, NotNoneValidation, ValidationError, ValidationGroup
 import time
 from json import JSONDecodeError
+from modules.client import ClientInterface
+
+from pages.components.process import enrich_portfolios
 
 st.set_page_config(
     page_title = "Simplified Demo",
@@ -24,7 +27,8 @@ SidebarNav()
 
 if "client" in st.session_state:
     client = st.session_state.client
-    client_interface = st.session_state.client_interface
+    # client_interface = st.session_state.client_interface
+    client_interface = ClientInterface(client)
 else:
     st.switch_page("app.py")
 
@@ -41,7 +45,11 @@ with create_container:
 
     display_cols = [ 'id', 'name', ]
 
+    # Prepare portfolios data
     portfolios = client_interface.portfolios.get(df=True)
+    portfolios = enrich_portfolios(portfolios, client_interface)
+    display_cols.extend(['number_locations', 'number_accounts'])
+
     portfolio_view = DataframeView(portfolios, display_cols=display_cols, selectable=True)
     selected_portfolio = portfolio_view.display()
 

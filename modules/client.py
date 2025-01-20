@@ -15,11 +15,32 @@ class EndpointInterface:
         return data
 
     def get_file(self, ID, filename, df=False):
+        data = getattr(self.endpoint, filename, None)
+        if data is None:
+            return data
         if df:
-            data = getattr(self.endpoint, filename).get_dataframe(ID)
+            data = data.get_dataframe(ID)
         else:
-            data = getattr(self.endpoint, filename).get(ID)
+            data = data.get(ID)
         return data
+
+
+class PortfoliosEndpointInterface(EndpointInterface):
+    def __init__(self, client):
+        super().__init__(client, "portfolios")
+
+    def get_location_file(self, ID, df=False):
+        return self.get_file(ID, "location_file", df)
+
+    def get_accounts_file(self, ID, df=False):
+        return self.get_file(ID, "accounts_file", df)
+
+    def get_reinsurance_info_file(self, ID, df=False):
+        return self.get_file(ID, "reinsurance_info_file", df)
+
+    def get_reinsurance_scope_file(self, ID, df=False):
+        return self.get_file(ID, "reinsurance_scope_file", df)
+
 
 class ClientInterface:
     def __init__(self, client=None, username=None, password=None):
@@ -29,7 +50,7 @@ class ClientInterface:
         assert client is not None, 'Client not set'
 
         self.client = client
-        self.portfolios = EndpointInterface(client, "portfolios")
+        self.portfolios = PortfoliosEndpointInterface(client)
         self.analyses = EndpointInterface(client, "analyses")
         self.models = EndpointInterface(client, "models")
 
