@@ -13,3 +13,7 @@ def SidebarNav():
                 st.page_link(page_config['path'], label=page_config['label'])
         else:
             st.page_link('app.py', label="Login")
+    # Add logo
+    st.logo(image="images/oasis_logo_bg.png",
+            size="large")
+

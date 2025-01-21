@@ -202,5 +202,3 @@ def test_create_analyses_form(mock_app_test):
     model_select = at.tabs[3].selectbox[1].options
     assert len(model_select) == len(models_data)
     assert models_data[0]['supplier_id'] in model_select[0]
-
-    # todo: AppTest does not support selecting dataframes, use alt testing method
