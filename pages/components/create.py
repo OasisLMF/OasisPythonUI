@@ -11,21 +11,20 @@ def create_analysis_form(portfolios, models):
     def format_model(model):
         return f"{model['id']}: {model['model_id']}{model['version_id']} {model['supplier_id']}"
 
+    if len(portfolios) == 0 or len(models) == 0:
+        st.write("Ensure portfolios and models are loaded")
+        return None
+
     with st.form("create_analysis_form", clear_on_submit=True, enter_to_submit=False):
         name = st.text_input("Analysis Name")
 
-        if len(portfolios) > 1:
-            portfolio = st.selectbox('Select Portfolio', options=portfolios,
-                                     index=None, format_func=format_portfolio)
-        else:
-            portfolio = portfolios[0]
+        selected_port = 0 if len(portfolios) == 1 else None
+        portfolio = st.selectbox('Select Portfolio', options=portfolios,
+                                 index=selected_port, format_func=format_portfolio)
 
-        if len(models) > 1:
-            # model = display_select_models(models)
-            model = st.selectbox('Select Model', options=models,
-                                 index=None, format_func=format_model)
-        else:
-            model = models[0]
+        selected_model = 0 if len(models) == 1 else None
+        model = st.selectbox('Select Model', options=models,
+                             index=selected_model, format_func=format_model)
 
         submitted = st.form_submit_button("Create Analysis")
 

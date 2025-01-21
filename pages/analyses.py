@@ -70,7 +70,7 @@ def new_portfolio():
         submitted = st.form_submit_button("Create Portfolio")
 
         if submitted:
-            validation = NameValidation()
+            validation = NameValidation("Name")
             if validation.is_valid(name):
                 st.session_state.portfolio_form_data.update({
                     'name': name,

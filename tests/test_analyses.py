@@ -4,6 +4,8 @@ from oasis_data_manager.errors import OasisException
 import pandas as pd
 from pandas.testing import assert_frame_equal
 
+from modules.client import ClientInterface
+
 @pytest.fixture(autouse=True)
 def no_requests(monkeypatch):
     """Remove requests.sessions.Session.request for all tests."""
@@ -17,11 +19,15 @@ class MockJsonObject:
         return self.data
 
 class MockEndpoint:
-    def __init__(self, json_data={}):
+    def __init__(self, json_data=[{}]):
         self.json_data = json_data
 
-    def get(self):
-        return MockJsonObject(self.json_data)
+    def get(self, ID=None):
+        if ID is None:
+            data = self.json_data
+        else:
+            data = self.json_data[ID]
+        return MockJsonObject(data)
 
 class MockApiClient:
     def __init__(self, username="", password="",
@@ -88,9 +94,15 @@ def mock_api_client():
                          models=models_data)
 
 @pytest.fixture()
-def mock_app_test(mock_api_client):
+def mock_client_interface(mock_api_client):
+    return ClientInterface(client = mock_api_client)
+
+
+@pytest.fixture()
+def mock_app_test(mock_api_client, mock_client_interface):
     at = AppTest.from_file("app.py")
     at.session_state["client"]  = mock_api_client
+    at.session_state["client_interface"] = mock_client_interface
     at.switch_page("pages/analyses.py")
     at.run()
     return at
@@ -99,13 +111,15 @@ def mock_app_test(mock_api_client):
 def test_empty_analyses_page():
     at = AppTest.from_file("app.py")
     at.session_state["client"]  = MockApiClient()
+    at.session_state["client_interface"] = ClientInterface(MockApiClient())
     at.switch_page("pages/analyses.py")
     at = at.run()
 
     # Empty portfolios
     portfolios_df = at.dataframe[0].value
-    columns=['id', 'name', 'created', 'modified', 'storage_links']
+    columns=['id', 'name', 'created', 'modified']
     expected_df = pd.DataFrame(columns=columns)
+
     assert_frame_equal(expected_df, portfolios_df)
 
     assert at.tabs[0].label == 'Show Portfolios'
@@ -185,8 +199,8 @@ def test_create_analyses_form(mock_app_test):
     assert len(portfolio_select) == len(portfolios_data)
     assert portfolios_data[0]['name'] in portfolio_select[0]
 
-    model_select = at.tabs[3].dataframe[0]
-    assert len(model_select.value) == len(models_data)
-    assert model_select.value['supplier_id'][0] == models_data[0]['supplier_id']
+    model_select = at.tabs[3].selectbox[1].options
+    assert len(model_select) == len(models_data)
+    assert models_data[0]['supplier_id'] in model_select[0]
 
     # todo: AppTest does not support selecting dataframes, use alt testing method

@@ -2,6 +2,7 @@
 import pandas as pd
 import streamlit as st
 import pydeck as pdk
+from streamlit import column_config
 
 class View:
     def __init__(self, data):
@@ -32,7 +33,9 @@ class DataframeView(View):
 
     def display(self):
         if self.data.empty:
-            st.dataframe(self.data, hide_index=True, column_order=self.display_cols)
+            st.dataframe(pd.DataFrame(columns=self.display_cols),
+                         hide_index=True, column_config=self.column_config,
+                         column_order=self.display_cols)
             return None
 
         args = {
@@ -55,7 +58,7 @@ class DataframeView(View):
 
     def convert_datetime_cols(self, datetime_cols):
         for c in datetime_cols:
-            if c not in self.display_cols:
+            if c not in self.display_cols or c not in self.data.columns:
                 continue
             self.data[c] = pd.to_datetime(self.data[c])
             self.column_config[c] = st.column_config.DatetimeColumn(self.format_column_heading(c),
