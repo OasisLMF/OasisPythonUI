@@ -128,7 +128,7 @@ with col2:
 
 with col3:
     if analysis:
-        "### Ouput Summary"
+        "### Output Summary"
         outputs_dict = get_outputs(analysis["id"])
         output_summary = summarise_outputs(outputs_dict)
         output_view = view_output_summary(output_summary)

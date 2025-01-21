@@ -22,14 +22,17 @@ class DataframeView(View):
         self.selectable = selectable
 
         if display_cols is None:
-            display_cols = data.columns
+            display_cols = data.columns.to_list()
         self.display_cols = display_cols
 
         self.column_config = {col_name: None for col_name in data.columns}
         for c in display_cols:
-            self.column_config[c] = st.column_config.TextColumn(self.format_column_heading(c))
             if c == 'id':
                 self.column_config[c] = st.column_config.TextColumn("ID")
+            elif 'TIV' in c:
+                self.column_config[c] = st.column_config.TextColumn(c)
+            else:
+                self.column_config[c] = st.column_config.TextColumn(self.format_column_heading(c))
 
     def display(self):
         if self.data.empty:

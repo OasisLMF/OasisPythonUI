@@ -14,6 +14,7 @@ import time
 from json import JSONDecodeError
 from modules.client import ClientInterface
 
+from pages.components.output import summarise_intputs
 from pages.components.process import enrich_analyses, enrich_portfolios
 
 st.set_page_config(
@@ -162,8 +163,15 @@ with run_container:
         validations.add_validation(KeyInValuesValidation('Status'), selected, 'status', valid_statuses)
         download_enabled = validations.is_valid()
 
-        @st.dialog("Output")
+        @st.dialog("Output", width="large")
         def display_outputs(ci, analysis_id):
+            st.markdown('# Analysis Summary')
+            locations = ci.analyses.get_file(analysis_id, 'input_file', df=True)['location.csv']
+            a_settings = client.analyses.settings.get(analysis_id).json()
+            summarise_intputs(locations, a_settings)
+
+
+            st.markdown('# Results Summary')
             fname = f"analysis_{analysis_id}_output.tar.gz"
             fdata = ci.download_output(analysis_id)
 
@@ -172,12 +180,6 @@ with run_container:
             output_files = [Path(p).name for p in output_files]
 
             st.markdown(f"Output File Name: `{fname}`")
-
-            s = "File Contents: \n```"
-            for f in output_files:
-                s += f"- {f}\n"
-            s += "```"
-            st.markdown(s)
 
             st.download_button('Download Results File',
                                data=fdata,
