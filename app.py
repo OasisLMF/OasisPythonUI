@@ -12,7 +12,9 @@ st.set_page_config(
 
 SidebarNav()
 
-"# OasisLMF UI"
+cols = st.columns([0.1, 0.8, 0.1])
+with cols[1]:
+    st.image(image="images/oasis_logo.png")
 
 if "client" in st.session_state:
     with open("ui-config.json", "r") as f:
@@ -22,7 +24,6 @@ if "client" in st.session_state:
     if post_login_page:
         st.switch_page(post_login_page)
 else:
-    st.write("## Login")
     with st.form("login_form"):
         user = st.text_input("Username", key="username")
         password = st.text_input("Password", key="password", type="password")
