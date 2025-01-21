@@ -5,15 +5,22 @@ from modules.validation import NameValidation, NotNoneValidation, ValidationErro
 def create_analysis_form(portfolios, models):
     """Analysis creation form ui component."""
 
-    def format_portfolio(portfolio):
-        return f"{portfolio['id']}: {portfolio['name']}"
+    def list_empty(lst):
+        if len(lst) == 0:
+            return True
+        if all(e is None for e in lst):
+            return True
+        return False
 
-    def format_model(model):
-        return f"{model['id']}: {model['model_id']}{model['version_id']} {model['supplier_id']}"
-
-    if len(portfolios) == 0 or len(models) == 0:
+    if list_empty(portfolios) or list_empty(models):
         st.write("Ensure portfolios and models are loaded")
         return None
+
+    def format_portfolio(portfolio):
+        return f"{portfolio['name']}"
+
+    def format_model(model):
+        return f"{model['model_id']} {model['run_mode']} {model['supplier_id']}"
 
     with st.form("create_analysis_form", clear_on_submit=True, enter_to_submit=False):
         name = st.text_input("Analysis Name")
@@ -24,7 +31,7 @@ def create_analysis_form(portfolios, models):
 
         selected_model = 0 if len(models) == 1 else None
         model = st.selectbox('Select Model', options=models,
-                             index=selected_model, format_func=format_model)
+                             index=selected_port, format_func=format_model)
 
         submitted = st.form_submit_button("Create Analysis")
 

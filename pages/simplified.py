@@ -52,9 +52,6 @@ with create_container:
     portfolio_view = DataframeView(portfolios, display_cols=display_cols, selectable=True)
     selected_portfolio = portfolio_view.display()
 
-    if selected_portfolio is not None:
-        st.write(selected_portfolio)
-
     '#### Model Selection'
     models = client_interface.models.get(df=True)
     display_cols = [ 'supplier_id', 'model_id', 'run_mode', ]
@@ -79,16 +76,17 @@ with create_container:
 
     with cols[0]:
         with st.popover("Create Analysis", disabled=not enable_popover, help=msg, use_container_width=True):
-            resp = create_analysis_form(portfolios=[selected_portfolio], models=[selected_model])
-            if resp:
-                try:
-                    with st.spinner("Generating analysis..."):
-                        resp = client_interface.create_and_generate_analysis(resp['portfolio_id'], resp['model_id'], resp['name'])
-                    st.success('Created analysis')
-                    time.sleep(0.5)
-                    st.rerun()
-                except OasisException as e:
-                    st.error(e)
+            if enable_popover:
+                resp = create_analysis_form(portfolios=[selected_portfolio.to_dict()], models=[selected_model.to_dict()])
+                if resp:
+                    try:
+                        with st.spinner("Generating analysis..."):
+                            resp = client_interface.create_and_generate_analysis(resp['portfolio_id'], resp['model_id'], resp['name'])
+                        st.success('Created analysis')
+                        time.sleep(0.5)
+                        st.rerun()
+                    except OasisException as e:
+                        st.error(e)
 
     with cols[1]:
         validation = NotNoneValidation("Portfolio")
