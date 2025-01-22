@@ -70,6 +70,7 @@ models_data = [
         'supplier_id': 'OasisLMF',
         'model_id': 'model',
         'version_id': 'v2',
+        'run_mode': 'V2',
         "created": "2023-05-26T07:11:08.140539Z",
         "modified": "2023-05-26T07:11:08.140539Z",
     }
