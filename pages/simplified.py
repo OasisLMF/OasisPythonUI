@@ -64,19 +64,14 @@ with create_container:
     validations = validations.add_validation(NotNoneValidation("Portfolio"), selected_portfolio)
     validations = validations.add_validation(NotNoneValidation("Model"), selected_model)
 
-    enable_popover = True
-    msg = None
-    try:
-        validations.validate()
-    except ValidationError as e:
-        msg = e.message
-        enable_popover = False
+    enable_popover = validations.is_valid()
+    msg = validations.get_message()
 
     # Set up row of buttons
     cols = st.columns([0.25, 0.25, 0.5])
 
     with cols[0]:
-        with st.popover("Create Analysis", disabled=not enable_popover, help=msg, use_container_width=True):
+        with st.popover("Create Analysis", disabled=not enable_popover, help=msg,  use_container_width=True):
             if enable_popover:
                 resp = create_analysis_form(portfolios=[selected_portfolio.to_dict()], models=[selected_model.to_dict()])
                 if resp:
@@ -92,8 +87,9 @@ with create_container:
     with cols[1]:
         validation = NotNoneValidation("Portfolio")
         enable_map_button = validation.is_valid(selected_portfolio)
+
         if st.button("Exposure Map", disabled=not enable_map_button,
-                     help=validation.message, use_container_width=True):
+                     help=validation.get_message(), use_container_width=True):
             @st.dialog("Locations Map", width='large')
             def show_locations_map():
                 with st.spinner('Loading map...'):
@@ -131,11 +127,12 @@ with run_container:
         validations.add_validation(NotNoneValidation('Analysis'), selected)
         validations.add_validation(KeyInValuesValidation('Status'), selected, 'status', valid_statuses)
         run_enabled = validations.is_valid()
+        msg = validations.get_message()
 
         columns = st.columns([0.25, 0.25, 0.25, 0.25])
 
         with columns[0]:
-            if st.button('Run', disabled = not run_enabled, help=validations.message, use_container_width=True):
+            if st.button('Run', disabled = not run_enabled, help=msg, use_container_width=True):
                 analysis_settings = get_analyses_settings(model_id = selected['model'])[0]
 
                 try:
@@ -190,6 +187,5 @@ with run_container:
             with columns[1]:
                 if st.button("Show Output", use_container_width=True):
                     display_outputs(client_interface, selected["id"])
-
 
     analysis_fragment()

@@ -34,25 +34,32 @@ def process_validations(validations):
 class Validation:
     def __init__(self, message=""):
         self.message = message
+        self.valid = None
 
     @staticmethod
     def validation_func():
         return True
+
+    def get_message(self):
+        if self.valid is None or self.valid == True:
+            return None
+        return self.message
 
     def set_message(self, message):
         self.message = message
         return self.message
 
     def validate(self, *args, **kwargs):
-        valid =  self.validation_func(*args, **kwargs)
+        self.valid =  self.validation_func(*args, **kwargs)
 
-        if not valid:
+        if not self.valid:
             raise ValidationError(self.message)
 
         return True
 
     def is_valid(self, *args, **kwargs):
-        return self.validation_func(*args, **kwargs)
+        self.valid = self.validation_func(*args, **kwargs)
+        return self.valid
 
 
 class NameValidation(Validation):
@@ -119,23 +126,33 @@ class ValidationGroup:
         self.validation_stack = validations
         self.arg_stack = args
         self.message = ""
+        self.valid = None
 
     def validate(self):
+        self.valid = False
         for validation, val_args in zip(self.validation_stack, self.arg_stack):
             validation.validate(*val_args[0], **val_args[1])
+        self.valid = True
         return True
 
     def is_valid(self):
         for validation, val_args in zip(self.validation_stack, self.arg_stack):
             if not validation.is_valid(*val_args[0], **val_args[1]):
                 self.message = validation.message
+                self.valid = False
                 return False
+        self.valid = True
         return True
 
     def add_validation(self, validation, *args, **kwargs):
         self.validation_stack.append(validation)
         self.arg_stack.append((args, kwargs))
         return self
+
+    def get_message(self):
+        if self.valid is None or self.valid == True:
+            return None
+        return self.message
 
 
 class ValidationError(Exception):
