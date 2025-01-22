@@ -2,7 +2,6 @@
 import pandas as pd
 import streamlit as st
 import pydeck as pdk
-from streamlit import column_config
 
 class View:
     def __init__(self, data):
@@ -20,6 +19,7 @@ class DataframeView(View):
         self.data = data
         super().__init__(self.data)
         self.selectable = selectable
+        self.status_style = True
 
         if display_cols is None:
             display_cols = data.columns.to_list()
@@ -50,7 +50,30 @@ class DataframeView(View):
             args['selection_mode']="single-row"
             args['on_select']="rerun"
 
-        ret = st.dataframe(self.data, **args)
+
+        # Add styling
+        data_styled = self.data
+
+        def format_status(status):
+            return status.replace('_', ' ').title()
+
+        def colour_status(status):
+            colour = 'black'
+            if status == 'READY':
+                colour = 'green'
+            elif status == 'RUN_STARTED':
+                colour = 'goldenrod'
+            elif status == 'RUN_COMPLETED':
+                colour = 'black'
+            elif status in ['RUN_CANCELLED', 'RUN_ERROR']:
+                colour = 'darkred'
+            return f'color: {colour}'
+
+        if self.status_style and 'status' in self.data.columns:
+            data_styled = data_styled.style.format(format_status, subset=['status'])
+            data_styled = data_styled.applymap(colour_status, subset=['status'])
+
+        ret = st.dataframe(data_styled, **args)
 
         if self.selectable:
             return self.selected_to_row(ret)
