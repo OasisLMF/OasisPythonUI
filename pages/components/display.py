@@ -27,9 +27,7 @@ class DataframeView(View):
 
         self.column_config = {col_name: None for col_name in data.columns}
         for c in display_cols:
-            if c == 'id':
-                self.column_config[c] = st.column_config.TextColumn("ID")
-            elif 'TIV' in c:
+            if 'TIV' in c:
                 self.column_config[c] = st.column_config.TextColumn(c)
             else:
                 self.column_config[c] = st.column_config.TextColumn(self.format_column_heading(c))
@@ -70,7 +68,7 @@ class DataframeView(View):
 
     @staticmethod
     def format_column_heading(heading):
-        return heading.replace('_', ' ').title()
+        return heading.replace('_', ' ').title().replace('Id', 'ID')
 
     def selected_to_row(self, selected):
         selected = selected["selection"]["rows"]
