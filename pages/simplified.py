@@ -24,7 +24,9 @@ st.set_page_config(
 
 SidebarNav()
 
-"# OasisLMF UI - Simplified"
+cols = st.columns([0.1, 0.8, 0.1])
+with cols[1]:
+    st.image("images/oasis_logo.png")
 
 if "client" in st.session_state:
     client = st.session_state.client
