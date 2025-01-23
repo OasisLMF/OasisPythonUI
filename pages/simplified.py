@@ -192,10 +192,9 @@ with run_container:
                                file_name=fname)
 
 
-        if download_enabled:
-            with columns[1]:
-                if st.button("Show Output", use_container_width=True):
-                    display_outputs(client_interface, selected["id"])
+        with columns[1]:
+            if st.button("Show Output", use_container_width=True, disabled = not download_enabled):
+                display_outputs(client_interface, selected["id"])
 
 
     if len(client_interface.analyses.get()) == 0:
