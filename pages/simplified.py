@@ -52,16 +52,16 @@ with create_container:
 
     # Prepare portfolios data
     portfolios = client_interface.portfolios.get(df=True)
-    portfolios = enrich_portfolios(portfolios, client_interface)
+    portfolios = enrich_portfolios(portfolios, client_interface, disable=['acc'])
 
-    display_cols = ['name', 'number_locations', 'number_accounts']
+    display_cols = ['name', 'number_locations']
 
     portfolio_view = DataframeView(portfolios, display_cols=display_cols, selectable=True)
     selected_portfolio = portfolio_view.display()
 
     '#### Model Selection'
     models = client_interface.models.get(df=True)
-    display_cols = [ 'model_id', 'supplier_id', 'run_mode', ]
+    display_cols = [ 'model_id', 'supplier_id' ]
 
     model_view = DataframeView(models, selectable=True, display_cols=display_cols)
     selected_model = model_view.display()
