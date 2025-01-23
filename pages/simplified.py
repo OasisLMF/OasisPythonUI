@@ -35,6 +35,12 @@ else:
 
 '## Create Analysis'
 
+if len(client_interface.portfolios.get()) == 0:
+    st.error('No Portfolios Found')
+    st.stop()
+if len(client_interface.models.get()) == 0:
+    st.error('No Models Found')
+    st.stop()
 create_container = st.container(border=True)
 
 '## Run Analysis'
@@ -55,7 +61,7 @@ with create_container:
 
     '#### Model Selection'
     models = client_interface.models.get(df=True)
-    display_cols = [ 'supplier_id', 'model_id', 'run_mode', ]
+    display_cols = [ 'model_id', 'supplier_id', 'run_mode', ]
 
     model_view = DataframeView(models, selectable=True, display_cols=display_cols)
     selected_model = model_view.display()
@@ -101,9 +107,6 @@ with create_container:
 with run_container:
     re_handler = RefreshHandler(client_interface)
     run_every = re_handler.run_every()
-
-    if run_every is not None:
-        st.write(f'Refreshing.')
 
     @st.fragment(run_every=run_every)
     def analysis_fragment():
@@ -188,4 +191,10 @@ with run_container:
                 if st.button("Show Output", use_container_width=True):
                     display_outputs(client_interface, selected["id"])
 
+
+    if len(client_interface.analyses.get()) == 0:
+        st.error("No Analyses Found")
+        st.stop()
     analysis_fragment()
+    if run_every is not None:
+        st.info(f'Analysis running.')
