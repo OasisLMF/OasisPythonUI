@@ -12,6 +12,7 @@ from pages.components.create import create_analysis_form
 from modules.validation import KeyInValuesValidation, NotNoneValidation, ValidationGroup, IsNoneValidation
 import time
 from json import JSONDecodeError
+import json
 from modules.client import ClientInterface
 
 from pages.components.output import summarise_intputs
@@ -127,6 +128,15 @@ with run_container:
         analyses_view = DataframeView(analyses, display_cols=display_cols, selectable=True)
         selected = analyses_view.display()
 
+        oed_group = st.pills("Group output by:",
+                             [ "Portfolio", "Country", "Location"], selection_mode="multi")
+
+        group_to_code = {
+            'Portfolio': 'PortNumber',
+            'Country': 'CountryCode',
+            'Location': 'LocNumber'
+        }
+
         valid_statuses = ['NEW', 'READY', 'RUN_CANCELLED', 'RUN_ERROR']
         validations = ValidationGroup()
         validations.add_validation(NotNoneValidation('Analysis'), selected)
@@ -143,6 +153,12 @@ with run_container:
         with columns[0]:
             if st.button('Run', disabled = not run_enabled, help=msg, use_container_width=True):
                 analysis_settings = get_analyses_settings(model_id = selected['model'])[0]
+                with open(analysis_settings, 'r') as f:
+                    analysis_settings = json.load(f)
+                if len(oed_group) > 0:
+                    oed_group_codes = [group_to_code[g] for g in oed_group]
+                    analysis_settings['gul_summaries'][0]['oed_fields'] = oed_group_codes
+                    analysis_settings['il_summaries'][0]['oed_fields'] = oed_group_codes
 
                 try:
                     client_interface.upload_settings(selected['id'], analysis_settings)
