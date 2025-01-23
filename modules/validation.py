@@ -86,6 +86,18 @@ class NotNoneValidation(Validation):
         return True
 
 
+class IsNoneValidation(Validation):
+    def __init__(self, pname="Parameter"):
+        self.message = f"{pname} is set"
+        super().__init__(self.message)
+
+    @staticmethod
+    def validation_func(param):
+        if param is None:
+            return True
+        return False
+
+
 class KeyValueValidation(Validation):
     def __init__(self, pname="Parameter"):
         self.message = f"{pname} has incorrect value"

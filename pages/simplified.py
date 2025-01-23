@@ -9,7 +9,7 @@ from modules.rerun import RefreshHandler
 from modules.settings import get_analyses_settings
 from pages.components.display import DataframeView, MapView
 from pages.components.create import create_analysis_form
-from modules.validation import KeyInValuesValidation, NotNoneValidation, ValidationGroup
+from modules.validation import KeyInValuesValidation, NotNoneValidation, ValidationGroup, IsNoneValidation
 import time
 from json import JSONDecodeError
 from modules.client import ClientInterface
@@ -131,6 +131,10 @@ with run_container:
         validations = ValidationGroup()
         validations.add_validation(NotNoneValidation('Analysis'), selected)
         validations.add_validation(KeyInValuesValidation('Status'), selected, 'status', valid_statuses)
+        val = IsNoneValidation()
+        val.set_message('Analysis already running')
+        validations.add_validation(val, run_every)
+
         run_enabled = validations.is_valid()
         msg = validations.get_message()
 
