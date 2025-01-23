@@ -9,7 +9,7 @@ from modules.rerun import RefreshHandler
 from modules.settings import get_analyses_settings
 from pages.components.display import DataframeView, MapView
 from pages.components.create import create_analysis_form
-from modules.validation import KeyInValuesValidation, NotNoneValidation, ValidationError, ValidationGroup
+from modules.validation import KeyInValuesValidation, NotNoneValidation, ValidationGroup
 import time
 from json import JSONDecodeError
 from modules.client import ClientInterface

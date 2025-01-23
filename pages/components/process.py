@@ -37,13 +37,13 @@ def enrich_portfolios(portfolios, client_interface):
 
 def enrich_analyses_with_portfolios(analyses, portfolios):
     portfolios = portfolios[['id', 'name']].rename(columns={'name': 'portfolio_name'})
-    analyses = analyses.set_index('portfolio').join(portfolios.set_index('id')).reset_index()
+    analyses = analyses.set_index('portfolio').join(portfolios.set_index('id')).reset_index(names='portfolio')
 
     return analyses
 
 def enrich_analyses_with_models(analyses, models):
     models = models[['id', 'model_id', 'supplier_id']].rename(columns={'supplier_id': 'model_supplier'})
-    analyses = analyses.set_index('model').join(models.set_index('id')).reset_index()
+    analyses = analyses.set_index('model').join(models.set_index('id')).reset_index(names='model')
 
     return analyses
 
