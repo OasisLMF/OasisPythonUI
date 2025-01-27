@@ -38,6 +38,17 @@ def summarise_analysis_settings(analysis_settings):
     active_perspectives = [p for p in perspectives if analysis_settings.get(f'{p}_output', False)]
     summary['perspectives'] = active_perspectives
 
+    # grouping view
+    oed_groupings = []
+    for p in active_perspectives:
+        oed_fields =  analysis_settings[f'{p}_summaries'][0].get('oed_fields', None)
+        if oed_fields:
+            oed_groupings.extend(oed_fields)
+    oed_groupings = set(oed_groupings)
+
+    if len(oed_groupings) > 0:
+        summary['oed_fields'] = oed_groupings
+
     return pd.DataFrame([summary])
 
 
@@ -53,6 +64,8 @@ def summarise_intputs(locations=None, analysis_settings=None, title_prefix='##')
         a_settings_summary = summarise_analysis_settings(analysis_settings)
         a_settings_summary = DataframeView(a_settings_summary)
         a_settings_summary.column_config['perspectives'] = st.column_config.ListColumn('Perspectives')
+        if 'oed_fields' in a_settings_summary.column_config:
+            a_settings_summary.column_config['oed_fields'] = st.column_config.ListColumn('OED Fields')
         a_settings_summary.display()
 
     if analysis_settings and 'model_settings' in analysis_settings.keys():

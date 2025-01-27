@@ -218,4 +218,4 @@ with run_container:
         st.stop()
     analysis_fragment()
     if run_every is not None:
-        st.info(f'Analysis running.')
+        st.info('Analysis running.')
