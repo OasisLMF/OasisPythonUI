@@ -1,0 +1,16 @@
+services:
+  streamlit_ui:
+    container_name: oasis_st_ui
+    build:
+      dockerfile: ./oasisui_st_app.Dockerfile
+    ports:
+      - 8501:8501
+    networks:
+      - platform_network
+    environment:
+      - API_URL=http://server:8000
+
+networks:
+  platform_network:
+    name: oasisevaluation_default
+    external: true

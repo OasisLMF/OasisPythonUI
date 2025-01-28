@@ -44,8 +44,10 @@ class PortfoliosEndpointInterface(EndpointInterface):
 
 class ClientInterface:
     def __init__(self, client=None, username=None, password=None):
+        api_url = os.environ.get('API_URL', 'http://localhost:8000')
+
         if username is not None and password is not None:
-            client = APIClient(username=username, password=password)
+            client = APIClient(username=username, password=password, api_url=api_url)
 
         assert client is not None, 'Client not set'
 

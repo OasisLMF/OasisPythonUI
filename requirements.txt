@@ -90,7 +90,7 @@ oasis-data-manager==0.1.3
     # via
     #   oasislmf
     #   ods-tools
-oasislmf==2.3.11
+oasislmf @ git+https://github.com/OasisLMF/OasisLMF.git@streamlit-ui
     # via -r requirements.in
 ods-tools==3.2.9
     # via oasislmf
