@@ -39,7 +39,7 @@ def mock_api_client(mocker):
         valid_user = "mock_user"
         valid_password = "mock_password"
 
-        def __init__(self, username="", password=""):
+        def __init__(self, username="", password="", api_url=""):
             if username != self.valid_user or password != self.valid_password:
                 raise OasisException("")
             return None
