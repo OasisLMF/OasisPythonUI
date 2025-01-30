@@ -17,4 +17,19 @@ We include a demo docker installation to run the UI. The pre-requisites for
 this installation is `git`, `docker` and `docker-compose`. To run the
 deployment clone this repo and run the `./install.sh` script.
 
-The UI can then be accessed at [http://localhost:8501/](http://localhost:8501/).
+This installation is based on the
+[OasisEvaluation](https://github.com/OasisLMF/OasisEvaluation) repo. It will
+initialise the [Oasis Platform](https://github.com/OasisLMF/OasisPlatform) with
+the test [PiWind](https://github.com/OasisLMF/OasisPiWind) model.
+
+The UI can then be accessed at
+[http://localhost:8501/](http://localhost:8501/). A single default user will be
+initialised with the following credentials:
+
+```
+Username: admin
+Password: password
+```
+
+Note that if previous Oasis docker installations are present they will be
+removed during this installation.
