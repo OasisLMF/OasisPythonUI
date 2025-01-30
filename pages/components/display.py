@@ -71,7 +71,7 @@ class DataframeView(View):
 
         if self.status_style and 'status' in self.data.columns:
             data_styled = data_styled.style.format(format_status, subset=['status'])
-            data_styled = data_styled.applymap(colour_status, subset=['status'])
+            data_styled = data_styled.map(colour_status, subset=['status'])
 
         ret = st.dataframe(data_styled, **args)
 
