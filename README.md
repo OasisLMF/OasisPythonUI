@@ -3,13 +3,13 @@
 # Oasis Streamlit UI
 
 A web-based UI utilising [Streamlit](https://github.com/streamlit/streamlit) to
-manage exposure data and run modelling workflows on the OasisLMF Platform.
+manage exposure data and run modeling workflows on the OasisLMF platform.
 
 The current version of the UI contains the following pages:
 
 - `/analyses` - View and create portfolios and analyses.
 - `/dashboard` - View the output of completed analyses.
-- `/simplified` - Simplified UI which allows for the running of analyses using preloaded portfolios & models.
+- `/simplified` - Simplified UI which allows for the running of analyses using previously loaded portfolios & models.
 
 ## Installation
 
