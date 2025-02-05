@@ -1,0 +1,11 @@
+[client]
+showSidebarNavigation = false
+showErrorDetails = "type"
+toolbarMode = "viewer"
+
+[server]
+fileWatcherType = "none"
+header = true
+
+[browser]
+gatherUsageStats = false
