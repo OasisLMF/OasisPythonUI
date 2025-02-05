@@ -4,6 +4,9 @@ from modules.nav import SidebarNav
 from oasis_data_manager.errors import OasisException
 from modules.validation import NameValidation, ValidationError, ValidationGroup
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 st.set_page_config(
         page_title = "OasisLMF",
@@ -41,6 +44,7 @@ else:
         except ValidationError as e:
             valid = False
             msg = e.message
+            logger.error(e)
 
         if valid:
             try:
@@ -48,7 +52,8 @@ else:
                 st.session_state["client"] = client_interface.client
                 st.session_state["client_interface"] = client_interface
                 st.rerun()
-            except OasisException as _:
+            except OasisException as e:
                 st.error("Authentication Failed")
+                logger.error(e)
         else:
             st.error(msg)
