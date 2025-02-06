@@ -16,8 +16,8 @@ class RefreshHandler:
         self.set_up()
 
     @staticmethod
-    def start(analysis_id, required_status):
-        RefreshHandler.add_to_queue(analysis_id, required_status)
+    def start(analysis_id, required_statuses):
+        RefreshHandler.add_to_queue(analysis_id, required_statuses)
         RefreshHandler.set_refresh_bool(True)
         st.rerun()
 
@@ -34,8 +34,8 @@ class RefreshHandler:
         st.session_state[RefreshHandler.refresh_bool] = state
 
     @staticmethod
-    def add_to_queue(analysis_id, required_status):
-        st.session_state[RefreshHandler.q_name].append((analysis_id, required_status))
+    def add_to_queue(analysis_id, required_statuses):
+        st.session_state[RefreshHandler.q_name].append((analysis_id, required_statuses))
 
     @staticmethod
     def set_up():
@@ -68,7 +68,7 @@ class RefreshHandler:
             if len(q) == 0:
                 return []
 
-            id, required_status = q.pop(0)
-            if not (self.client_interface.analyses.get(id)['status'] == required_status):
-                q.insert(0, (id, required_status))
+            id, required_statuses = q.pop(0)
+            if (self.client_interface.analyses.get(id)['status'] not in required_statuses):
+                q.insert(0, (id, required_statuses))
                 return q
