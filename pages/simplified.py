@@ -29,12 +29,13 @@ cols = st.columns([0.1, 0.8, 0.1])
 with cols[1]:
     st.image("images/oasis_logo.png")
 
-if "client" in st.session_state:
-    client = st.session_state.client
-    # client_interface = st.session_state.client_interface
-    client_interface = ClientInterface(client)
-else:
+if "client" not in st.session_state:
     st.switch_page("app.py")
+    st.stop()
+
+client = st.session_state.client
+# client_interface = st.session_state.client_interface
+client_interface = ClientInterface(client)
 
 '## Create Analysis'
 
@@ -119,6 +120,14 @@ with run_container:
         portfolios = client_interface.portfolios.get(df=True)
         models = client_interface.models.get(df=True)
 
+        completed_statuses = ['RUN_COMPLETED', 'RUN_CANCELLED', 'RUN_ERROR']
+        running_statuses = ['RUN_QUEUED', 'RUN_STARTED']
+
+        running_analyses = analyses[analyses['status'].isin(running_statuses)]
+        if not re_handler.is_refreshing() and not running_analyses.empty:
+            for analysis_id in running_analyses['id']:
+                re_handler.start(analysis_id, completed_statuses)
+
         valid_statuses = ['NEW', 'READY', 'RUN_QUEUED', 'RUN_STARTED', 'RUN_COMPLETED', 'RUN_CANCELLED', 'RUN_ERROR']
         analyses = analyses[analyses['status'].isin(valid_statuses)]
         analyses = enrich_analyses(analyses, portfolios, models)
@@ -174,7 +183,7 @@ with run_container:
                     st.success("Run started.")
                     time.sleep(0.5)
 
-                    re_handler.start(selected['id'], 'RUN_COMPLETED')
+                    re_handler.start(selected['id'], completed_statuses)
                 except HTTPError as _:
                     st.error('Starting run Failed.')
 
