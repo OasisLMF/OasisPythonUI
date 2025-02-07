@@ -15,6 +15,10 @@ def get_analyses_settings(defaults_path=None, model_id=None, model_name_id=None,
     if supplier_id is None:
         supplier_id = r'\w+'
 
+    # Format model name and supplier name
+    model_name_id = model_name_id.replace(' ', '-')
+    supplier_id = supplier_id.replace(' ', '-')
+
     settings_pattern = f'{model_id}_{model_name_id}_{supplier_id}' + r'-analysis_settings\.json'
 
     settings_files = [str(p) for p in defaults_path.iterdir() if re.search(settings_pattern, str(p), re.IGNORECASE)]
