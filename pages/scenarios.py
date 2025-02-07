@@ -19,7 +19,7 @@ from pages.components.output import summarise_intputs
 from pages.components.process import enrich_analyses, enrich_portfolios
 
 st.set_page_config(
-    page_title = "Simplified Demo",
+    page_title = "Scenarios",
     layout = "centered"
 )
 
@@ -29,13 +29,12 @@ cols = st.columns([0.1, 0.8, 0.1])
 with cols[1]:
     st.image("images/oasis_logo.png")
 
-if "client" not in st.session_state:
+if "client" in st.session_state:
+    client = st.session_state.client
+    # client_interface = st.session_state.client_interface
+    client_interface = ClientInterface(client)
+else:
     st.switch_page("app.py")
-    st.stop()
-
-client = st.session_state.client
-# client_interface = st.session_state.client_interface
-client_interface = ClientInterface(client)
 
 '## Create Analysis'
 
