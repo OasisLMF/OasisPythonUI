@@ -11,9 +11,9 @@ def get_analyses_settings(defaults_path=None, model_id=None, model_name_id=None,
     if model_id is None:
         model_id = r'\d+'
     if model_name_id is None:
-        model_name_id = r'\w+'
+        model_name_id = r'[\w-]+'
     if supplier_id is None:
-        supplier_id = r'\w+'
+        supplier_id = r'[\w-]+'
 
     # Format model name and supplier name
     model_name_id = model_name_id.replace(' ', '-')
