@@ -12,6 +12,7 @@ def summarise_locations(locations):
 
     # add tiv sums
     tiv_cols = ['BuildingTIV', 'OtherTIV', 'ContentsTIV', 'BITIV']
+    tiv_cols = [c for c in tiv_cols if c in locations.columns]
     sums = locations[tiv_cols].sum()
     summary = pd.concat((summary, sums))
 
