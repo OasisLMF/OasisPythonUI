@@ -19,7 +19,6 @@ COPY ./defaults ./defaults
 COPY ./pages ./pages
 COPY ./.streamlit ./.streamlit
 COPY ./ui-config.json ./ui-config.json
-COPY ./defaults ./defaults
 
 # Run streamlit
 EXPOSE 8501

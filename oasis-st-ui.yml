@@ -9,6 +9,17 @@ services:
     #      - platform_network
     environment:
       - API_URL=http://server:8000
+    develop:
+      watch:
+        - action: sync
+          path: ./app.py
+          target: ./usr/src/app/app.py
+        - action: sync
+          path: ./pages/
+          target: ./usr/src/app/pages/
+        - action: sync
+          path: ./modules/
+          target: ./usr/src/app/modules/
 
 # networks:
 #   platform_network:
