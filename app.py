@@ -19,6 +19,12 @@ cols = st.columns([0.1, 0.8, 0.1])
 with cols[1]:
     st.image(image="images/oasis_logo.png")
 
+if "client" not in st.session_state:
+    client_interface = ClientInterface(username=st.secrets["user"], password=st.secrets["password"])
+    st.session_state["client"]  = client_interface.client
+    st.session_state["client_interface"] = client_interface
+    st.rerun()
+
 if "client" in st.session_state:
     with open("ui-config.json", "r") as f:
         config = json.load(f)
