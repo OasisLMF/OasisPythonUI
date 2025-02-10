@@ -75,3 +75,32 @@ def summarise_intputs(locations=None, analysis_settings=None, title_prefix='##')
         m_settings_summary = DataframeView(m_settings_summary)
         m_settings_summary.display()
 
+
+def model_summary(model, model_settings):
+    data = [
+            {'parameter': 'Name', 'value': model.get('model_id', '')},
+            {'parameter': 'Supplier', 'value': model.get('supplier_id', '')},
+            {'parameter': 'Description', 'value': model_settings.get('description', '')},
+           ]
+    for d in data:
+        cols = st.columns([0.2, 0.8])
+        with cols[0]:
+            st.write(f'**{d["parameter"]}:**')
+        with cols[1]:
+            st.write(f'{d["value"]}')
+
+    if 'supported_perils' in model_settings.get('lookup_settings', {}):
+        perils = pd.DataFrame(model_settings['lookup_settings']['supported_perils'])
+        display_cols = ['id', 'desc']
+        peril_view = DataframeView(perils, display_cols=display_cols)
+        column_config = {
+            'id': st.column_config.TextColumn('Peril Code'),
+            'desc': st.column_config.TextColumn('Description')
+        }
+        peril_view.column_config = column_config
+
+        cols = st.columns([0.2, 0.8])
+        with cols[0]:
+            st.write('**Supported Perils:**')
+        with cols[1]:
+            peril_view.display()

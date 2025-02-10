@@ -15,7 +15,7 @@ from json import JSONDecodeError
 import json
 from modules.client import ClientInterface
 
-from pages.components.output import summarise_intputs
+from pages.components.output import model_summary, summarise_intputs
 from pages.components.process import enrich_analyses, enrich_portfolios
 
 st.set_page_config(
@@ -77,7 +77,7 @@ with create_container:
     msg = validations.get_message()
 
     # Set up row of buttons
-    cols = st.columns([0.25, 0.25, 0.5])
+    cols = st.columns([0.25, 0.25, 0.25, 0.25])
 
     with cols[0]:
         with st.popover("Create Analysis", disabled=not enable_popover, help=msg,  use_container_width=True):
@@ -103,9 +103,26 @@ with create_container:
             def show_locations_map():
                 with st.spinner('Loading map...'):
                     locations = client_interface.portfolios.endpoint.location_file.get_dataframe(selected_portfolio["id"])
-                    exposure_map = MapView(locations)
-                    exposure_map.display()
+                    cols = locations.columns
+                    if 'Latitude' not in cols or 'Longitude' not in cols:
+                        st.error('Longitude and Latitude columns not found.')
+                    else:
+                        exposure_map = MapView(locations)
+                        exposure_map.display()
             show_locations_map()
+
+    with cols[2]:
+        validation = NotNoneValidation("Model")
+        enable_model_details = validation.is_valid(selected_model)
+
+        if st.button("Model Details", disabled=not enable_model_details,
+                     help = validation.get_message(), use_container_width=True):
+            model_settings = client_interface.client.models.settings.get(selected_model['id']).json()
+            @st.dialog("Model Details", width="large")
+            def show_model_details():
+                model_summary(selected_model, model_settings)
+
+            show_model_details()
 
 with run_container:
     re_handler = RefreshHandler(client_interface)
