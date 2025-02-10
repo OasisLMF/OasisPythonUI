@@ -14,6 +14,9 @@ import time
 from json import JSONDecodeError
 import json
 from modules.client import ClientInterface
+import logging
+
+logger = logging.getLogger(__name__)
 
 from pages.components.output import model_summary, summarise_intputs
 from pages.components.process import enrich_analyses, enrich_portfolios
@@ -117,7 +120,11 @@ with create_container:
 
         if st.button("Model Details", disabled=not enable_model_details,
                      help = validation.get_message(), use_container_width=True):
-            model_settings = client_interface.client.models.settings.get(selected_model['id']).json()
+            try:
+                model_settings = client_interface.client.models.settings.get(selected_model['id']).json()
+            except HTTPError as e:
+                logger.error(e)
+                model_settings = {}
             @st.dialog("Model Details", width="large")
             def show_model_details():
                 model_summary(selected_model, model_settings)
