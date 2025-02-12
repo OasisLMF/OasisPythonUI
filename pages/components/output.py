@@ -93,6 +93,10 @@ def model_summary(model, model_settings):
                 default: Ecent Set Default
         lookup_settings
             supported_perils : Supported Perils
+        data_settings
+           hazard_group_fields : Hazard Group Fields
+           damage_group_fields : Damage Group Fields
+
     ```
     """
     data = [
@@ -128,6 +132,21 @@ def model_summary(model, model_settings):
             }
             peril_view.column_config = column_config
             data.append({'parameter': 'Supported Perils', 'value': peril_view})
+
+    if "data_settings" in model_settings:
+        data_settings = model_settings["data_settings"]
+
+        if "hazard_group_fields" in data_settings:
+            group_field_str = '`'
+            group_field_str += '`, `'.join(data_settings["hazard_group_fields"])
+            group_field_str += '`'
+            data.append({"parameter": "Hazard Group Fields", "value": group_field_str})
+
+        if "damage_group_fields" in data_settings:
+            group_field_str = '`'
+            group_field_str += '`, `'.join(data_settings["damage_group_fields"])
+            group_field_str += '`'
+            data.append({"parameter": "Damage Group Fields", "value": group_field_str})
 
     for d in data:
         cols = st.columns([0.2, 0.8])
