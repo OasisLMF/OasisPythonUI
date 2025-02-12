@@ -77,30 +77,65 @@ def summarise_intputs(locations=None, analysis_settings=None, title_prefix='##')
 
 
 def model_summary(model, model_settings):
+    """
+    Create a summary view of the model settings for the selected model.
+
+    Currently supports the following fields:
+
+    ```
+    model_id : Name
+    supplier_id : Supplier
+    model_settings
+        description : Description
+        model_settings
+            event_set
+                options: Event Set Options
+                default: Ecent Set Default
+        lookup_settings
+            supported_perils : Supported Perils
+    ```
+    """
     data = [
             {'parameter': 'Name', 'value': model.get('model_id', '')},
             {'parameter': 'Supplier', 'value': model.get('supplier_id', '')},
             {'parameter': 'Description', 'value': model_settings.get('description', '')},
            ]
+
+    if "model_settings" in model_settings:
+        _model_settings = model_settings["model_settings"]
+
+        if "event_set" in _model_settings:
+            es_options = _model_settings["event_set"].get('options', [])
+            if len(es_options) > 0:
+                es_options = pd.DataFrame(es_options)
+                es_options_view = DataframeView(es_options)
+                es_options_view.column_config['desc'] = 'Description'
+                data.append({'parameter': 'Event Set Options', 'value': es_options_view})
+            if _model_settings["event_set"].get("default", None):
+                data.append({'parameter': 'Event Set Default',
+                            'value': _model_settings["event_set"]["default"]})
+
+    if "lookup_settings" in model_settings:
+        lookup_settings = model_settings.get("lookup_settings")
+
+        if "supported_perils" in lookup_settings:
+            perils = pd.DataFrame(lookup_settings["supported_perils"])
+            display_cols = ['id', 'desc']
+            peril_view = DataframeView(perils, display_cols=display_cols)
+            column_config = {
+                'id': st.column_config.TextColumn('Peril Code'),
+                'desc': st.column_config.TextColumn('Description')
+            }
+            peril_view.column_config = column_config
+            data.append({'parameter': 'Supported Perils', 'value': peril_view})
+
     for d in data:
         cols = st.columns([0.2, 0.8])
         with cols[0]:
             st.write(f'**{d["parameter"]}:**')
         with cols[1]:
-            st.write(f'{d["value"]}')
+            if getattr(d["value"], 'display', None):
+                d["value"].display()
+            else:
+                st.write(f'{d["value"]}')
 
-    if 'supported_perils' in model_settings.get('lookup_settings', {}):
-        perils = pd.DataFrame(model_settings['lookup_settings']['supported_perils'])
-        display_cols = ['id', 'desc']
-        peril_view = DataframeView(perils, display_cols=display_cols)
-        column_config = {
-            'id': st.column_config.TextColumn('Peril Code'),
-            'desc': st.column_config.TextColumn('Description')
-        }
-        peril_view.column_config = column_config
-
-        cols = st.columns([0.2, 0.8])
-        with cols[0]:
-            st.write('**Supported Perils:**')
-        with cols[1]:
-            peril_view.display()

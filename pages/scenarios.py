@@ -16,10 +16,10 @@ import json
 from modules.client import ClientInterface
 import logging
 
-logger = logging.getLogger(__name__)
-
 from pages.components.output import model_summary, summarise_intputs
 from pages.components.process import enrich_analyses, enrich_portfolios
+
+logger = logging.getLogger(__name__)
 
 st.set_page_config(
     page_title = "Scenarios",
