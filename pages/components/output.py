@@ -1,6 +1,9 @@
 # Module to display output of MDK
 import streamlit as st
 import pandas as pd
+import logging
+
+logger = logging.getLogger(__name__)
 
 from pages.components.display import DataframeView
 
@@ -76,7 +79,25 @@ def summarise_intputs(locations=None, analysis_settings=None, title_prefix='##')
         m_settings_summary.display()
 
 
-def model_summary(model, model_settings):
+def show_settings(settings_list):
+    """
+    Displays abstract settings list. Settings are dict like objects with a
+    `parameter` specifying the setting parameter name and `value` which is a
+    display of the value of the setting parameter.
+    """
+    for d in settings_list:
+        cols = st.columns([0.2, 0.8])
+        logger.info(f"Generating Model Details: {settings_list}")
+        with cols[0]:
+            st.write(f'**{d["parameter"]}:**')
+        with cols[1]:
+            if getattr(d["value"], 'display', None):
+                d["value"].display()
+            else:
+                st.write(f'{d["value"]}')
+
+
+def model_summary(model, model_settings, detail_level="full"):
     """
     Create a summary view of the model settings for the selected model.
 
@@ -91,6 +112,9 @@ def model_summary(model, model_settings):
             event_set
                 options: Event Set Options
                 default: Ecent Set Default
+            event_occurence_id
+                options: Event Occurrence ID Options
+                default: Event Occurrence ID Default
         lookup_settings
             supported_perils : Supported Perils
         data_settings
@@ -98,12 +122,26 @@ def model_summary(model, model_settings):
            damage_group_fields : Damage Group Fields
 
     ```
+
+    Parameters
+    ----------
+    model : dict
+            Model query response.
+    model_settings: dict
+                    Model settings query response.
+    detail_level: str
+                  "full" produces the full model detail.
+                  "minimal" only displays the model `Name`, `Supplier` and `Description`.
     """
-    data = [
+    settings_list = [
             {'parameter': 'Name', 'value': model.get('model_id', '')},
             {'parameter': 'Supplier', 'value': model.get('supplier_id', '')},
             {'parameter': 'Description', 'value': model_settings.get('description', '')},
            ]
+
+    if detail_level == "minimal":
+        show_settings(settings_list)
+        return
 
     if "model_settings" in model_settings:
         _model_settings = model_settings["model_settings"]
@@ -114,10 +152,21 @@ def model_summary(model, model_settings):
                 es_options = pd.DataFrame(es_options)
                 es_options_view = DataframeView(es_options)
                 es_options_view.column_config['desc'] = 'Description'
-                data.append({'parameter': 'Event Set Options', 'value': es_options_view})
+                settings_list.append({'parameter': 'Event Set Options', 'value': es_options_view})
             if _model_settings["event_set"].get("default", None):
-                data.append({'parameter': 'Event Set Default',
-                            'value': _model_settings["event_set"]["default"]})
+                settings_list.append({'parameter': 'Event Set Default',
+                            'value': f'`{_model_settings["event_set"]["default"]}`'})
+
+        if "event_occurrence_id" in _model_settings:
+            eo_options = _model_settings["event_occurrence_id"].get('options', [])
+            if len(eo_options) > 0:
+                eo_options = pd.DataFrame(eo_options)
+                eo_options_view = DataframeView(eo_options)
+                eo_options_view.column_config['desc'] = 'Description'
+                settings_list.append({'parameter': 'Event Occurrence ID Options', 'value': eo_options_view})
+            if _model_settings["event_occurrence_id"].get("default", None):
+                settings_list.append({'parameter': 'Event Occurrence ID Default',
+                            'value': f'`{_model_settings["event_occurrence_id"]["default"]}`'})
 
     if "lookup_settings" in model_settings:
         lookup_settings = model_settings.get("lookup_settings")
@@ -131,7 +180,7 @@ def model_summary(model, model_settings):
                 'desc': st.column_config.TextColumn('Description')
             }
             peril_view.column_config = column_config
-            data.append({'parameter': 'Supported Perils', 'value': peril_view})
+            settings_list.append({'parameter': 'Supported Perils', 'value': peril_view})
 
     if "data_settings" in model_settings:
         data_settings = model_settings["data_settings"]
@@ -140,21 +189,12 @@ def model_summary(model, model_settings):
             group_field_str = '`'
             group_field_str += '`, `'.join(data_settings["hazard_group_fields"])
             group_field_str += '`'
-            data.append({"parameter": "Hazard Group Fields", "value": group_field_str})
+            settings_list.append({"parameter": "Hazard Group Fields", "value": group_field_str})
 
         if "damage_group_fields" in data_settings:
             group_field_str = '`'
             group_field_str += '`, `'.join(data_settings["damage_group_fields"])
             group_field_str += '`'
-            data.append({"parameter": "Damage Group Fields", "value": group_field_str})
+            settings_list.append({"parameter": "Damage Group Fields", "value": group_field_str})
 
-    for d in data:
-        cols = st.columns([0.2, 0.8])
-        with cols[0]:
-            st.write(f'**{d["parameter"]}:**')
-        with cols[1]:
-            if getattr(d["value"], 'display', None):
-                d["value"].display()
-            else:
-                st.write(f'{d["value"]}')
-
+    show_settings(settings_list)

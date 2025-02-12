@@ -127,7 +127,7 @@ with create_container:
                 model_settings = {}
             @st.dialog("Model Details", width="large")
             def show_model_details():
-                model_summary(selected_model, model_settings)
+                model_summary(selected_model, model_settings, detail_level="full")
 
             show_model_details()
 
