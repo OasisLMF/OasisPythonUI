@@ -1,3 +1,4 @@
+from os.path import isfile
 from oasis_data_manager.errors import OasisException
 import tarfile
 from io import BytesIO
@@ -20,6 +21,12 @@ from pages.components.output import model_summary, summarise_intputs
 from pages.components.process import enrich_analyses, enrich_portfolios
 
 logger = logging.getLogger(__name__)
+
+if isfile("ui-config.json"):
+    with open("ui-config.json") as f:
+        ui_config = json.load(f)
+else:
+    ui_config = {}
 
 st.set_page_config(
     page_title = "Scenarios",
@@ -54,10 +61,35 @@ create_container = st.container(border=True)
 run_container = st.container(border=True)
 
 with create_container:
+    model_map = ui_config.get("model_map", {})
+    portfolio_map = ui_config.get("portfolio_map", {})
+
     '#### Portfolio Selection'
+    if 'selected_portfolio_name' not in st.session_state:
+        st.session_state['selected_portfolio_name'] = None
+    if 'selected_model_id' not in st.session_state:
+        st.session_state['selected_model_id'] = None
 
     # Prepare portfolios data
     portfolios = client_interface.portfolios.get(df=True)
+
+    # Find the corresponding portfolios
+    def filter_valid_rows(df, key, valid_map, filter_col):
+        if key is None:
+            return df
+
+        if type(key) is not str:
+            key = str(key)
+
+        valid_elements = valid_map.get(key, None)
+
+        if valid_elements is None:
+            return df
+
+        _df = df.loc[df[filter_col].isin(valid_elements)]
+        return _df
+
+    portfolios = filter_valid_rows(portfolios, st.session_state["selected_model_id"], model_map, "name")
     portfolios = enrich_portfolios(portfolios, client_interface, disable=['acc'])
 
     display_cols = ['name', 'number_locations']
@@ -67,6 +99,7 @@ with create_container:
 
     '#### Model Selection'
     models = client_interface.models.get(df=True)
+    models = filter_valid_rows(models, st.session_state["selected_portfolio_name"], portfolio_map, "id")
     display_cols = [ 'model_id', 'supplier_id' ]
 
     model_view = DataframeView(models, selectable=True, display_cols=display_cols)
@@ -78,6 +111,18 @@ with create_container:
 
     enable_popover = validations.is_valid()
     msg = validations.get_message()
+
+    selected_portfolio_name = selected_portfolio['name'] if selected_portfolio is not None else None
+    selected_model_id = selected_model['id'] if selected_model is not None else None
+
+    if selected_portfolio_name != st.session_state['selected_portfolio_name']:
+        st.session_state['selected_portfolio_name'] = selected_portfolio_name
+        st.rerun()
+
+
+    if selected_model_id != st.session_state['selected_model_id']:
+        st.session_state['selected_model_id'] = selected_model_id
+        st.rerun()
 
     # Set up row of buttons
     cols = st.columns([0.25, 0.25, 0.25, 0.25])
@@ -126,10 +171,9 @@ with create_container:
                 logger.error(e)
                 model_settings = {}
             @st.dialog("Model Details", width="large")
-            def show_model_details():
+            def model_details_dialog():
                 model_summary(selected_model, model_settings, detail_level="full")
-
-            show_model_details()
+            model_details_dialog()
 
 with run_container:
     re_handler = RefreshHandler(client_interface)

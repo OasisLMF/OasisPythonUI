@@ -20,6 +20,9 @@ services:
         - action: sync
           path: ./modules/
           target: ./usr/src/app/modules/
+        - action: sync
+          path: ./ui-config.json
+          target: ./usr/src/app/ui-config.json
 
 # networks:
 #   platform_network:
