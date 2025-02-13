@@ -2,10 +2,5 @@
   "pages" : [{"path": "pages/scenarios.py", "label": "Scenarios"}],
   "post_login_page": "pages/scenarios.py",
   "model_map": {
-    "1" : ["piwind-small"]
-  },
-  "portfolio_map" : {
-    "piwind-small" : [1],
-    "piwind-large" : []
   }
 }

@@ -62,14 +62,15 @@ run_container = st.container(border=True)
 
 with create_container:
     model_map = ui_config.get("model_map", {})
-    portfolio_map = ui_config.get("portfolio_map", {})
+
+    '#### Model Selection'
+    models = client_interface.models.get(df=True)
+    display_cols = [ 'model_id', 'supplier_id' ]
+
+    model_view = DataframeView(models, selectable=True, display_cols=display_cols)
+    selected_model = model_view.display()
 
     '#### Portfolio Selection'
-    if 'selected_portfolio_name' not in st.session_state:
-        st.session_state['selected_portfolio_name'] = None
-    if 'selected_model_id' not in st.session_state:
-        st.session_state['selected_model_id'] = None
-
     # Prepare portfolios data
     portfolios = client_interface.portfolios.get(df=True)
 
@@ -89,21 +90,18 @@ with create_container:
         _df = df.loc[df[filter_col].isin(valid_elements)]
         return _df
 
-    portfolios = filter_valid_rows(portfolios, st.session_state["selected_model_id"], model_map, "name")
-    portfolios = enrich_portfolios(portfolios, client_interface, disable=['acc'])
+    selected_model_id = selected_model['id'] if selected_model is not None else None
+    if selected_model_id:
+        portfolios = filter_valid_rows(portfolios, selected_model_id, model_map, "name")
+        portfolios = enrich_portfolios(portfolios, client_interface, disable=['acc'])
 
-    display_cols = ['name', 'number_locations']
+        display_cols = ['name', 'number_locations']
 
-    portfolio_view = DataframeView(portfolios, display_cols=display_cols, selectable=True)
-    selected_portfolio = portfolio_view.display()
-
-    '#### Model Selection'
-    models = client_interface.models.get(df=True)
-    models = filter_valid_rows(models, st.session_state["selected_portfolio_name"], portfolio_map, "id")
-    display_cols = [ 'model_id', 'supplier_id' ]
-
-    model_view = DataframeView(models, selectable=True, display_cols=display_cols)
-    selected_model = model_view.display()
+        portfolio_view = DataframeView(portfolios, display_cols=display_cols, selectable=True)
+        selected_portfolio = portfolio_view.display()
+    else:
+        st.info("Please select a model")
+        selected_portfolio = None
 
     validations = ValidationGroup()
     validations = validations.add_validation(NotNoneValidation("Portfolio"), selected_portfolio)
@@ -111,18 +109,6 @@ with create_container:
 
     enable_popover = validations.is_valid()
     msg = validations.get_message()
-
-    selected_portfolio_name = selected_portfolio['name'] if selected_portfolio is not None else None
-    selected_model_id = selected_model['id'] if selected_model is not None else None
-
-    if selected_portfolio_name != st.session_state['selected_portfolio_name']:
-        st.session_state['selected_portfolio_name'] = selected_portfolio_name
-        st.rerun()
-
-
-    if selected_model_id != st.session_state['selected_model_id']:
-        st.session_state['selected_model_id'] = selected_model_id
-        st.rerun()
 
     # Set up row of buttons
     cols = st.columns([0.25, 0.25, 0.25, 0.25])
