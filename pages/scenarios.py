@@ -100,7 +100,7 @@ with create_container:
         portfolio_view = DataframeView(portfolios, display_cols=display_cols, selectable=True)
         selected_portfolio = portfolio_view.display()
     else:
-        st.info("Please select a model")
+        st.info("Please select a model.")
         selected_portfolio = None
 
     validations = ValidationGroup()
@@ -276,7 +276,7 @@ with run_container:
 
 
     if len(client_interface.analyses.get()) == 0:
-        st.error("No Analyses Found")
+        st.error("No analyses found.")
         st.stop()
     analysis_fragment()
     if run_every is not None:
