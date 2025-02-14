@@ -1,7 +1,7 @@
-import plotly.graph_objects as go
+import plotly.express as px
 
 
-class OutputPlotInterface:
+class OutputVisualisationInterface:
     def __init__(self, output_file_dict):
         '''
         Parameters
@@ -39,7 +39,7 @@ class OutputPlotInterface:
         fname = self._request_to_fname(summary_level, perspective, output_type)
         results = self.output_file_dict.get(fname)
 
-        fig = getattr(self, f'generate_{output_type}_fig')(results)
+        fig = getattr(self, f'generate_{output_type}')(results)
         return fig
 
     @staticmethod
@@ -47,35 +47,27 @@ class OutputPlotInterface:
         return f'{perspective}_S{summary_level}_{output_type}.csv'
 
     @staticmethod
-    def generate_eltcalc_fig(results):
+    def generate_eltcalc(results):
         '''
         Create graphs from eltcalc results.
         '''
-        cols = ['type', 'event_id', 'mean']
-        results = results[cols]
-        analytical_results = results.loc[results['type'] == 1]
-        sample_results = results.loc[results['type'] == 2]
+        cols = ['type', 'mean']
+        vis = results[cols].groupby('type').mean()
+        vis = vis.reset_index()
+        vis['type'] = vis['type'].map({1: "Analytical", 2: "Sample"})
 
-        analytical_results["cum_mean"] = analytical_results['mean'].cumsum()
-        sample_results["cum_mean"] = sample_results['mean'].cumsum()
+        return vis
 
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(name="Analytical", x=analytical_results["event_id"], y=analytical_results["cum_mean"]))
-        fig.add_trace(go.Scatter(name="Sample", x=sample_results["event_id"], y=sample_results["cum_mean"]))
-        fig.update_xaxes(title_text = 'Return Period')
-        fig.update_yaxes(title_text = 'Cumulative Loss')
-
-
+    @staticmethod
+    def generate_aalcalc(results):
+        results['type'] = results['type'].map({1: "Analytical", 2 : "Sample"})
+        fig = px.bar(results, x='type', y='mean')
         return fig
 
     @staticmethod
-    def generate_aalcalc_fig(results):
+    def generate_leccalc(results):
         pass
 
     @staticmethod
-    def generate_leccalc_fig(results):
-        pass
-
-    @staticmethod
-    def generate_pltcalc_fig(results):
+    def generate_pltcalc(results):
         pass

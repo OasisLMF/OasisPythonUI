@@ -11,7 +11,7 @@ from modules.settings import get_analyses_settings
 from pages.components.display import DataframeView, MapView
 from pages.components.create import create_analysis_form
 from modules.validation import KeyInValuesValidation, NotNoneValidation, ValidationGroup, IsNoneValidation
-from modules.plots import OutputPlotInterface
+from modules.visualisation import OutputVisualisationInterface
 import time
 from json import JSONDecodeError
 import json
@@ -261,16 +261,18 @@ with run_container:
             # Graphs from output
 
             results_dict = ci.analyses.get_file(analysis_id, 'output_file', df=True)
-            plot_interface = OutputPlotInterface(results_dict)
+            vis_interface = OutputVisualisationInterface(results_dict)
             if a_settings['gul_output'] and a_settings['gul_summaries'][0]['eltcalc']:
-                eltcalc_fig = plot_interface.get(summary_level=1, perspective='gul', output_type='eltcalc')
-                eltcalc_fig.update_layout(title={'text': 'Ground up loss eltcalc'})
-                st.plotly_chart(eltcalc_fig, use_container_width=True)
+                st.write("### Ground Up Loss ELT Output")
+                eltcalc_df = vis_interface.get(summary_level=1, perspective='gul', output_type='eltcalc')
+                eltcalc_df = DataframeView(eltcalc_df)
+                eltcalc_df.display()
 
             if a_settings['il_output'] and a_settings['il_summaries'][0]['eltcalc']:
-                eltcalc_fig = plot_interface.get(summary_level=1, perspective='il', output_type='eltcalc')
-                eltcalc_fig.update_layout(title={'text': 'Insured loss eltcalc'})
-                st.plotly_chart(eltcalc_fig, use_container_width=True)
+                st.write("### Insured Loss ELT Output")
+                eltcalc_df = vis_interface.get(summary_level=1, perspective='il', output_type='eltcalc')
+                eltcalc_df = DataframeView(eltcalc_df)
+                eltcalc_df.display()
 
             fname = f"analysis_{analysis_id}_output.tar.gz"
             st.markdown(f"Output File Name: `{fname}`")
