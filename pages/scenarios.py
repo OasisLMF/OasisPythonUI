@@ -262,17 +262,27 @@ with run_container:
 
             results_dict = ci.analyses.get_file(analysis_id, 'output_file', df=True)
             vis_interface = OutputVisualisationInterface(results_dict)
-            if a_settings['gul_output'] and a_settings['gul_summaries'][0]['eltcalc']:
-                st.write("### Ground Up Loss ELT Output")
-                eltcalc_df = vis_interface.get(summary_level=1, perspective='gul', output_type='eltcalc')
-                eltcalc_df = DataframeView(eltcalc_df)
-                eltcalc_df.display()
 
-            if a_settings['il_output'] and a_settings['il_summaries'][0]['eltcalc']:
-                st.write("### Insured Loss ELT Output")
-                eltcalc_df = vis_interface.get(summary_level=1, perspective='il', output_type='eltcalc')
-                eltcalc_df = DataframeView(eltcalc_df)
-                eltcalc_df.display()
+            def generate_perspective_visualisation(perspective, summaries_settings):
+                if summaries_settings[0].get('eltcalc'):
+                    st.write("### ELT Output")
+                    eltcalc_df = vis_interface.get(summary_level=1, perspective=perspective, output_type='eltcalc')
+                    eltcalc_df = DataframeView(eltcalc_df)
+                    eltcalc_df.display()
+                if summaries_settings[0].get('aalcalc'):
+                    st.write("### AAL Output")
+                    aal_fig = vis_interface.get(summary_level=1, perspective=perspective, output_type='aalcalc')
+                    st.plotly_chart(aal_fig, use_container_width=True)
+
+
+            if a_settings['gul_output']:
+                st.write("## Ground Up Loss")
+                generate_perspective_visualisation('gul', a_settings['gul_summaries'])
+
+            if a_settings.get('il_output', False):
+                st.write("## Insured Loss")
+                generate_perspective_visualisation('il', a_settings['il_summaries'])
+
 
             fname = f"analysis_{analysis_id}_output.tar.gz"
             st.markdown(f"Output File Name: `{fname}`")

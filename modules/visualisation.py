@@ -33,7 +33,7 @@ class OutputVisualisationInterface:
         -------
         plotly.Figure
         '''
-        assert output_type in ['eltcalc'], 'Output type not supported'
+        assert output_type in ['eltcalc', 'aalcalc'], 'Output type not supported'
         assert perspective in ['gul', 'il', 'ri'], 'Perspective not valid'
 
         fname = self._request_to_fname(summary_level, perspective, output_type)
@@ -61,7 +61,7 @@ class OutputVisualisationInterface:
     @staticmethod
     def generate_aalcalc(results):
         results['type'] = results['type'].map({1: "Analytical", 2 : "Sample"})
-        fig = px.bar(results, x='type', y='mean')
+        fig = px.bar(results, x='type', y='mean', labels={'type': 'Type', 'mean': 'Average Annual Loss'})
         return fig
 
     @staticmethod
