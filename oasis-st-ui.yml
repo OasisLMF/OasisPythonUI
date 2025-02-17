@@ -23,6 +23,9 @@ services:
         - action: sync
           path: ./ui-config.json
           target: ./usr/src/app/ui-config.json
+        - action: sync
+          path: ./defaults/
+          target: ./usr/src/app/defaults/
 
 # networks:
 #   platform_network:

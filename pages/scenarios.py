@@ -273,7 +273,19 @@ with run_container:
                     st.write("### AAL Output")
                     aal_fig = vis_interface.get(summary_level=1, perspective=perspective, output_type='aalcalc')
                     st.plotly_chart(aal_fig, use_container_width=True)
-
+                if summaries_settings[0].get('lec_output'):
+                    st.write("### LEC Output")
+                    analysis_types = ["full_uncertainty", "wheatsheaf", "wheatsheaf_mean", "sample_mean"]
+                    loss_types = ["aep", "oep"]
+                    for a_type in analysis_types:
+                        for l_type in loss_types:
+                            param_name = f"{a_type}_{l_type}"
+                            if summaries_settings[0].get("leccalc").get(param_name):
+                                lec_fig = vis_interface.get(summary_level=1, perspective=perspective,
+                                                            output_type='leccalc',
+                                                            opts={'analysis_type': a_type,
+                                                                  'loss_type': l_type})
+                                st.plotly_chart(lec_fig, use_container_width=True)
 
             if a_settings['gul_output']:
                 st.write("## Ground Up Loss")
@@ -283,6 +295,9 @@ with run_container:
                 st.write("## Insured Loss")
                 generate_perspective_visualisation('il', a_settings['il_summaries'])
 
+            if a_settings.get('ri_output', False):
+                st.write("## Loss Net of Reinsurance")
+                generate_perspective_visualisation('ri', a_settings['ri_summaries'])
 
             fname = f"analysis_{analysis_id}_output.tar.gz"
             st.markdown(f"Output File Name: `{fname}`")
