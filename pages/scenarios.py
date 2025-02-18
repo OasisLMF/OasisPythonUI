@@ -215,7 +215,8 @@ with run_container:
 
         with columns[0]:
             if st.button('Run', disabled = not run_enabled, help=msg, use_container_width=True):
-                analysis_settings = get_analyses_settings(model_id = selected['model'])[0]
+                model_id = client_interface.models.get(selected['model'])['model_id']
+                analysis_settings = get_analyses_settings(model_name_id = model_id)[0]
                 with open(analysis_settings, 'r') as f:
                     analysis_settings = json.load(f)
                 if len(oed_group) > 0:
