@@ -269,6 +269,7 @@ with run_container:
                     st.write("### ELT Output")
                     eltcalc_df = vis_interface.get(summary_level=1, perspective=perspective, output_type='eltcalc')
                     eltcalc_df = DataframeView(eltcalc_df)
+                    eltcalc_df.column_config['mean'] = st.column_config.NumberColumn('Mean', format='%.2f')
                     eltcalc_df.display()
                 if summaries_settings[0].get('aalcalc'):
                     st.write("### AAL Output")
