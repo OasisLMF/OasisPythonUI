@@ -91,7 +91,7 @@ with create_container:
         _df = df.loc[df[filter_col].isin(valid_elements)]
         return _df
 
-    selected_model_id = selected_model['id'] if selected_model is not None else None
+    selected_model_id = selected_model['model_id'] if selected_model is not None else None
     if selected_model_id:
         portfolios = filter_valid_rows(portfolios, selected_model_id, model_map, "name")
         portfolios = enrich_portfolios(portfolios, client_interface, disable=['acc'])
