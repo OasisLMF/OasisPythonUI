@@ -39,6 +39,7 @@ class OutputVisualisationInterface:
                       - `eltcalc`
                       - `aalcalc`
                       - `leccalc`
+                      - `pltcalc`
         opts : dict
                Additional options depending on `output_type`.
                For `leccalc`the following keys and options are expected:
@@ -50,7 +51,7 @@ class OutputVisualisationInterface:
         -------
         plotly.Figure
         '''
-        assert output_type in ['eltcalc', 'aalcalc', 'leccalc'], 'Output type not supported'
+        assert output_type in ['eltcalc', 'aalcalc', 'leccalc', 'pltcalc'], 'Output type not supported'
         assert perspective in ['gul', 'il', 'ri'], 'Perspective not valid'
 
         if output_type == "leccalc":
@@ -111,4 +112,11 @@ class OutputVisualisationInterface:
 
     @staticmethod
     def generate_pltcalc(results, opts={}):
-        pass
+        results['type'] = results['type'].replace(TYPE_MAP)
+
+        fig = px.scatter(results, x='period_no', y='mean', color='type', marginal_y='histogram',
+                         labels = {'period_no': 'Period No.',
+                                   'mean': 'Mean Loss',
+                                   'type': 'Type'
+                                  })
+        return fig

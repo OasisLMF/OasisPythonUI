@@ -288,6 +288,10 @@ with run_container:
                                                             opts={'analysis_type': a_type,
                                                                   'loss_type': l_type})
                                 st.plotly_chart(lec_fig, use_container_width=True)
+                if summaries_settings[0].get('pltcalc'):
+                    st.write("### PLT Output")
+                    plt_fig = vis_interface.get(summary_level=1, perspective=perspective, output_type='pltcalc')
+                    st.plotly_chart(plt_fig, use_container_width=True)
 
             if a_settings['gul_output']:
                 st.write("## Ground Up Loss")
