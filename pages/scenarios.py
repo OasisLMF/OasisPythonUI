@@ -221,8 +221,12 @@ with run_container:
                     analysis_settings = json.load(f)
                 if len(oed_group) > 0:
                     oed_group_codes = [group_to_code[g] for g in oed_group]
-                    analysis_settings['gul_summaries'][0]['oed_fields'] = oed_group_codes
-                    analysis_settings['il_summaries'][0]['oed_fields'] = oed_group_codes
+                    if analysis_settings.get('gul_output', False):
+                        analysis_settings['gul_summaries'][0]['oed_fields'] = oed_group_codes
+                    if analysis_settings.get('il_output', False):
+                        analysis_settings['il_summaries'][0]['oed_fields'] = oed_group_codes
+                    if analysis_settings.get('ri_output', False):
+                        analysis_settings['il_summaries'][0]['oed_fields'] = oed_group_codes
 
                 try:
                     client_interface.upload_settings(selected['id'], analysis_settings)
