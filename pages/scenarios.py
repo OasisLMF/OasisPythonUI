@@ -271,9 +271,23 @@ with run_container:
             def generate_perspective_visualisation(perspective, summaries_settings):
                 if summaries_settings[0].get('eltcalc'):
                     st.write("### ELT Output")
-                    eltcalc_df = vis_interface.get(summary_level=1, perspective=perspective, output_type='eltcalc')
+
+                    if summaries_settings[0].get('oed_fields'):
+                        vis_interface.set_oed_fields(perspective, summaries_settings[0].get('oed_fields'))
+
+                    group_cols = vis_interface.oed_fields.get(perspective, [])
+
+                    group_fields = st.pills("Group Columns",
+                                            group_cols,
+                                            key=f'{perspective}_group_pill',
+                                            selection_mode='multi')
+                    eltcalc_df = vis_interface.get(summary_level=1, perspective=perspective, output_type='eltcalc',
+                                                   group_fields=group_fields)
+
                     eltcalc_df = DataframeView(eltcalc_df)
                     eltcalc_df.column_config['mean'] = st.column_config.NumberColumn('Mean', format='%.2f')
+                    for c in group_cols:
+                        eltcalc_df.column_config[c] = st.column_config.TextColumn(c)
                     eltcalc_df.display()
                 if summaries_settings[0].get('aalcalc'):
                     st.write("### AAL Output")
@@ -287,10 +301,10 @@ with run_container:
                         for l_type in loss_types:
                             param_name = f"{a_type}_{l_type}"
                             if summaries_settings[0].get("leccalc").get(param_name):
-                                lec_fig = vis_interface.get(summary_level=1, perspective=perspective,
-                                                            output_type='leccalc',
-                                                            opts={'analysis_type': a_type,
-                                                                  'loss_type': l_type})
+                                lec_fig = vis_interface.get(summary_level =1, perspective=perspective,
+                                                            output_type ='leccalc',
+                                                            analysis_type = a_type,
+                                                            loss_type = l_type)
                                 st.plotly_chart(lec_fig, use_container_width=True)
                 if summaries_settings[0].get('pltcalc'):
                     st.write("### PLT Output")

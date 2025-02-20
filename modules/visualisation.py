@@ -21,7 +21,6 @@ class OutputVisualisationInterface:
         '''
         self.output_file_dict = output_file_dict
         self.oed_fields = {}
-        self.group_cols = []
 
     def set_oed_fields(self, perspective, oed_fields):
         self.oed_fields[perspective] = oed_fields
@@ -49,6 +48,9 @@ class OutputVisualisationInterface:
                    For `leccalc`the following keys and options are expected:
                        `analysis_type`: `full_uncertainty`, `sample_mean`, `wheatsheaf`, `wheatsheaf_mean`
                        `loss_type`: `aep`, `oep`
+
+                   For `eltcalc` the following optional arguments are accepted:
+                        `group_fields`: Columns to group by. By default `type` will be first groupby column.
 
         Returns
         -------
@@ -105,6 +107,23 @@ class OutputVisualisationInterface:
         cols = kwargs.get('columns', ['type'])
         cols += kwargs.get('oed_fields', [])
         cols += ['mean']
+
+        group_fields = kwargs.get('group_fields', [])
+        if group_fields:
+            group_fields = ['type'] + group_fields
+            ungrouped_cols = results.columns.difference(group_fields)
+
+            numeric_cols = results.select_dtypes(include='number').columns
+            numeric_cols = numeric_cols.intersection(ungrouped_cols)
+            non_numeric_cols = ungrouped_cols.difference(numeric_cols)
+
+            agg_dict = {}
+            for c in numeric_cols:
+                agg_dict[c] = 'mean'
+            for c in non_numeric_cols:
+                agg_dict[c] = 'unique'
+
+            results = results.groupby(group_fields, as_index=False).agg(agg_dict)
 
         vis = results[cols]
         vis.loc[:, 'type'] = vis['type'].replace(TYPE_MAP)
