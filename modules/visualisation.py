@@ -114,6 +114,8 @@ class OutputVisualisationInterface:
             ungrouped_cols = results.columns.difference(group_fields)
 
             numeric_cols = results.select_dtypes(include='number').columns
+            categorical_cols = kwargs.get('categorical_cols', [])
+            numeric_cols = numeric_cols.difference(categorical_cols)
             numeric_cols = numeric_cols.intersection(ungrouped_cols)
             non_numeric_cols = ungrouped_cols.difference(numeric_cols)
 

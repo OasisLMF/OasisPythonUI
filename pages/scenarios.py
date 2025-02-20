@@ -277,17 +277,30 @@ with run_container:
 
                     group_cols = vis_interface.oed_fields.get(perspective, [])
 
+                    code_to_name = {
+                        'PortNumber': 'Portfolio',
+                        'CountryCode': 'Country',
+                        'LocNumber': 'Location'
+                    }
+
                     group_fields = st.pills("Group Columns",
                                             group_cols,
                                             key=f'{perspective}_group_pill',
+                                            format_func = lambda x: code_to_name.get(x, x),
                                             selection_mode='multi')
                     eltcalc_df = vis_interface.get(summary_level=1, perspective=perspective, output_type='eltcalc',
-                                                   group_fields=group_fields)
+                                                   group_fields=group_fields, categorical_cols=code_to_name.keys())
 
                     eltcalc_df = DataframeView(eltcalc_df)
                     eltcalc_df.column_config['mean'] = st.column_config.NumberColumn('Mean', format='%.2f')
                     for c in group_cols:
-                        eltcalc_df.column_config[c] = st.column_config.TextColumn(c)
+                        col_name =  code_to_name.get(c, None)
+                        if col_name:
+                            # All group fields categorical
+                            eltcalc_df.column_config[c] = st.column_config.ListColumn(col_name)
+                        else:
+                            eltcalc_df.column_config[c] = c
+
                     eltcalc_df.display()
                 if summaries_settings[0].get('aalcalc'):
                     st.write("### AAL Output")
