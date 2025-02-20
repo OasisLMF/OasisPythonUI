@@ -20,8 +20,13 @@ class OutputVisualisationInterface:
                            key as the output file name.
         '''
         self.output_file_dict = output_file_dict
+        self.oed_fields = {}
+        self.group_cols = []
 
-    def get(self, summary_level, perspective, output_type, opts={}):
+    def set_oed_fields(self, perspective, oed_fields):
+        self.oed_fields[perspective] = oed_fields
+
+    def get(self, summary_level, perspective, output_type, **kwargs):
         '''
         Generate graph from the output file.
 
@@ -40,12 +45,10 @@ class OutputVisualisationInterface:
                       - `aalcalc`
                       - `leccalc`
                       - `pltcalc`
-        opts : dict
-               Additional options depending on `output_type`.
-               For `leccalc`the following keys and options are expected:
-                   `opts`: {`analysis_type`: `full_uncertainty`, `sample_mean`, `wheatsheaf`, `wheatsheaf_mean`
-                            `loss_type`: `aep`, `oep`
-                           }
+        **kwargs : Additional options `output_type`.
+                   For `leccalc`the following keys and options are expected:
+                       `analysis_type`: `full_uncertainty`, `sample_mean`, `wheatsheaf`, `wheatsheaf_mean`
+                       `loss_type`: `aep`, `oep`
 
         Returns
         -------
@@ -55,54 +58,72 @@ class OutputVisualisationInterface:
         assert perspective in ['gul', 'il', 'ri'], 'Perspective not valid'
 
         if output_type == "leccalc":
-            assert opts.get("analysis_type") in ["full_uncertainty", "sample_mean", "wheatsheaf", "wheatsheaf_mean"], "Analysis type not supported."
-            assert opts.get("loss_type") in ["aep", "oep"], "Loss type not supported."
+            assert kwargs.get("analysis_type") in ["full_uncertainty", "sample_mean", "wheatsheaf", "wheatsheaf_mean"], "Analysis type not supported."
+            assert kwargs.get("loss_type") in ["aep", "oep"], "Loss type not supported."
 
 
         fname = self._request_to_fname(summary_level, perspective, output_type,
-                                           opts=opts)
+                                           **kwargs)
         results = self.output_file_dict.get(fname)
         if results is None:
             logger.error(f'Failed to find output file: {fname}')
             raise OasisException('Output file not found.')
 
-        fig = getattr(self, f'generate_{output_type}')(results, opts=opts)
+        oed_fields = self.oed_fields.get(perspective, None)
+        if oed_fields:
+            summary_info = self.output_file_dict.get(self._request_to_summary_info_fname(summary_level, perspective))
+            results = self.add_oed_fields(results, summary_info, oed_fields)
+            kwargs['oed_fields'] = oed_fields
+
+        fig = getattr(self, f'generate_{output_type}')(results, **kwargs)
         return fig
 
 
     @staticmethod
-    def _request_to_fname(summary_level, perspective, output_type, opts={}):
+    def _request_to_fname(summary_level, perspective, output_type, **kwargs):
         fname = f'{perspective}_S{summary_level}_{output_type}'
         if output_type == 'leccalc':
-            fname += f'_{opts.get("analysis_type")}_{opts.get("loss_type")}'
+            fname += f'_{kwargs.get("analysis_type")}_{kwargs.get("loss_type")}'
         fname += '.csv'
         return fname
 
     @staticmethod
-    def generate_eltcalc(results, opts={}):
+    def _request_to_summary_info_fname(summary_level, perspective):
+        return f'{perspective}_S{summary_level}_summary-info.csv'
+
+    @staticmethod
+    def add_oed_fields(results, summary_info, oed_fields):
+        summary_info = summary_info.set_index('summary_id')
+        summary_info = summary_info[oed_fields]
+        return results.join(summary_info, on='summary_id', rsuffix='_')
+
+    @staticmethod
+    def generate_eltcalc(results, **kwargs):
         '''
         Create graphs from eltcalc results.
         '''
-        cols = ['type', 'mean']
-        vis = results[cols].groupby('type').mean()
-        vis = vis.reset_index()
-        vis['type'] = vis['type'].replace(TYPE_MAP)
+        cols = kwargs.get('columns', ['type'])
+        cols += kwargs.get('oed_fields', [])
+        cols += ['mean']
+
+        vis = results[cols]
+        vis.loc[:, 'type'] = vis['type'].replace(TYPE_MAP)
 
         return vis
 
     @staticmethod
-    def generate_aalcalc(results, opts={}):
+    def generate_aalcalc(results, **kwargs):
         results['type'] = results['type'].replace(TYPE_MAP)
         fig = px.bar(results, x='type', y='mean', labels={'type': 'Type', 'mean': 'Average Annual Loss'})
         return fig
 
     @staticmethod
-    def generate_leccalc(results, opts={}):
+    def generate_leccalc(results, **kwargs):
         results['type'] = results['type'].replace(TYPE_MAP)
         title = ''
-        if opts:
-            a_type = opts['analysis_type'].replace('_', ' ').title()
-            o_type = opts['loss_type'].upper()
+        if kwargs.get('analysis_type'):
+            a_type = kwargs['analysis_type'].replace('_', ' ').title()
+            o_type = kwargs['loss_type'].upper()
             title = f'{a_type} {o_type}'
         fig = px.line(results, x='return_period', y='loss', color='type', markers=False, log_x=True,
                       labels={'loss': 'Loss', 'return_period': 'Return Period', 'type': 'Type'}, title=title)
@@ -111,7 +132,7 @@ class OutputVisualisationInterface:
         return fig
 
     @staticmethod
-    def generate_pltcalc(results, opts={}):
+    def generate_pltcalc(results, **kwargs):
         results['type'] = results['type'].replace(TYPE_MAP)
 
         fig = px.scatter(results, x='period_no', y='mean', color='type', marginal_y='histogram',
