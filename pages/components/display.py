@@ -107,8 +107,11 @@ class MapView(View):
         self.longitude_key = longitude
         self.latitude_key = latitude
 
-    def display(self):
-        deck = self.generate_location_map()
+    def display(self, heatmap_col=None):
+        if heatmap_col:
+            deck = self.generate_heatmap(heatmap_col)
+        else:
+            deck = self.generate_location_map()
         st.pydeck_chart(deck, use_container_width=True)
         return None
 
@@ -144,4 +147,29 @@ class MapView(View):
         deck = pdk.Deck(layers=[layer], initial_view_state=viewstate,
                         tooltip=tooltip,
                         map_style='light')
+        return deck
+
+    def generate_heatmap(self, intensity_col):
+        locations = self.data
+
+        viewstate = pdk.data_utils.compute_view(locations[[self.longitude_key, self.latitude_key]])
+
+        layer = pdk.Layer(
+                'HeatmapLayer',
+                data = locations,
+                opacity = 0.9,
+                get_position = [self.longitude_key, self.latitude_key],
+                aggregation = pdk.types.String("SUM"),
+                threshold = 1,
+                pickable = True,
+                get_weight = intensity_col
+        )
+
+        # Prevent over zooming
+        if viewstate.zoom > 18:
+            viewstate.zoom = 18
+
+        deck = pdk.Deck(layers=[layer], initial_view_state=viewstate,
+                        map_style='light')
+
         return deck
