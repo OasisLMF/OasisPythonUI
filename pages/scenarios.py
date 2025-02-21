@@ -143,7 +143,7 @@ with create_container:
                         st.error('Longitude and Latitude columns not found.')
                     else:
                         exposure_map = MapView(locations)
-                        exposure_map.display()
+                        exposure_map.display(heatmap_col='BuildingTIV')
             show_locations_map()
 
     with cols[2]:
@@ -360,3 +360,69 @@ with run_container:
     analysis_fragment()
     if run_every is not None:
         st.info('Analysis running.')
+
+
+st.write("WIP - Countries Choropleth Map")
+import geopandas
+import pydeck as pdk
+import numpy as np
+import plotly.express as px
+import pandas as pd
+
+
+locations = client.analyses.input_file.get_dataframe(3)['location.csv']
+
+mv = MapView(locations, weight="BuildingTIV", map_type="choropleth")
+mv.display()
+
+
+st.stop()
+
+countries = geopandas.read_file("./assets/ne_50m_admin_0_countries.geojson")
+
+def color_column(column, colorscale="inferno"):
+    if isinstance(colorscale, str):
+        colorscale = px.colors.get_colorscale(colorscale)
+
+    rel_column = (column - column.min()) / (column.max() - column.min())
+
+    c_column = px.colors.sample_colorscale(colorscale, rel_column)
+    c_column = [px.colors.unlabel_rgb(c) for c in c_column]
+    return c_column
+
+
+countries['gdp_per_capita'] = countries['gdp_md_est']
+countries['gdp_per_capita'] = countries['gdp_per_capita'].fillna(0)
+countries['color_pop'] =  color_column(countries['gdp_per_capita'])
+
+st.dataframe(countries)
+
+layer = pdk.Layer(
+            "GeoJsonLayer",
+            data = countries,
+            opacity = 0.4,
+            filled = True,
+            wireframe = True,
+            get_line_color = [255, 255, 255],
+            get_fill_color = 'color_pop' ,
+            get_line_width = 500,
+            stroked = True,
+            pickable=True
+)
+
+deck = pdk.Deck(layers=[layer],
+                initial_view_state = {
+                    'longitude':  0,
+                    'latitude':  0,
+                    'zoom' : 8
+                },
+                map_style="light",
+                tooltip = {
+                    'html': '''
+                            <b>Country:</b> {name}<br />
+                            <b>GDP:</b> {gdp_per_capita}
+                            '''
+                }
+                )
+
+st.pydeck_chart(deck, use_container_width=True)

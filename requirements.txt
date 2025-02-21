@@ -179,3 +179,4 @@ urllib3==2.2.3
 watchdog==6.0.0
     # via streamlit
 plotly==6.0.0
+geopandas==1.0.1

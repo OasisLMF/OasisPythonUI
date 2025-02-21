@@ -17,6 +17,7 @@ COPY ./modules ./modules
 COPY ./app.py ./app.py
 COPY ./defaults ./defaults
 COPY ./pages ./pages
+COPY ./assets/ ./assets
 COPY ./.streamlit ./.streamlit
 COPY ./ui-config.json ./ui-config.json
 

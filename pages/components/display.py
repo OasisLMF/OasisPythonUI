@@ -1,7 +1,10 @@
 # Module to display inputs and views from api
+from oasis_data_manager.errors import OasisException
 import pandas as pd
 import streamlit as st
 import pydeck as pdk
+import plotly.express as px
+import geopandas
 
 class View:
     def __init__(self, data):
@@ -102,16 +105,52 @@ class DataframeView(View):
 
 
 class MapView(View):
-    def __init__(self, data, longitude="Longitude", latitude="Latitude"):
-        self.data = data
-        self.longitude_key = longitude
-        self.latitude_key = latitude
+    def __init__(self, data, longitude="Longitude", latitude="Latitude",
+                 weight=None, map_type = "scatter", country="CountryCode"):
+        '''
+        Class to visualise data on a map.
 
-    def display(self, heatmap_col=None):
-        if heatmap_col:
-            deck = self.generate_heatmap(heatmap_col)
-        else:
+        Parameters
+        ----------
+        data : pd.DataFrame
+               Locations data.
+        longitude : str
+                    Longitude column name in `data`.
+        latitude : str
+                   Latitude column name in `data`.
+        weight : str
+                 Column in `data` representing the weight of each location. The
+                 way the weight is visualised will be depedent on the
+                 `map_type`.
+        country : str
+                  Country code column in `data`.
+        map_type : str
+                   The type of map to display. The following options are available:
+                   - `scatter`
+                   - `heatmap`
+                   - `choropleth` - currently only supports countries.
+        '''
+        self.data = data
+        self.longitude = longitude
+        self.latitude = latitude
+        self.weight = weight
+        self.country = country
+        self.map_type = map_type
+
+    def display(self):
+
+        if self.map_type == "scatter":
             deck = self.generate_location_map()
+        if self.map_type == "heatmap":
+            assert self.weight is not None, 'Weight column not set.'
+            deck = self.generate_heatmap()
+        elif self.map_type == "choropleth":
+            assert self.weight is not None, 'Weight column not set'
+            deck = self.generate_choropleth()
+            return None
+        else:
+            OasisException("Map type not recognised")
+
         st.pydeck_chart(deck, use_container_width=True)
         return None
 
@@ -121,7 +160,7 @@ class MapView(View):
         layer = pdk.Layer(
             'ScatterplotLayer',
             locations,
-            get_position=[self.longitude_key, self.latitude_key],
+            get_position=[self.longitude, self.latitude],
             get_line_color = [0, 0, 0],
             get_fill_color = [255, 140, 0],
             radius_min_pixels = 1,
@@ -132,7 +171,7 @@ class MapView(View):
             get_line_width=0.5,
         )
 
-        viewstate = pdk.data_utils.compute_view(locations[[self.longitude_key, self.latitude_key]])
+        viewstate = pdk.data_utils.compute_view(locations[[self.longitude, self.latitude]])
 
         # Prevent over zooming
         if viewstate.zoom > 18:
@@ -149,20 +188,20 @@ class MapView(View):
                         map_style='light')
         return deck
 
-    def generate_heatmap(self, intensity_col):
+    def generate_heatmap(self):
         locations = self.data
 
-        viewstate = pdk.data_utils.compute_view(locations[[self.longitude_key, self.latitude_key]])
+        viewstate = pdk.data_utils.compute_view(locations[[self.longitude, self.latitude]])
 
         layer = pdk.Layer(
                 'HeatmapLayer',
                 data = locations,
                 opacity = 0.9,
-                get_position = [self.longitude_key, self.latitude_key],
+                get_position = [self.longitude, self.latitude],
                 aggregation = pdk.types.String("SUM"),
                 threshold = 1,
                 pickable = True,
-                get_weight = intensity_col
+                get_weight = self.weight
         )
 
         # Prevent over zooming
@@ -173,3 +212,59 @@ class MapView(View):
                         map_style='light')
 
         return deck
+
+    def generate_choropleth(self):
+        # Get country GeoJSON
+        # Source: geojson.xyz naturalearth-3.3.0 admin_0_countries
+        countries = geopandas.read_file("./assets/ne_50m_admin_0_countries_reduced.geojson")
+        countries = countries.set_index('iso_a2')
+
+        # Aggregate relevant data
+        cols = [self.country, self.weight]
+        locations = self.data[cols]
+        locations = locations.groupby(self.country, as_index=False).agg('sum')
+
+
+        # Assign colors
+        colour_col = locations[self.weight]
+        colour_col = (colour_col - colour_col.min()) / (colour_col.max() - colour_col.min())
+        colour_col = colour_col.fillna(0)
+        colour_col = px.colors.sample_colorscale("inferno", colour_col)
+        colour_col = [px.colors.unlabel_rgb(c) for c in colour_col]
+
+        locations["country_colour"] = colour_col
+        locations = countries.merge(locations, left_on="iso_a2", right_on=self.country)
+
+        long_init = float(locations.geometry.centroid.x.mean())
+        lat_init = float(locations.geometry.centroid.y.mean())
+
+        layer = pdk.Layer(
+                    "GeoJsonLayer",
+                    data = locations,
+                    opacity = 0.4,
+                    filled = True,
+                    wireframe = True,
+                    get_line_color = [255, 255, 255],
+                    get_fill_color = "country_colour",
+                    get_line_width = 500,
+                    stroked = True,
+                    pickable=True
+        )
+
+        deck = pdk.Deck(layers=[layer],
+                        initial_view_state = {
+                            'longitude': long_init,
+                            'latitude':  lat_init,
+                            'zoom' : 2
+                        },
+                        map_style="light",
+                        tooltip = {
+                            'html': f'''
+                                    <b>Country:</b> {{name}}<br />
+                                    <b>{self.weight}:</b> {{{self.weight}}}
+                                    '''
+                        }
+                        )
+
+
+        st.pydeck_chart(deck)
