@@ -229,7 +229,7 @@ class MapView(View):
         colour_col = locations[self.weight]
         colour_col = (colour_col - colour_col.min()) / (colour_col.max() - colour_col.min())
         colour_col = colour_col.fillna(0)
-        colour_col = px.colors.sample_colorscale("inferno", colour_col)
+        colour_col = px.colors.sample_colorscale("Brwnyl", colour_col)
         colour_col = [px.colors.unlabel_rgb(c) for c in colour_col]
 
         locations["country_colour"] = colour_col
