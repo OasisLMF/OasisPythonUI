@@ -310,7 +310,7 @@ with run_container:
 
                         eltcalc_df.display()
 
-                    if 'CountryCode' in vis_interface.oed_fields:
+                    if 'CountryCode' in vis_interface.oed_fields.get(perspective, []):
                         tab_list.append('Map')
 
                     def map_tab():
