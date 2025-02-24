@@ -272,36 +272,66 @@ with run_container:
                 if summaries_settings[0].get('eltcalc'):
                     st.write("### ELT Output")
 
+                    tab_list = ['Table']
+
                     if summaries_settings[0].get('oed_fields'):
                         vis_interface.set_oed_fields(perspective, summaries_settings[0].get('oed_fields'))
 
-                    group_cols = vis_interface.oed_fields.get(perspective, [])
+                    group_cols = ['type']
+                    group_cols += vis_interface.oed_fields.get(perspective, [])
 
                     code_to_name = {
                         'PortNumber': 'Portfolio',
                         'CountryCode': 'Country',
-                        'LocNumber': 'Location'
+                        'LocNumber': 'Location',
+                        'type': 'All'
                     }
 
-                    group_fields = st.pills("Group Columns",
-                                            group_cols,
-                                            key=f'{perspective}_group_pill',
-                                            format_func = lambda x: code_to_name.get(x, x),
-                                            selection_mode='multi')
-                    eltcalc_df = vis_interface.get(summary_level=1, perspective=perspective, output_type='eltcalc',
-                                                   group_fields=group_fields, categorical_cols=code_to_name.keys())
+                    def table_tab():
+                        group_fields = st.pills("Group Columns",
+                                                group_cols,
+                                                key=f'{perspective}_group_pill',
+                                                format_func = lambda x: code_to_name.get(x, x),
+                                                selection_mode='multi')
+                        eltcalc_df = vis_interface.get(summary_level=1, perspective=perspective, output_type='eltcalc',
+                                                       group_fields=group_fields, categorical_cols=code_to_name.keys())
 
-                    eltcalc_df = DataframeView(eltcalc_df)
-                    eltcalc_df.column_config['mean'] = st.column_config.NumberColumn('Mean', format='%.2f')
-                    for c in group_cols:
-                        col_name =  code_to_name.get(c, None)
-                        if col_name:
-                            # All group fields categorical
-                            eltcalc_df.column_config[c] = st.column_config.ListColumn(col_name)
-                        else:
-                            eltcalc_df.column_config[c] = c
+                        eltcalc_df = DataframeView(eltcalc_df)
+                        eltcalc_df.column_config['mean'] = st.column_config.NumberColumn('Mean', format='%.2f')
+                        for c in group_cols:
+                            col_name =  code_to_name.get(c, None)
+                            if col_name:
+                                # All group fields categorical
+                                eltcalc_df.column_config[c] = st.column_config.ListColumn(col_name)
+                            else:
+                                eltcalc_df.column_config[c] = c
+                        # fix type column heading
+                        eltcalc_df.column_config['type'] = st.column_config.ListColumn('Type')
 
-                    eltcalc_df.display()
+                        eltcalc_df.display()
+
+                    if 'CountryCode' in vis_interface.oed_fields:
+                        tab_list.append('Map')
+
+                    def map_tab():
+                        group_fields = ['CountryCode']
+                        eltcalc_df = vis_interface.get(summary_level=1, perspective=perspective, output_type='eltcalc',
+                                                       group_fields=group_fields, categorical_cols = code_to_name.keys())
+
+                        mv = MapView(eltcalc_df, weight="mean", map_type="choropleth")
+                        mv.display()
+
+                    # Show the tabs
+                    tabs = st.tabs(tab_list)
+
+                    for tab, tab_name in zip(tabs, tab_list):
+                        with tab:
+                            if tab_name == 'Table':
+                                table_tab()
+                            elif tab_name == 'Map':
+                                map_tab()
+
+
                 if summaries_settings[0].get('aalcalc'):
                     st.write("### AAL Output")
                     aal_fig = vis_interface.get(summary_level=1, perspective=perspective, output_type='aalcalc')
@@ -360,69 +390,3 @@ with run_container:
     analysis_fragment()
     if run_every is not None:
         st.info('Analysis running.')
-
-
-st.write("WIP - Countries Choropleth Map")
-import geopandas
-import pydeck as pdk
-import numpy as np
-import plotly.express as px
-import pandas as pd
-
-
-locations = client.analyses.input_file.get_dataframe(3)['location.csv']
-
-mv = MapView(locations, weight="BuildingTIV", map_type="choropleth")
-mv.display()
-
-
-st.stop()
-
-countries = geopandas.read_file("./assets/ne_50m_admin_0_countries.geojson")
-
-def color_column(column, colorscale="inferno"):
-    if isinstance(colorscale, str):
-        colorscale = px.colors.get_colorscale(colorscale)
-
-    rel_column = (column - column.min()) / (column.max() - column.min())
-
-    c_column = px.colors.sample_colorscale(colorscale, rel_column)
-    c_column = [px.colors.unlabel_rgb(c) for c in c_column]
-    return c_column
-
-
-countries['gdp_per_capita'] = countries['gdp_md_est']
-countries['gdp_per_capita'] = countries['gdp_per_capita'].fillna(0)
-countries['color_pop'] =  color_column(countries['gdp_per_capita'])
-
-st.dataframe(countries)
-
-layer = pdk.Layer(
-            "GeoJsonLayer",
-            data = countries,
-            opacity = 0.4,
-            filled = True,
-            wireframe = True,
-            get_line_color = [255, 255, 255],
-            get_fill_color = 'color_pop' ,
-            get_line_width = 500,
-            stroked = True,
-            pickable=True
-)
-
-deck = pdk.Deck(layers=[layer],
-                initial_view_state = {
-                    'longitude':  0,
-                    'latitude':  0,
-                    'zoom' : 8
-                },
-                map_style="light",
-                tooltip = {
-                    'html': '''
-                            <b>Country:</b> {name}<br />
-                            <b>GDP:</b> {gdp_per_capita}
-                            '''
-                }
-                )
-
-st.pydeck_chart(deck, use_container_width=True)

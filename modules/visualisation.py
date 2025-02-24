@@ -110,9 +110,10 @@ class OutputVisualisationInterface:
 
         group_fields = kwargs.get('group_fields', [])
         if group_fields:
-            group_fields = ['type'] + group_fields
-            ungrouped_cols = results.columns.difference(group_fields)
+            if 'type' not in group_fields:
+                group_fields = ['type'] + group_fields
 
+            ungrouped_cols = results.columns.difference(group_fields)
             numeric_cols = results.select_dtypes(include='number').columns
             categorical_cols = kwargs.get('categorical_cols', [])
             numeric_cols = numeric_cols.difference(categorical_cols)
@@ -121,7 +122,7 @@ class OutputVisualisationInterface:
 
             agg_dict = {}
             for c in numeric_cols:
-                agg_dict[c] = 'mean'
+                agg_dict[c] = 'sum'
             for c in non_numeric_cols:
                 agg_dict[c] = 'unique'
 
