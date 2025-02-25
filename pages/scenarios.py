@@ -344,6 +344,7 @@ with run_container:
                                                            group_fields=group_fields,
                                                            categorical_cols =
                                                            code_to_name.keys())
+                            eltcalc_df = eltcalc_df[eltcalc_df['type'] == 'Sample']
 
                             mv = MapView(eltcalc_df, weight="mean", map_type="choropleth")
                             mv.display()
@@ -357,6 +358,7 @@ with run_container:
                                                            group_fields=group_fields,
                                                            categorical_cols =
                                                            code_to_name.keys())
+                            eltcalc_df = eltcalc_df[eltcalc_df['type'] == 'Sample']
                             loc_reduced = locations[['LocNumber', 'Longitude', 'Latitude']]
                             heatmap_data = eltcalc_df.merge(loc_reduced, how="left", on="LocNumber")
                             heatmap_data = heatmap_data[['Longitude', 'Latitude', 'mean']]

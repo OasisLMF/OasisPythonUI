@@ -229,7 +229,7 @@ class MapView(View):
             range_color = [0, max(locations[self.weight])]
         else:
             offset = 0.1*(locations[self.weight].max() - locations[self.weight].min())
-            range_color = [locations[self.weight].min() - offset, locations[self.weight] + offset]
+            range_color = [locations[self.weight].min() - offset, locations[self.weight].max() + 2*offset]
 
         fig = px.choropleth_map(locations, geojson=countries,
                                 color=self.weight,
@@ -239,6 +239,7 @@ class MapView(View):
                                 center=center,
                                 zoom=3,
                                 opacity=0.75,
-                                range_color=range_color)
+                                range_color=range_color,
+                                labels={self.weight: self.weight.title()})
 
         st.plotly_chart(fig)
