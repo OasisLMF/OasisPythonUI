@@ -318,7 +318,7 @@ with run_container:
                         if not set(['Latitude', 'Longitude']).issubset(locations.columns):
                             return False
 
-                        lat_long = locations[['Latitude', 'Longitude']]
+                        lat_long = loc_df[['Latitude', 'Longitude']]
                         if (lat_long == lat_long.iloc[0]).all(axis=None):
                             return False
 
@@ -336,8 +336,6 @@ with run_container:
                         '''
                         Generate MapView of output of eltcalc. Either `heatmap` or `choropleth` depending on portfolio.
                         '''
-                        map_type = 'heatmap'
-
                         if map_type == 'choropleth':
                             group_fields = ['CountryCode']
                             eltcalc_df = vis_interface.get(summary_level=1,
