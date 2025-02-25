@@ -121,7 +121,8 @@ class MapView(View):
         weight : str
                  Column in `data` representing the weight of each location. The
                  way the weight is visualised will be depedent on the
-                 `map_type`.
+                 `map_type`. The `map_type` which require this parameter are:
+                 `heatmap` and `choropleth`.
         country : str
                   Country code column in `data`.
         map_type : str
@@ -140,18 +141,16 @@ class MapView(View):
     def display(self):
 
         if self.map_type == "scatter":
-            deck = self.generate_location_map()
+            self.generate_location_map()
         if self.map_type == "heatmap":
             assert self.weight is not None, 'Weight column not set.'
-            deck = self.generate_heatmap()
+            self.generate_heatmap()
         elif self.map_type == "choropleth":
             assert self.weight is not None, 'Weight column not set'
-            deck = self.generate_choropleth()
+            self.generate_choropleth()
         else:
             raise OasisException("Map type not recognised")
 
-        st.pydeck_chart(deck, use_container_width=True)
-        return None
 
     def generate_location_map(self):
         locations = self.data
@@ -185,7 +184,8 @@ class MapView(View):
         deck = pdk.Deck(layers=[layer], initial_view_state=viewstate,
                         tooltip=tooltip,
                         map_style='light')
-        return deck
+
+        st.pydeck_chart(deck)
 
     def generate_heatmap(self):
         locations = self.data
@@ -209,63 +209,36 @@ class MapView(View):
         deck = pdk.Deck(layers=[layer], initial_view_state=viewstate,
                         map_style='light')
 
-        return deck
+        st.pydeck_chart(deck)
 
     def generate_choropleth(self):
         # Get country GeoJSON
         # Source: geojson.xyz naturalearth-3.3.0 admin_0_countries
         countries = geopandas.read_file("./assets/ne_50m_admin_0_countries_reduced.geojson")
-        countries = countries.set_index('iso_a2')
 
         # Aggregate relevant data
         cols = [self.country, self.weight]
         locations = self.data[cols]
         locations = locations.groupby(self.country, as_index=False).agg('sum')
 
+        merged = countries.merge(locations, right_on=self.country, left_on="iso_a2", how="right")
+        center = {'lat': merged.geometry.centroid.y.mean(),
+                  'lon': merged.geometry.centroid.x.mean()}
 
-        # Assign colors
-        colour_col = locations[self.weight]
-        if len(colour_col) == 1:
-            colour_col = [1]
+        if len(locations) == 1:
+            range_color = [0, max(locations[self.weight])]
         else:
-            colour_col = (colour_col - colour_col.min()) / (colour_col.max() - colour_col.min())
-            colour_col = colour_col.fillna(0)
+            offset = 0.1*(locations[self.weight].max() - locations[self.weight].min())
+            range_color = [locations[self.weight].min() - offset, locations[self.weight] + offset]
 
-        colour_col = px.colors.sample_colorscale("Brwnyl", colour_col)
-        colour_col = [px.colors.unlabel_rgb(c) for c in colour_col]
+        fig = px.choropleth_map(locations, geojson=countries,
+                                color=self.weight,
+                                locations=self.country,
+                                featureidkey='properties.iso_a2',
+                                color_continuous_scale="YlOrRd",
+                                center=center,
+                                zoom=3,
+                                opacity=0.75,
+                                range_color=range_color)
 
-        locations["country_colour"] = colour_col
-        locations = countries.merge(locations, left_on="iso_a2", right_on=self.country)
-
-        long_init = float(locations.geometry.centroid.x.mean())
-        lat_init = float(locations.geometry.centroid.y.mean())
-
-        layer = pdk.Layer(
-                    "GeoJsonLayer",
-                    data = locations,
-                    opacity = 0.4,
-                    filled = True,
-                    wireframe = True,
-                    get_line_color = [255, 255, 255],
-                    get_fill_color = "country_colour",
-                    get_line_width = 500,
-                    stroked = True,
-                    pickable=True
-        )
-
-        deck = pdk.Deck(layers=[layer],
-                        initial_view_state = {
-                            'longitude': long_init,
-                            'latitude':  lat_init,
-                            'zoom' : 2
-                        },
-                        map_style="light",
-                        tooltip = {
-                            'html': f'''
-                                    <b>Country:</b> {{name}}<br />
-                                    <b>{self.weight}:</b> {{{self.weight}}}
-                                    '''
-                        }
-                        )
-
-        return deck
+        st.plotly_chart(fig)
