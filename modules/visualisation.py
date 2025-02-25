@@ -80,7 +80,6 @@ class OutputVisualisationInterface:
         fig = getattr(self, f'generate_{output_type}')(results, **kwargs)
         return fig
 
-
     @staticmethod
     def _request_to_fname(summary_level, perspective, output_type, **kwargs):
         fname = f'{perspective}_S{summary_level}_{output_type}'

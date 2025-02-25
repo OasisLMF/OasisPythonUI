@@ -147,9 +147,8 @@ class MapView(View):
         elif self.map_type == "choropleth":
             assert self.weight is not None, 'Weight column not set'
             deck = self.generate_choropleth()
-            return None
         else:
-            OasisException("Map type not recognised")
+            raise OasisException("Map type not recognised")
 
         st.pydeck_chart(deck, use_container_width=True)
         return None
@@ -200,7 +199,6 @@ class MapView(View):
                 get_position = [self.longitude, self.latitude],
                 aggregation = pdk.types.String("SUM"),
                 threshold = 1,
-                pickable = True,
                 get_weight = self.weight
         )
 
@@ -227,8 +225,12 @@ class MapView(View):
 
         # Assign colors
         colour_col = locations[self.weight]
-        colour_col = (colour_col - colour_col.min()) / (colour_col.max() - colour_col.min())
-        colour_col = colour_col.fillna(0)
+        if len(colour_col) == 1:
+            colour_col = [1]
+        else:
+            colour_col = (colour_col - colour_col.min()) / (colour_col.max() - colour_col.min())
+            colour_col = colour_col.fillna(0)
+
         colour_col = px.colors.sample_colorscale("Brwnyl", colour_col)
         colour_col = [px.colors.unlabel_rgb(c) for c in colour_col]
 
@@ -266,5 +268,4 @@ class MapView(View):
                         }
                         )
 
-
-        st.pydeck_chart(deck)
+        return deck

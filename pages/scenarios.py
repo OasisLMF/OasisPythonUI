@@ -284,7 +284,7 @@ with run_container:
                         'PortNumber': 'Portfolio',
                         'CountryCode': 'Country',
                         'LocNumber': 'Location',
-                        'type': 'All'
+                        'type': 'Type'
                     }
 
                     def table_tab():
@@ -310,16 +310,62 @@ with run_container:
 
                         eltcalc_df.display()
 
-                    if 'CountryCode' in vis_interface.oed_fields.get(perspective, []):
+                    def valid_locations(loc_df):
+                        '''
+                        Check if `Latitude` and `Longitude` columns are present
+                        and if they are unique between locations.
+                        '''
+                        if not set(['Latitude', 'Longitude']).issubset(locations.columns):
+                            return False
+
+                        lat_long = locations[['Latitude', 'Longitude']]
+                        if (lat_long == lat_long.iloc[0]).all(axis=None):
+                            return False
+
+                        return True
+
+                    # Determine which map to use
+                    if 'LocNumber' in vis_interface.oed_fields.get(perspective, []) and valid_locations(locations):
+                        map_type = 'heatmap'
+                        tab_list.append('Map')
+                    elif 'CountryCode' in vis_interface.oed_fields.get(perspective, []):
+                        map_type = 'choropleth'
                         tab_list.append('Map')
 
-                    def map_tab():
-                        group_fields = ['CountryCode']
-                        eltcalc_df = vis_interface.get(summary_level=1, perspective=perspective, output_type='eltcalc',
-                                                       group_fields=group_fields, categorical_cols = code_to_name.keys())
+                    def map_tab(map_type):
+                        '''
+                        Generate MapView of output of eltcalc. Either `heatmap` or `choropleth` depending on portfolio.
+                        '''
+                        map_type = 'heatmap'
 
-                        mv = MapView(eltcalc_df, weight="mean", map_type="choropleth")
-                        mv.display()
+                        if map_type == 'choropleth':
+                            group_fields = ['CountryCode']
+                            eltcalc_df = vis_interface.get(summary_level=1,
+                                                           perspective=perspective,
+                                                           output_type='eltcalc',
+                                                           group_fields=group_fields,
+                                                           categorical_cols =
+                                                           code_to_name.keys())
+
+                            mv = MapView(eltcalc_df, weight="mean", map_type="choropleth")
+                            mv.display()
+                            return
+
+                        if map_type == 'heatmap':
+                            group_fields = ['LocNumber']
+                            eltcalc_df = vis_interface.get(summary_level=1,
+                                                           perspective=perspective,
+                                                           output_type='eltcalc',
+                                                           group_fields=group_fields,
+                                                           categorical_cols =
+                                                           code_to_name.keys())
+                            loc_reduced = locations[['LocNumber', 'Longitude', 'Latitude']]
+                            heatmap_data = eltcalc_df.merge(loc_reduced, how="left", on="LocNumber")
+                            heatmap_data = heatmap_data[['Longitude', 'Latitude', 'mean']]
+
+                            mv = MapView(heatmap_data, longitude='Longitude', latitude='Latitude',
+                                         map_type='heatmap', weight='mean')
+                            mv.display()
 
                     # Show the tabs
                     tabs = st.tabs(tab_list)
@@ -329,7 +375,7 @@ with run_container:
                             if tab_name == 'Table':
                                 table_tab()
                             elif tab_name == 'Map':
-                                map_tab()
+                                map_tab(map_type)
 
 
                 if summaries_settings[0].get('aalcalc'):
