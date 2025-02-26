@@ -190,7 +190,16 @@ class MapView(View):
     def generate_heatmap(self):
         locations = self.data
 
-        viewstate = pdk.data_utils.compute_view(locations[[self.longitude, self.latitude]])
+        def find_zoom_level(lon_range):
+            zoom_df = pd.read_csv('./assets/zoom_levels_reduced.csv')
+            masked = zoom_df[zoom_df['tile_width_longitudes'] < lon_range]
+            if masked.empty:
+                return 18
+            return min(max(masked.iloc[0, :].name - 1, 0), 18)
+
+        lon_range = locations[self.longitude].max() - locations[self.longitude].min()
+
+        zoom = find_zoom_level(lon_range)
 
         fig = px.density_map(locations,
                              lat = self.latitude,
@@ -198,7 +207,7 @@ class MapView(View):
                              z = self.weight,
                              color_continuous_scale="YlOrRd",
                              opacity=0.75,
-                             zoom = 18,
+                             zoom = zoom,
                              labels={self.weight: self.weight.title()})
 
         st.plotly_chart(fig, use_container_width=True)
