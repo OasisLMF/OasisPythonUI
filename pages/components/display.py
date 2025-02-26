@@ -192,24 +192,16 @@ class MapView(View):
 
         viewstate = pdk.data_utils.compute_view(locations[[self.longitude, self.latitude]])
 
-        layer = pdk.Layer(
-                'HeatmapLayer',
-                data = locations,
-                opacity = 0.9,
-                get_position = [self.longitude, self.latitude],
-                aggregation = pdk.types.String("SUM"),
-                threshold = 1,
-                get_weight = self.weight
-        )
+        fig = px.density_map(locations,
+                             lat = self.latitude,
+                             lon = self.longitude,
+                             z = self.weight,
+                             color_continuous_scale="YlOrRd",
+                             opacity=0.75,
+                             zoom = 18,
+                             labels={self.weight: self.weight.title()})
 
-        # Prevent over zooming
-        if viewstate.zoom > 18:
-            viewstate.zoom = 18
-
-        deck = pdk.Deck(layers=[layer], initial_view_state=viewstate,
-                        map_style='light')
-
-        st.pydeck_chart(deck)
+        st.plotly_chart(fig, use_container_width=True)
 
     def generate_choropleth(self):
         # Get country GeoJSON
