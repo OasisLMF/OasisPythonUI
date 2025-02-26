@@ -265,7 +265,11 @@ with run_container:
 
             # Graphs from output
 
-            results_dict = ci.analyses.get_file(analysis_id, 'output_file', df=True)
+            @st.cache_data
+            def get_output_file(analysis_id):
+                return ci.analyses.get_file(analysis_id, 'output_file', df=True)
+
+            results_dict = get_output_file(analysis_id)
             vis_interface = OutputVisualisationInterface(results_dict)
 
             def generate_perspective_visualisation(perspective, summaries_settings):
@@ -277,14 +281,12 @@ with run_container:
                     if summaries_settings[0].get('oed_fields'):
                         vis_interface.set_oed_fields(perspective, summaries_settings[0].get('oed_fields'))
 
-                    group_cols = ['type']
-                    group_cols += vis_interface.oed_fields.get(perspective, [])
+                    group_cols = vis_interface.oed_fields.get(perspective, [])
 
                     code_to_name = {
                         'PortNumber': 'Portfolio',
                         'CountryCode': 'Country',
                         'LocNumber': 'Location',
-                        'type': 'Type'
                     }
 
                     def table_tab():
@@ -293,22 +295,31 @@ with run_container:
                                                 key=f'{perspective}_group_pill',
                                                 format_func = lambda x: code_to_name.get(x, x),
                                                 selection_mode='multi')
+
+                        # always group by output type
+                        group_fields = ['type'] + group_fields
                         eltcalc_df = vis_interface.get(summary_level=1, perspective=perspective, output_type='eltcalc',
                                                        group_fields=group_fields, categorical_cols=code_to_name.keys())
 
-                        eltcalc_df = DataframeView(eltcalc_df)
-                        eltcalc_df.column_config['mean'] = st.column_config.NumberColumn('Mean', format='%.2f')
-                        for c in group_cols:
-                            col_name =  code_to_name.get(c, None)
-                            if col_name:
-                                # All group fields categorical
-                                eltcalc_df.column_config[c] = st.column_config.ListColumn(col_name)
-                            else:
-                                eltcalc_df.column_config[c] = c
-                        # fix type column heading
-                        eltcalc_df.column_config['type'] = st.column_config.ListColumn('Type')
+                        df_memory = eltcalc_df.memory_usage().sum() / 1e6
 
-                        eltcalc_df.display()
+                        if df_memory > 200:
+                            st.error('Output too large, try grouping')
+                            logger.error(f'eltcalc view df size: {df_memory}')
+                        else:
+                            eltcalc_df = DataframeView(eltcalc_df)
+                            eltcalc_df.column_config['mean'] = st.column_config.NumberColumn('Mean', format='%.2f')
+                            for c in group_cols:
+                                col_name =  code_to_name.get(c, None)
+                                if col_name:
+                                    # All group fields categorical
+                                    eltcalc_df.column_config[c] = st.column_config.ListColumn(col_name)
+                                else:
+                                    eltcalc_df.column_config[c] = c
+                            # fix type column heading
+                            eltcalc_df.column_config['type'] = st.column_config.ListColumn('Type')
+
+                            eltcalc_df.display()
 
                     def valid_locations(loc_df):
                         '''
