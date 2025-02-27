@@ -18,6 +18,8 @@ import json
 from modules.client import ClientInterface
 import logging
 
+import pyinstrument
+
 from pages.components.output import model_summary, summarise_intputs
 from pages.components.process import enrich_analyses, enrich_portfolios
 
@@ -265,7 +267,7 @@ with run_container:
 
             # Graphs from output
 
-            @st.cache_data
+            @st.cache_data(show_spinner="Fetching output data...")
             def get_output_file(analysis_id):
                 return ci.analyses.get_file(analysis_id, 'output_file', df=True)
 
@@ -289,6 +291,7 @@ with run_container:
                         'LocNumber': 'Location',
                     }
 
+
                     def table_tab():
                         group_fields = st.pills("Group Columns",
                                                 group_cols,
@@ -297,14 +300,19 @@ with run_container:
                                                 selection_mode='multi')
 
                         # always group by output type
+                        categorical_cols = [str(c) for c in code_to_name.keys()]
                         group_fields = ['type'] + group_fields
-                        eltcalc_df = vis_interface.get(summary_level=1, perspective=perspective, output_type='eltcalc',
-                                                       group_fields=group_fields, categorical_cols=code_to_name.keys())
+                        eltcalc_df = vis_interface.get(summary_level=1,
+                                                       perspective=perspective,
+                                                       output_type='eltcalc',
+                                                       group_fields=group_fields,
+                                                       categorical_cols=categorical_cols)
 
                         df_memory = eltcalc_df.memory_usage().sum() / 1e6
 
                         if df_memory > 200:
                             st.error('Output too large, try grouping')
+                            st.write(df_memory)
                             logger.error(f'eltcalc view df size: {df_memory}')
                         else:
                             eltcalc_df = DataframeView(eltcalc_df)
@@ -347,15 +355,16 @@ with run_container:
                         '''
                         Generate MapView of output of eltcalc. Either `heatmap` or `choropleth` depending on portfolio.
                         '''
+                        categorical_cols = [str(c) for c in code_to_name.keys()]
+
                         if map_type == 'choropleth':
                             group_fields = ['CountryCode']
                             eltcalc_df = vis_interface.get(summary_level=1,
                                                            perspective=perspective,
                                                            output_type='eltcalc',
                                                            group_fields=group_fields,
-                                                           categorical_cols =
-                                                           code_to_name.keys())
-                            eltcalc_df = eltcalc_df[eltcalc_df['type'] == 'Sample']
+                                                           categorical_cols = categorical_cols,
+                                                           filter_type = 2) # Only output sample
 
                             mv = MapView(eltcalc_df, weight="mean", map_type="choropleth")
                             mv.display()
@@ -367,9 +376,8 @@ with run_container:
                                                            perspective=perspective,
                                                            output_type='eltcalc',
                                                            group_fields=group_fields,
-                                                           categorical_cols =
-                                                           code_to_name.keys())
-                            eltcalc_df = eltcalc_df[eltcalc_df['type'] == 'Sample']
+                                                           categorical_cols = categorical_cols,
+                                                           filter_type = 2) # Only output sample data
                             loc_reduced = locations[['LocNumber', 'Longitude', 'Latitude']]
                             heatmap_data = eltcalc_df.merge(loc_reduced, how="left", on="LocNumber")
                             heatmap_data = heatmap_data[['Longitude', 'Latitude', 'mean']]
@@ -381,12 +389,13 @@ with run_container:
                     # Show the tabs
                     tabs = st.tabs(tab_list)
 
-                    for tab, tab_name in zip(tabs, tab_list):
-                        with tab:
-                            if tab_name == 'Table':
-                                table_tab()
-                            elif tab_name == 'Map':
-                                map_tab(map_type)
+                    with st.spinner("Loading results..."):
+                        for tab, tab_name in zip(tabs, tab_list):
+                            with tab:
+                                if tab_name == 'Table':
+                                    table_tab()
+                                elif tab_name == 'Map':
+                                    map_tab(map_type)
 
 
                 if summaries_settings[0].get('aalcalc'):

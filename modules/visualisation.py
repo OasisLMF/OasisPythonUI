@@ -1,6 +1,7 @@
 from oasis_data_manager.errors import OasisException
 import plotly.express as px
 import logging
+import streamlit as st
 
 logger = logging.getLogger(__name__)
 
@@ -10,7 +11,6 @@ TYPE_MAP = {
 }
 
 class OutputVisualisationInterface:
-
     def __init__(self, output_file_dict):
         '''
         Parameters
@@ -63,7 +63,6 @@ class OutputVisualisationInterface:
             assert kwargs.get("analysis_type") in ["full_uncertainty", "sample_mean", "wheatsheaf", "wheatsheaf_mean"], "Analysis type not supported."
             assert kwargs.get("loss_type") in ["aep", "oep"], "Loss type not supported."
 
-
         fname = self._request_to_fname(summary_level, perspective, output_type,
                                            **kwargs)
         results = self.output_file_dict.get(fname)
@@ -99,13 +98,20 @@ class OutputVisualisationInterface:
         return results.join(summary_info, on='summary_id', rsuffix='_')
 
     @staticmethod
-    def generate_eltcalc(results, **kwargs):
+    @st.cache_data(show_spinner="Calculating results...", max_entries=100)
+    def generate_eltcalc(results, categorical_cols=[], **kwargs):
         '''
         Create graphs from eltcalc results.
         '''
         cols = kwargs.get('columns', ['type'])
         cols += kwargs.get('oed_fields', [])
         cols += ['mean']
+
+        filter_type = kwargs.get('filter_type', None)
+
+        if filter_type:
+            assert filter_type in TYPE_MAP.keys(), 'filter_type is not valid.'
+            results = results[results['type'] == filter_type]
 
         group_fields = kwargs.get('group_fields', [])
         if group_fields:
@@ -114,7 +120,6 @@ class OutputVisualisationInterface:
 
             ungrouped_cols = results.columns.difference(group_fields)
             numeric_cols = results.select_dtypes(include='number').columns
-            categorical_cols = kwargs.get('categorical_cols', [])
             numeric_cols = numeric_cols.difference(categorical_cols)
             numeric_cols = numeric_cols.intersection(ungrouped_cols)
             non_numeric_cols = ungrouped_cols.difference(numeric_cols)
