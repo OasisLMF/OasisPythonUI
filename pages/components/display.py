@@ -7,6 +7,14 @@ import plotly.express as px
 import geopandas
 
 class View:
+    '''
+    Base class to create a view component.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+           Pandas DataFrame containing the data to visualise.
+    '''
     def __init__(self, data):
         self.data = data
 
@@ -16,6 +24,28 @@ class View:
 
 
 class DataframeView(View):
+    '''
+    Visualise dataframe.
+
+    Basic Usage:
+
+    ```python
+    # Initialise with df
+    df_view = DataframeView(df)
+
+    # To display
+    df_view.display()
+    ```
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+           Pandas DataFrame representing the data to visualise.
+    selectable : bool (default `False`)
+                 If `True` then rows are selectable.
+    display_cols : list[str]
+                   The names of the columns to display. By default displays all the columns.
+    '''
     def __init__(self, data=None, selectable=False, display_cols=None):
         if data is None:
             data = pd.DataFrame(columns=display_cols)
@@ -36,6 +66,9 @@ class DataframeView(View):
                 self.column_config[c] = st.column_config.TextColumn(self.format_column_heading(c))
 
     def display(self, max_rows=1000):
+        '''
+        Show the dataframe.
+        '''
         if self.data.empty:
             st.dataframe(pd.DataFrame(columns=self.display_cols),
                          hide_index=True, column_config=self.column_config,
