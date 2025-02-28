@@ -35,7 +35,7 @@ class DataframeView(View):
             else:
                 self.column_config[c] = st.column_config.TextColumn(self.format_column_heading(c))
 
-    def display(self):
+    def display(self, max_rows=1000):
         if self.data.empty:
             st.dataframe(pd.DataFrame(columns=self.display_cols),
                          hide_index=True, column_config=self.column_config,
@@ -53,9 +53,13 @@ class DataframeView(View):
             args['selection_mode']="single-row"
             args['on_select']="rerun"
 
-
         # Add styling
         data_styled = self.data
+        n_rows = data_styled.shape[0]
+        # Limit if too many rows
+        if n_rows > max_rows:
+            data_styled = data_styled.iloc[:max_rows, :]
+
 
         def format_status(status):
             return status.replace('_', ' ').title()
@@ -77,6 +81,9 @@ class DataframeView(View):
             data_styled = data_styled.map(colour_status, subset=['status'])
 
         ret = st.dataframe(data_styled, **args)
+
+        if n_rows > max_rows:
+            st.info(f"Displaying {max_rows} of {n_rows} rows.")
 
         if self.selectable:
             return self.selected_to_row(ret)

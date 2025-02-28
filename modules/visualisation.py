@@ -98,7 +98,6 @@ class OutputVisualisationInterface:
         return results.join(summary_info, on='summary_id', rsuffix='_')
 
     @staticmethod
-    @st.cache_data(show_spinner="Calculating results...", max_entries=100)
     def generate_eltcalc(results, categorical_cols=[], **kwargs):
         '''
         Create graphs from eltcalc results.
@@ -130,7 +129,11 @@ class OutputVisualisationInterface:
             for c in non_numeric_cols:
                 agg_dict[c] = 'unique'
 
-            results = results.groupby(group_fields, as_index=False).agg(agg_dict)
+            @st.cache_data(show_spinner=False, max_entries=1000)
+            def eltcalc_transform(results, group_fields, agg_dict):
+                return results.groupby(group_fields, as_index=False).agg(agg_dict)
+
+            results = eltcalc_transform(results, group_fields, agg_dict)
 
         vis = results[cols]
         vis.loc[:, 'type'] = vis['type'].replace(TYPE_MAP)
