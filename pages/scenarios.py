@@ -18,8 +18,6 @@ import json
 from modules.client import ClientInterface
 import logging
 
-import pyinstrument
-
 from pages.components.output import model_summary, summarise_intputs
 from pages.components.process import enrich_analyses, enrich_portfolios
 
