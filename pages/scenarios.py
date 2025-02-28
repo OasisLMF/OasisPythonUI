@@ -307,12 +307,13 @@ with run_container:
                                                        output_type='eltcalc',
                                                        group_fields=group_fields,
                                                        categorical_cols=categorical_cols)
+                        # Sort by loss
+                        eltcalc_df = eltcalc_df.sort_values('mean', ascending=False)
 
                         df_memory = eltcalc_df.memory_usage().sum() / 1e6
 
                         if df_memory > 200:
                             st.error('Output too large, try grouping')
-                            st.write(df_memory)
                             logger.error(f'eltcalc view df size: {df_memory}')
                         else:
                             eltcalc_df = DataframeView(eltcalc_df)
