@@ -435,7 +435,9 @@ def analysis_fragment():
 
     validations = ValidationGroup()
     validations.add_validation(NotNoneValidation('Analysis'), selected)
-    validations.add_validation(KeyValueValidation('Status'), selected, 'status', 'READY')
+    validations.add_validation(KeyInValuesValidation('Status'), selected,
+                               'status', ['READY', 'RUN_COMPLETED',
+                                          'RUN_CANCELLED', 'RUN_ERROR'])
     validations.add_validation(KeyNotNoneValidation('Settings'), selected, 'settings')
 
     run_enabled = validations.is_valid()
