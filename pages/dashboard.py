@@ -1,4 +1,5 @@
 import streamlit as st
+from modules.client import ClientInterface
 from modules.nav import SidebarNav
 import pandas as pd
 import altair as alt
@@ -10,12 +11,17 @@ st.set_page_config(
 
 SidebarNav()
 
+# Embed Logo
+cols = st.columns([0.1, 0.8, 0.1])
+with cols[1]:
+    st.image("images/oasis_logo.png")
+
+# Retrieve client
 if "client" in st.session_state:
     client = st.session_state.client
+    client_interface = ClientInterface(client)
 else:
     st.switch_page("app.py")
-
-"# OasisLMF UI"
 
 def search_client_endpoint(endpoint, metadata={}):
     analyses = getattr(client, endpoint).search(metadata).json()

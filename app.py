@@ -22,7 +22,6 @@ with cols[1]:
 if "client" not in st.session_state:
     client_interface = ClientInterface(username=st.secrets["user"], password=st.secrets["password"])
     st.session_state["client"]  = client_interface.client
-    st.session_state["client_interface"] = client_interface
     st.rerun()
 
 if "client" in st.session_state:

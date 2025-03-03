@@ -42,7 +42,6 @@ with cols[1]:
 
 if "client" in st.session_state:
     client = st.session_state.client
-    # client_interface = st.session_state.client_interface
     client_interface = ClientInterface(client)
 else:
     st.switch_page("app.py")

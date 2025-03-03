@@ -2,6 +2,7 @@ from oasis_data_manager.errors import OasisException
 import streamlit as st
 import pandas as pd
 from requests.exceptions import HTTPError
+from modules.client import ClientInterface
 from modules.nav import SidebarNav
 from modules.validation import KeyInValuesValidation, KeyNotNoneValidation, KeyValueValidation, NameValidation, NotNoneValidation, ValidationGroup
 import os
@@ -9,7 +10,7 @@ import json
 from json import JSONDecodeError
 import altair as alt
 import time
-from pages.components.create import create_analysis_form
+from pages.components.create import create_analysis_form, create_portfolio_form
 from pages.components.display import DataframeView, MapView
 
 st.set_page_config(
@@ -19,110 +20,62 @@ st.set_page_config(
 
 SidebarNav()
 
-"# OasisLMF UI"
+##########################################################################################
+# Header
+##########################################################################################
 
-if st.button("♻️ "):
-    st.rerun()
+cols = st.columns([0.1, 0.8, 0.1])
+with cols[1]:
+    st.image("images/oasis_logo.png")
 
+# Retrieve client
 if "client" in st.session_state:
     client = st.session_state.client
-    client_interface = st.session_state.client_interface
+    client_interface = ClientInterface(client)
 else:
     st.switch_page("app.py")
 
+##########################################################################################
 "## Portfolios"
 
+show_portfolio_tab, create_portfolio_tab = st.tabs(['Show Portfolios', 'Create Portfolio'])
 
-show_portfolio, create_portfolio = st.tabs(['Show Portfolios', 'Create Portfolio'])
+def show_portfolio():
+    datetime_cols = ['created', 'modified']
+    display_cols = [ 'id', 'name', 'created', 'modified', ]
 
-datetime_cols = ['created', 'modified']
-display_cols = [ 'id', 'name', 'created', 'modified', ]
-with show_portfolio:
     portfolios = client_interface.portfolios.get(df=True)
     portfolio_view = DataframeView(portfolios, display_cols=display_cols)
     portfolio_view.convert_datetime_cols(datetime_cols)
     portfolio_view.display()
 
-@st.fragment
-def new_portfolio():
-    files = st.file_uploader("Upload portfolio files", accept_multiple_files=True)
-    filesDict = { f.name: f for f in files}
+def create_portfolio():
+    form_data = create_portfolio_form()
 
-    options = [f.name for f in files]
+    if form_data is None:
+        return
 
-    if 'portfolio_form_data' not in st.session_state:
-        st.session_state.portfolio_form_data = {
-            'name': None,
-            'location_file': None,
-            'accounts_file': None,
-            'reinsurance_info_file': None,
-            'reinsurance_scope_file': None,
-            'submitted': False
-        }
+    try:
+        with st.spinner(text="Creating portfolio..."):
+            client_interface.portfolios.create(name = form_data.get('name'),
+                                               location_file = form_data.get('location_file'),
+                                               accounts_file = form_data.get('accounts_file'),
+                                               reinsurance_info_file = form_data.get('reinsurance_info_file'),
+                                               reinsurance_scope_file = form_data.get('reinsurance_scope_file')
+                                               )
+        st.success("Successfully created portfolio")
+        time.sleep(0.5)
+        st.rerun()
+    except HTTPError as e:
+        st.error(e)
 
-    with st.form("create_portfolio_form", clear_on_submit=True, enter_to_submit=False):
-        name = st.text_input('Portfolio Name', value=None, key='portfolio_name')
-        loc_file = st.selectbox('Select Location File', options, index=None)
-        acc_file = st.selectbox('Select Accounts File', options, index=None)
-        ri_file = st.selectbox('Select Reinsurance Info File', options, index=None)
-        rs_file = st.selectbox('Select Reinsurance Scope File', options, index=None)
 
-        submitted = st.form_submit_button("Create Portfolio")
+with show_portfolio_tab:
+    show_portfolio()
+with create_portfolio_tab:
+    create_portfolio()
 
-        if submitted:
-            validation = NameValidation("Name")
-            if validation.is_valid(name):
-                st.session_state.portfolio_form_data.update({
-                    'name': name,
-                    'location_file': loc_file,
-                    'accounts_file': acc_file,
-                    'reinsurance_info_file': ri_file,
-                    'reinsurance_scope_file': rs_file,
-                    'submitted': True
-                })
-            else:
-                st.error(validation.message)
-                submitted = False
-
-        if submitted:
-            form_data = st.session_state.portfolio_form_data
-            def prepare_upload_dict(fname):
-                upload_f = form_data.get(fname)
-                if upload_f:
-                    upload_f = {'name': upload_f, 'bytes': filesDict[upload_f]}
-                return upload_f
-
-            pname = form_data['name']
-            location_f = prepare_upload_dict('location_file')
-            accounts_f = prepare_upload_dict('accounts_file')
-            ri_info_f = prepare_upload_dict('reinsurance_info_file')
-            ri_scope_f = prepare_upload_dict('reinsurance_scope_file')
-
-            try:
-                with st.spinner(text="Creating portfolio..."):
-                    client.upload_inputs(portfolio_name=pname,
-                                         location_f = location_f,
-                                         accounts_f = accounts_f,
-                                         ri_info_f = ri_info_f,
-                                         ri_scope_f = ri_scope_f)
-                # Reset form
-                st.session_state.portfolio_form_data = {
-                    'name': None,
-                    'location_file': None,
-                    'accounts_file': None,
-                    'reinsurance_info_file': None,
-                    'reinsurance_scope_file': None,
-                    'submitted': False
-                }
-                st.success("Successfully created portfolio")
-                time.sleep(0.5)
-                st.rerun()
-            except HTTPError as e:
-                st.error(e)
-
-with create_portfolio:
-    new_portfolio()
-
+##########################################################################################
 "## Analyses"
 
 rerun_interval_analysis = None
@@ -169,8 +122,6 @@ def new_analysis():
             st.rerun()
         except OasisException as e:
             st.error(e)
-
-# Tabs for show and create
 
 def format_analysis(analysis):
     return f"{analysis['id']}: {analysis['name']}"

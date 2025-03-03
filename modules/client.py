@@ -28,6 +28,7 @@ class EndpointInterface:
 class PortfoliosEndpointInterface(EndpointInterface):
     def __init__(self, client):
         super().__init__(client, "portfolios")
+        self.client = client
 
     def get_location_file(self, ID, df=False):
         return self.get_file(ID, "location_file", df)
@@ -40,6 +41,38 @@ class PortfoliosEndpointInterface(EndpointInterface):
 
     def get_reinsurance_scope_file(self, ID, df=False):
         return self.get_file(ID, "reinsurance_scope_file", df)
+
+    def create(self, name, location_file = None, accounts_file = None,
+               reinsurance_info_file = None, reinsurance_scope_file = None):
+        '''
+        Create a portfolio using the `UploadedFile` objects created when using the `st.file_uploader`.
+
+        Parameters
+        ----------
+        name : str
+               Name for the assigned portfolio
+        location_file : UploadedFile
+        accounts_file : UploadedFile
+        reinsurance_scope_file : UploadedFile
+        reinsurance_scope_file : UploadedFile
+        '''
+
+        def prepare_upload_f(fname, fbytes):
+            if fbytes is None:
+                return None
+            return {'name': fname, 'bytes': fbytes}
+
+        location_f = prepare_upload_f('location_file', location_file)
+        accounts_f = prepare_upload_f('accounts_file', accounts_file)
+        ri_info_f = prepare_upload_f('reinsurance_info_file', reinsurance_info_file)
+        ri_scope_f= prepare_upload_f('reinsurance_scope_file', reinsurance_scope_file)
+
+        self.client.upload_inputs(portfolio_name = name,
+                             location_f = location_f,
+                             accounts_f = accounts_f,
+                             ri_info_f = ri_info_f,
+                             ri_scope_f = ri_scope_f)
+
 
 
 class ClientInterface:

@@ -47,3 +47,33 @@ def create_analysis_form(portfolios, models):
         except ValidationError as e:
             st.error(e)
     return None
+
+def create_portfolio_form():
+    files = st.file_uploader("Upload portfolio files", accept_multiple_files=True)
+    filesDict = { f.name: f for f in files}
+
+    options = [f.name for f in files]
+
+    with st.form("create_portfolio_form", clear_on_submit=True, enter_to_submit=False):
+        name = st.text_input('Portfolio Name', value=None, key='portfolio_name')
+        loc_file = st.selectbox('Select Location File', options, index=None)
+        acc_file = st.selectbox('Select Accounts File', options, index=None)
+        ri_file = st.selectbox('Select Reinsurance Info File', options, index=None)
+        rs_file = st.selectbox('Select Reinsurance Scope File', options, index=None)
+
+        submitted = st.form_submit_button("Create Portfolio")
+
+
+    if submitted:
+        validation = NameValidation("Name")
+        if not validation.is_valid(name):
+            st.error(validation.message)
+            return None
+
+        return {
+                'name': name,
+                'location_file': filesDict.get(loc_file),
+                'accounts_file': filesDict.get(acc_file),
+                'reinsurance_info_file': filesDict.get(ri_file),
+                'reinsurance_scope_file': filesDict.get(rs_file)
+        }
