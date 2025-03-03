@@ -1,6 +1,6 @@
 <img src="https://oasislmf.org/packages/oasis_theme_package/themes/oasis_theme/assets/src/oasis-lmf-colour.png" alt="Oasis LMF logo" width="250"/>
 
-# Oasis Streamlit UI
+# Oasis Python UI
 
 A web-based UI utilising [Streamlit](https://github.com/streamlit/streamlit) to
 manage exposure data and run modeling workflows on the OasisLMF platform.
