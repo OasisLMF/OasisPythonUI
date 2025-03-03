@@ -393,7 +393,10 @@ def analysis_fragment():
     # Anlaysis run buttons
     validations = ValidationGroup()
     validations.add_validation(NotNoneValidation('Selected analysis'), selected)
-    validations.add_validation(KeyInValuesValidation('Status'), selected, 'status', ['NEW', 'INPUTS_GENERATION_CANCELLED'])
+    validations.add_validation(KeyInValuesValidation('Status'), selected,
+                               'status', ['NEW', 'INPUTS_GENERATION_CANCELLED',
+                                          'READY', 'RUN_COMPLETED',
+                                          'RUN_CANCELLED', 'RUN_ERROR' ])
 
     left.markdown("2) Generate Inputs:")
     if middle.button("Generate", use_container_width=True, disabled=not validations.is_valid()):
