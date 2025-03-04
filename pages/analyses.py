@@ -1,6 +1,5 @@
 from oasis_data_manager.errors import OasisException
 import streamlit as st
-import pandas as pd
 from requests.exceptions import HTTPError
 from modules.client import ClientInterface
 from modules.nav import SidebarNav
@@ -8,10 +7,9 @@ from modules.rerun import RefreshHandler
 from modules.validation import KeyInValuesValidation, KeyNotNoneValidation, KeyValueValidation, NotNoneValidation, ValidationGroup
 import json
 from json import JSONDecodeError
-import altair as alt
 import time
 from pages.components.create import create_analysis_form, create_portfolio_form, create_analysis_settings
-from pages.components.display import DataframeView, MapView
+from pages.components.display import DataframeView
 import logging
 
 from pages.components.process import enrich_analyses
@@ -215,7 +213,8 @@ def run_analysis(re_handler):
             st.session_state.rerun_queue.append((selected['id'], 'READY'))
             st.rerun()
         except HTTPError as e:
-            st.error(e)
+            st.error("Input generation failed.")
+            logger.error(e)
 
 
     left, middle, right = st.columns(3, vertical_alignment='center')
@@ -236,6 +235,7 @@ def run_analysis(re_handler):
                 st.rerun()
             except (JSONDecodeError, HTTPError) as e:
                 st.error(f'Invalid Settings File: {e}')
+                logger.error(e)
 
     def set_analysis_settings(analysis):
         model = client.models.get(analysis['model']).json()
@@ -248,6 +248,7 @@ def run_analysis(re_handler):
                 client.upload_settings(analysis['id'], analysis_settings)
             except (JSONDecodeError, HTTPError) as e:
                 st.error(f'Invalid Settings File: {e}')
+                logger.error(e)
             st.rerun()
 
     validations = ValidationGroup()
@@ -309,7 +310,8 @@ def run_analysis(re_handler):
             client.analyses.delete(selected['id'])
             st.rerun()
         except HTTPError as e:
-            st.error(e)
+            st.error("Deletion failed.")
+            logger.error(e)
 
     if selected is not None and selected['status'] in ['READY', 'RUN_COMPLETED']:
         analysis_summary_expander(selected)
