@@ -101,97 +101,60 @@ def new_analysis():
             st.error(e)
 
 def analysis_summary_expander(selected):
-    @st.cache_data
-    def calculate_locations_success(locations, keys_df):
-        num_locations = len(locations['loc_id'].unique())
-
-        df = keys_df.groupby('PerilID')['LocID'].nunique()
-
-        success_locations = df / num_locations
-        success_locations = success_locations.rename("success_locations")
-        success_locations = pd.DataFrame(success_locations.reset_index())
-        return success_locations
-
-
-    @st.cache_data
-    def summarise_keys_generation(keys_df, locations):
-        coverage_type_map = {
-            1 : 'Building',
-            2 : 'Other',
-            3 : 'Contents',
-            4 : 'BI',
-        }
-
-        locations = locations[['loc_id', 'BuildingTIV', 'OtherTIV', 'ContentsTIV', 'BITIV']]
-
-        combineddf = keys_df[['LocID', 'PerilID', 'CoverageTypeID']]
-        combineddf = combineddf.join(locations.set_index('loc_id'), on='LocID')
-
-        coverage_tiv_map = {k: v + 'TIV' for k, v in coverage_type_map.items()}
-
-        combineddf['CoverageTypeID_'] = combineddf['CoverageTypeID'].replace(coverage_tiv_map)
-        def find_tiv(row):
-            row['TIV'] = row[row['CoverageTypeID_']]
-            return row
-
-        combineddf = combineddf.apply(find_tiv, axis=1)
-        combineddf = combineddf[['LocID', 'PerilID', 'CoverageTypeID', 'TIV']]
-        groupeddf = combineddf.groupby(['PerilID', 'CoverageTypeID'])
-        groupeddf_final = groupeddf.agg({"LocID" : "nunique", "TIV": "sum"})
-        groupeddf_final = groupeddf_final.reset_index()
-        groupeddf_final = groupeddf_final.replace(coverage_type_map)
-        return groupeddf_final
-
-    @st.dialog("Locations Map", width='large')
-    def show_locations_map(locations):
-        with st.spinner('Loading map...'):
-            map_view = MapView(locations)
-            map_view.display()
-
     analysis_id = selected['id']
     with st.expander("Analysis Summary"):
 
-        summary_tab, inputs_tab = st.tabs(["Summary", "Inputs"])
+        summary_tab, inputs_tab, outputs_tab = st.tabs(["Summary", "Inputs", "Outputs"])
 
-        input_files = client.analyses.input_file.get_dataframe(analysis_id)
-        locations = input_files['location.csv']
-        keys_df = input_files['keys.csv']
+        @st.cache_data(show_spinner="Fetching input data...")
+        def get_input_file(analysis_id):
+            return client_interface.analyses.get_file(analysis_id, 'input_file', df=True)
 
-        if st.button("Show Locations Map"):
-            show_locations_map(locations)
+        inputs = get_input_file(analysis_id)
 
-        success_locations = calculate_locations_success(locations, keys_df)
-
-        bar_chart = alt.Chart(success_locations).mark_bar().encode(x='PerilID',
-                                                                   y=alt.Y('success_locations').title('Percentage Success Locations'))
-
-        keys_summary = summarise_keys_generation(keys_df, locations)
-        column_config = {"LocID" : "No. Locations"}
+        locations = inputs.get('location.csv', None)
+        a_settings = client.analyses.settings.get(analysis_id).json()
 
         with summary_tab:
-            '### Keys Summary'
-            st.dataframe(keys_summary, hide_index=True, column_config=column_config, use_container_width=True)
-
-            '### Keys Error'
-            st.dataframe(input_files['keys-errors.csv'])
-
-            st.altair_chart(bar_chart, use_container_width=True)
+            summarise_intputs(locations, a_settings)
 
         @st.cache_data
         def convert_df(df):
             return df.to_csv().encode("utf-8")
 
         with inputs_tab:
-            input_file_list = sorted(list(input_files.keys()))
+            input_file_list = sorted(list(inputs.keys()))
 
             st.write("Input files:")
             for fname in input_file_list:
 
                 left, right, _ = st.columns([1, 1, 1])
                 left.write(fname)
-                right.download_button("Download", convert_df(input_files[fname]),
+                right.download_button("Download", convert_df(inputs[fname]),
                                       key=f'download_{fname}',
                                       file_name=fname)
+
+        @st.cache_data(show_spinner="Fetching output data...")
+        def get_output_file(analysis_id):
+            return client_interface.analyses.get_file(analysis_id, 'output_file', df=True)
+
+        if selected['status'] == 'RUN_COMPLETED':
+            outputs = get_output_file(analysis_id)
+            with outputs_tab:
+                output_file_list = sorted(list(outputs.keys()))
+
+                st.write("Output files:")
+                for fname in output_file_list:
+
+                    left, right, _ = st.columns([1, 1, 1])
+                    left.write(fname)
+                    right.download_button("Download", convert_df(outputs[fname]),
+                                          key=f'download_{fname}',
+                                          file_name=fname)
+        else:
+            outputs = None
+            with outputs_tab:
+                st.info("Run not complete")
 
 
 def run_analysis(re_handler):
