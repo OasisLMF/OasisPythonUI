@@ -2,6 +2,7 @@
 import streamlit as st
 from modules.settings import get_analyses_settings
 from modules.validation import NameValidation, NotNoneValidation, ValidationError, ValidationGroup
+import json
 
 def create_analysis_form(portfolios, models):
     """Analysis creation form ui component."""
@@ -80,11 +81,11 @@ def create_portfolio_form():
         }
 
 def create_analysis_settings(model, model_settings):
-    # Load default todo
     default = get_analyses_settings(model_name_id=model["model_id"], supplier_id=model["supplier_id"])
 
     if default:
-        analysis_settings = default[0]
+        with open(default[0], 'r') as f:
+            analysis_settings = json.load(f)
     else:
         analysis_settings = {
                     'model_settings': {},
@@ -123,7 +124,7 @@ def create_analysis_settings(model, model_settings):
         if "valid_output_perspectives" in model_settings["model_settings"]:
             valid_outputs = model_settings["model_settings"]["valid_output_perspectives"]
 
-        opt_cols = st.columns(5)
+        opt_cols = st.columns(3)
         with opt_cols[0]:
             gul_opt = st.checkbox("GUL", help="Ground up loss", value=True, disabled=("gul" not in valid_outputs))
             analysis_settings["gul_output"] = gul_opt
@@ -132,7 +133,7 @@ def create_analysis_settings(model, model_settings):
             analysis_settings["il_output"] = il_opt
         with opt_cols[2]:
             ri_opt = st.checkbox("RI", help="Reinsurance net loss", disabled=("ri" not in valid_outputs))
-            analysis_settings["ri_otuput"] = ri_opt
+            analysis_settings["ri_output"] = ri_opt
 
         # Set number of sampled
         default_samples = model_settings["model_settings"].get("model_default_samples", 10)
@@ -145,5 +146,4 @@ def create_analysis_settings(model, model_settings):
 
     if submitted:
         return analysis_settings
-
     return None

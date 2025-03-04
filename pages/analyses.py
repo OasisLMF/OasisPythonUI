@@ -111,7 +111,10 @@ def analysis_summary_expander(selected):
         inputs = get_input_file(analysis_id)
 
         locations = inputs.get('location.csv', None)
-        a_settings = client.analyses.settings.get(analysis_id).json()
+        if client.analyses.get(analysis_id).json().get('settings') is not None:
+            a_settings = client.analyses.settings.get(analysis_id).json()
+        else:
+            a_settings = None
 
         with summary_tab:
             summarise_intputs(locations, a_settings)
@@ -163,7 +166,7 @@ def analysis_summary_expander(selected):
         else:
             outputs = None
             with outputs_tab:
-                st.info("Run not complete")
+                st.info("Run not complete.")
 
 
 def run_analysis(re_handler):
@@ -209,9 +212,9 @@ def run_analysis(re_handler):
     if middle.button("Generate", use_container_width=True, disabled=not validations.is_valid()):
         try:
             client.analyses.generate(selected['id'])
-            st.session_state.rerun_analysis = True
-            st.session_state.rerun_queue.append((selected['id'], 'READY'))
-            st.rerun()
+            st.success('Input generation started.')
+            time.sleep(0.5)
+            re_handler.start(selected['id'], ['READY', 'INPUTS_GENERATION_CANCELLED', 'INPUTS_GENERATION_ERROR'])
         except HTTPError as e:
             st.error("Input generation failed.")
             logger.error(e)
@@ -232,11 +235,14 @@ def run_analysis(re_handler):
             try:
                 analysis_settings = json.load(uploadedFile)
                 client.upload_settings(analysis['id'], analysis_settings)
+                st.success('Analysis settings uploaded.')
+                time.sleep(0.5)
                 st.rerun()
             except (JSONDecodeError, HTTPError) as e:
                 st.error(f'Invalid Settings File: {e}')
                 logger.error(e)
 
+    @st.dialog("Set analysis settings")
     def set_analysis_settings(analysis):
         model = client.models.get(analysis['model']).json()
         model_settings = client.models.settings.get(analysis['model']).json()
@@ -246,10 +252,12 @@ def run_analysis(re_handler):
         if analysis_settings is not None:
             try:
                 client.upload_settings(analysis['id'], analysis_settings)
+                st.success('Analysis settings uploaded.')
+                time.sleep(0.5)
+                st.rerun()
             except (JSONDecodeError, HTTPError) as e:
                 st.error(f'Invalid Settings File: {e}')
                 logger.error(e)
-            st.rerun()
 
     validations = ValidationGroup()
     validations.add_validation(NotNoneValidation('Analysis'), selected)
