@@ -130,7 +130,7 @@ class DataframeView(View):
             self.data[c] = pd.to_datetime(self.data[c])
             self.column_config[c] = st.column_config.DatetimeColumn(self.format_column_heading(c),
                                                                     format="hh:mm a, D MMM YY")
-        return self.data
+        return self
 
     @staticmethod
     def format_column_heading(heading):

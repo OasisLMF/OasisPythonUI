@@ -1,5 +1,6 @@
 # Module to display ui components for running analyses
 import streamlit as st
+from modules.settings import get_analyses_settings
 from modules.validation import NameValidation, NotNoneValidation, ValidationError, ValidationGroup
 
 def create_analysis_form(portfolios, models):
@@ -77,3 +78,72 @@ def create_portfolio_form():
                 'reinsurance_info_file': filesDict.get(ri_file),
                 'reinsurance_scope_file': filesDict.get(rs_file)
         }
+
+def create_analysis_settings(model, model_settings):
+    # Load default todo
+    default = get_analyses_settings(model_name_id=model["model_id"], supplier_id=model["supplier_id"])
+
+    if default:
+        analysis_settings = default[0]
+    else:
+        analysis_settings = {
+                    'model_settings': {},
+                    'model_supplier_id': model["model_supplier_id"],
+                    'model_name_id': model["model_name_id"]
+        }
+
+    with st.form("create_analysis_settings_form", enter_to_submit=False, clear_on_submit=True):
+        # Handle categorical settings
+        valid_settings = [
+            'event_set',
+            'event_occurrence_id',
+            'footprint_set',
+            'vulnerability_set',
+            'pla_loss_factor_set',
+        ]
+
+        def format_option(opt):
+            return f'{opt["id"]} : {opt["desc"]}'
+
+        def get_default_index(options, default=None):
+            if default is None:
+                return None
+            return [i for i in range(len(options)) if options[i]['id'] == default][0]
+
+        for k, v in model_settings["model_settings"].items():
+            if k in valid_settings:
+                default = v.get('default', None)
+                options = v['options']
+                default_index = get_default_index(options, default)
+                selected = st.selectbox(f"Set {v['name']}", options=v['options'], format_func=format_option, index=default_index)
+                analysis_settings['model_settings'][k] = selected["id"]
+
+        # Select perspectives
+        valid_outputs = ['gul', 'il', 'ri']
+        if "valid_output_perspectives" in model_settings["model_settings"]:
+            valid_outputs = model_settings["model_settings"]["valid_output_perspectives"]
+
+        opt_cols = st.columns(5)
+        with opt_cols[0]:
+            gul_opt = st.checkbox("GUL", help="Ground up loss", value=True, disabled=("gul" not in valid_outputs))
+            analysis_settings["gul_output"] = gul_opt
+        with opt_cols[1]:
+            il_opt = st.checkbox("IL", help="Insured loss", disabled=("il" not in valid_outputs))
+            analysis_settings["il_output"] = il_opt
+        with opt_cols[2]:
+            ri_opt = st.checkbox("RI", help="Reinsurance net loss", disabled=("ri" not in valid_outputs))
+            analysis_settings["ri_otuput"] = ri_opt
+
+        # Set number of sampled
+        default_samples = model_settings["model_settings"].get("model_default_samples", 10)
+        default_samples = analysis_settings.get("number_of_samples", default_samples)
+        analysis_settings["number_of_samples"] = st.number_input("Number of samples",
+                                                                 min_value = 1,
+                                                                 value = default_samples)
+
+        submitted = st.form_submit_button("Submit")
+
+    if submitted:
+        return analysis_settings
+
+    return None

@@ -4,14 +4,17 @@ import pandas as pd
 from requests.exceptions import HTTPError
 from modules.client import ClientInterface
 from modules.nav import SidebarNav
-from modules.validation import KeyInValuesValidation, KeyNotNoneValidation, KeyValueValidation, NameValidation, NotNoneValidation, ValidationGroup
-import os
+from modules.rerun import RefreshHandler
+from modules.validation import KeyInValuesValidation, KeyNotNoneValidation, KeyValueValidation, NotNoneValidation, ValidationGroup
 import json
 from json import JSONDecodeError
 import altair as alt
 import time
-from pages.components.create import create_analysis_form, create_portfolio_form
+from pages.components.create import create_analysis_form, create_portfolio_form, create_analysis_settings
 from pages.components.display import DataframeView, MapView
+import logging
+
+logger = logging.getLogger(__name__)
 
 st.set_page_config(
     page_title = "Analysis",
@@ -78,35 +81,9 @@ with create_portfolio_tab:
 ##########################################################################################
 "## Analyses"
 
+analysis_container = st.container()
+
 rerun_interval_analysis = None
-
-def display_analyses(client_interface):
-    analyses = client_interface.analyses.get(df=True)
-
-    display_cols = [ 'id', 'name', 'portfolio', 'model', 'created', 'modified',
-                    'status' ]
-    datetime_cols = ['created', 'modified']
-
-    '1) Select an analysis:'
-    analyses_view = DataframeView(analyses, selectable=True, display_cols=display_cols)
-    analyses_view.convert_datetime_cols(datetime_cols)
-    selected = analyses_view.display()
-
-    return selected
-
-
-def display_select_models(models):
-    st.write('Select Model')
-
-    display_cols = ['id', 'supplier_id', 'model_id', 'version_id', 'created', 'modified']
-    datetime_cols = ['created', 'modified']
-
-    model_view = DataframeView(models, selectable=True, display_cols=display_cols)
-    model_view.convert_datetime_cols(datetime_cols)
-    selected = model_view.display()
-
-    return selected
-
 
 @st.fragment
 def new_analysis():
@@ -123,139 +100,54 @@ def new_analysis():
         except OasisException as e:
             st.error(e)
 
-def format_analysis(analysis):
-    return f"{analysis['id']}: {analysis['name']}"
-
-@st.dialog("Upload Settings File")
-def upload_settings_file(analysis):
-    with st.form("upload_settings_form", clear_on_submit=True, enter_to_submit=False):
-        uploadedFile = st.file_uploader("Analysis Settings JSON file")
-
-        submitted = st.form_submit_button("Submit")
-
-    if submitted:
-        try:
-            analysis_settings = json.load(uploadedFile)
-            client.upload_settings(analysis['id'], analysis_settings)
-            st.rerun()
-        except (JSONDecodeError, HTTPError) as e:
-            st.error(f'Invalid Settings File: {e}')
-
-@st.fragment
-def set_analysis_settings(analysis):
-    model_id = analysis['model']
-    model = client.models.get(model_id).json()
-    settings = client.models.settings.get(model_id).json()
-    model_settings = settings["model_settings"]
-    default_samples = settings.get("model_default_samples", 10)
-
-    # Handle categorical settings
-    valid_settings = [
-        'event_set',
-        'event_occurrence_id',
-        'footprint_set',
-        'vulnerability_set',
-        'pla_loss_factor_set',
-    ]
-
-    def format_option(opt):
-        return f'{opt["id"]} : {opt["desc"]}'
-
-    def get_default_index(options, default=None):
-        if default is None:
-            return None
-        return [i for i in range(len(options)) if options[i]['id'] == default][0]
-
-    if os.path.exists('defaults/analysis_settings.json'):
-        with open('defaults/analysis_settings.json', 'r') as f:
-            analysis_settings = json.load(f)
-    else:
-        analysis_settings = {'model_settings': {}}
-    analysis_settings["model_supplier_id"] = model["supplier_id"]
-    analysis_settings["model_name_id"] = model["model_id"]
-    for k, v in model_settings.items():
-        if k in valid_settings:
-            default = v.get('default', None)
-            options = v['options']
-            default_index = get_default_index(options, default)
-            selected = st.selectbox(f"Set {v['name']}", options=v['options'], format_func=format_option, index=default_index)
-            analysis_settings['model_settings'][k] = selected["id"]
-
-    valid_outputs = ['gul', 'il', 'ri']
-    if "valid_output_perspectives" in model_settings:
-        valid_outputs = model_settings["valid_output_perspectives"]
-
-    opt_cols = st.columns(5)
-    with opt_cols[0]:
-        gul_opt = st.checkbox("GUL", help="Ground up loss", value=True, disabled=("gul" not in valid_outputs))
-        analysis_settings["gul_output"] = gul_opt
-    with opt_cols[1]:
-        il_opt = st.checkbox("IL", help="Insured loss", disabled=("il" not in valid_outputs))
-        analysis_settings["il_output"] = il_opt
-    with opt_cols[2]:
-        ri_opt = st.checkbox("RI", help="Reinsurance net loss", disabled=("ri" not in valid_outputs))
-        analysis_settings["ri_otuput"] = ri_opt
-
-    analysis_settings["number_of_samples"] = st.number_input("Number of samples",
-                                                             min_value = 1,
-                                                             value = default_samples)
-
-    if st.button("Submit"):
-        try:
-            client.upload_settings(analysis['id'], analysis_settings)
-            st.session_state.analysis_settings_submitted = True
-        except (JSONDecodeError, HTTPError) as e:
-            st.error(f'Invalid Settings File: {e}')
-        st.rerun()
-
-@st.cache_data
-def calculate_locations_success(locations, keys_df):
-    num_locations = len(locations['loc_id'].unique())
-
-    df = keys_df.groupby('PerilID')['LocID'].nunique()
-
-    success_locations = df / num_locations
-    success_locations = success_locations.rename("success_locations")
-    success_locations = pd.DataFrame(success_locations.reset_index())
-    return success_locations
-
-@st.cache_data
-def summarise_keys_generation(keys_df, locations):
-    coverage_type_map = {
-        1 : 'Building',
-        2 : 'Other',
-        3 : 'Contents',
-        4 : 'BI',
-    }
-
-    locations = locations[['loc_id', 'BuildingTIV', 'OtherTIV', 'ContentsTIV', 'BITIV']]
-
-    combineddf = keys_df[['LocID', 'PerilID', 'CoverageTypeID']]
-    combineddf = combineddf.join(locations.set_index('loc_id'), on='LocID')
-
-    coverage_tiv_map = {k: v + 'TIV' for k, v in coverage_type_map.items()}
-
-    combineddf['CoverageTypeID_'] = combineddf['CoverageTypeID'].replace(coverage_tiv_map)
-    def find_tiv(row):
-        row['TIV'] = row[row['CoverageTypeID_']]
-        return row
-
-    combineddf = combineddf.apply(find_tiv, axis=1)
-    combineddf = combineddf[['LocID', 'PerilID', 'CoverageTypeID', 'TIV']]
-    groupeddf = combineddf.groupby(['PerilID', 'CoverageTypeID'])
-    groupeddf_final = groupeddf.agg({"LocID" : "nunique", "TIV": "sum"})
-    groupeddf_final = groupeddf_final.reset_index()
-    groupeddf_final = groupeddf_final.replace(coverage_type_map)
-    return groupeddf_final
-
-@st.dialog("Locations Map", width='large')
-def show_locations_map(locations):
-    with st.spinner('Loading map...'):
-        map_view = MapView(locations)
-        map_view.display()
-
-
 def analysis_summary_expander(selected):
+    @st.cache_data
+    def calculate_locations_success(locations, keys_df):
+        num_locations = len(locations['loc_id'].unique())
+
+        df = keys_df.groupby('PerilID')['LocID'].nunique()
+
+        success_locations = df / num_locations
+        success_locations = success_locations.rename("success_locations")
+        success_locations = pd.DataFrame(success_locations.reset_index())
+        return success_locations
+
+
+    @st.cache_data
+    def summarise_keys_generation(keys_df, locations):
+        coverage_type_map = {
+            1 : 'Building',
+            2 : 'Other',
+            3 : 'Contents',
+            4 : 'BI',
+        }
+
+        locations = locations[['loc_id', 'BuildingTIV', 'OtherTIV', 'ContentsTIV', 'BITIV']]
+
+        combineddf = keys_df[['LocID', 'PerilID', 'CoverageTypeID']]
+        combineddf = combineddf.join(locations.set_index('loc_id'), on='LocID')
+
+        coverage_tiv_map = {k: v + 'TIV' for k, v in coverage_type_map.items()}
+
+        combineddf['CoverageTypeID_'] = combineddf['CoverageTypeID'].replace(coverage_tiv_map)
+        def find_tiv(row):
+            row['TIV'] = row[row['CoverageTypeID_']]
+            return row
+
+        combineddf = combineddf.apply(find_tiv, axis=1)
+        combineddf = combineddf[['LocID', 'PerilID', 'CoverageTypeID', 'TIV']]
+        groupeddf = combineddf.groupby(['PerilID', 'CoverageTypeID'])
+        groupeddf_final = groupeddf.agg({"LocID" : "nunique", "TIV": "sum"})
+        groupeddf_final = groupeddf_final.reset_index()
+        groupeddf_final = groupeddf_final.replace(coverage_type_map)
+        return groupeddf_final
+
+    @st.dialog("Locations Map", width='large')
+    def show_locations_map(locations):
+        with st.spinner('Loading map...'):
+            map_view = MapView(locations)
+            map_view.display()
+
     analysis_id = selected['id']
     with st.expander("Analysis Summary"):
 
@@ -301,47 +193,34 @@ def analysis_summary_expander(selected):
                                       key=f'download_{fname}',
                                       file_name=fname)
 
-if "rerun_analysis" not in st.session_state:
-    st.session_state["rerun_analysis"] = False
 
-if "rerun_queue" not in st.session_state:
-    st.session_state["rerun_queue"] = []
+def run_analysis(re_handler):
+    analyses = client_interface.analyses.get(df=True)
+    portfolios = client_interface.portfolios.get(df=True)
+    models = client_interface.models.get(df=True)
 
-run_every = None
-if st.session_state.rerun_analysis:
-    run_every = "5s"
+    completed_statuses = ['RUN_COMPLETED', 'RUN_CANCELLED', 'RUN_ERROR']
+    running_statuses = ['RUN_QUEUED', 'RUN_STARTED']
 
-def clear_rerun_queue(rerun_queue):
-    while True:
-        if len(rerun_queue) == 0:
-            return []
+    re_handler.update_queue()
 
-        id, required_status = rerun_queue.pop(0)
-        if not (client_interface.analyses.get(id)['status'] == required_status):
-            rerun_queue.insert(0, (id, required_status))
-            return rerun_queue
+    # Check for running analysis
+    running_analyses = analyses[analyses['status'].isin(running_statuses)]
+    if not re_handler.is_refreshing() and not running_analyses.empty:
+        for analysis_id in running_analyses['id']:
+            re_handler.start(analysis_id, completed_statuses)
 
-@st.fragment(run_every=run_every)
-def analysis_fragment():
-    # Handle rerun queue
-    st.session_state.rerun_queue = clear_rerun_queue(st.session_state.rerun_queue)
-    if len(st.session_state.rerun_queue) == 0 and st.session_state.rerun_analysis:
-        st.session_state.rerun_analysis = False
-        st.rerun()
+    display_cols = [ 'id', 'name', 'portfolio', 'model', 'created', 'modified',
+                    'status' ]
+    datetime_cols = ['created', 'modified']
 
-    run_analyses, create_analysis = st.tabs(["Run Analysis", "Create Analysis"])
-    with create_analysis:
-        new_analysis()
+    left, middle, right = st.columns(3, vertical_alignment='center')
+    '1) Select an analysis:'
+    analyses_view = DataframeView(analyses, selectable=True, display_cols=display_cols)
+    analyses_view.convert_datetime_cols(datetime_cols)
+    selected = analyses_view.display()
 
-    selected = None
-    with run_analyses:
-        selected = display_analyses(client_interface)
-
-
-    with run_analyses:
-        left, middle, right = st.columns(3, vertical_alignment='center')
-
-    # Anlaysis run buttons
+    # Analysis run buttons
     validations = ValidationGroup()
     validations.add_validation(NotNoneValidation('Selected analysis'), selected)
     validations.add_validation(KeyInValuesValidation('Status'), selected,
@@ -349,7 +228,10 @@ def analysis_fragment():
                                           'READY', 'RUN_COMPLETED',
                                           'RUN_CANCELLED', 'RUN_ERROR' ])
 
+
+    left, middle, right = st.columns(3, vertical_alignment='center')
     left.markdown("2) Generate Inputs:")
+
     if middle.button("Generate", use_container_width=True, disabled=not validations.is_valid()):
         try:
             client.analyses.generate(selected['id'])
@@ -359,11 +241,38 @@ def analysis_fragment():
         except HTTPError as e:
             st.error(e)
 
-    # Settings buttons
-    with run_analyses:
-        left, middle, right = st.columns(3, vertical_alignment='center')
 
+    left, middle, right = st.columns(3, vertical_alignment='center')
     left.markdown("3) Setup Analysis:")
+
+    # Upload settings button
+    @st.dialog("Upload Settings File")
+    def upload_settings_file(analysis):
+        with st.form("upload_settings_form", clear_on_submit=True, enter_to_submit=False):
+            uploadedFile = st.file_uploader("Analysis Settings JSON file")
+
+            submitted = st.form_submit_button("Submit")
+
+        if submitted:
+            try:
+                analysis_settings = json.load(uploadedFile)
+                client.upload_settings(analysis['id'], analysis_settings)
+                st.rerun()
+            except (JSONDecodeError, HTTPError) as e:
+                st.error(f'Invalid Settings File: {e}')
+
+    def set_analysis_settings(analysis):
+        model = client.models.get(analysis['model']).json()
+        model_settings = client.models.settings.get(analysis['model']).json()
+
+        analysis_settings = create_analysis_settings(model, model_settings)
+
+        if analysis_settings is not None:
+            try:
+                client.upload_settings(analysis['id'], analysis_settings)
+            except (JSONDecodeError, HTTPError) as e:
+                st.error(f'Invalid Settings File: {e}')
+            st.rerun()
 
     validations = ValidationGroup()
     validations.add_validation(NotNoneValidation('Analysis'), selected)
@@ -372,6 +281,7 @@ def analysis_fragment():
                    use_container_width=True):
         upload_settings_file(selected)
 
+    # Set settings button
     validations = ValidationGroup()
     validations.add_validation(NotNoneValidation('Analysis'), selected)
     validations.add_validation(KeyValueValidation('Status'), selected, 'status', 'READY')
@@ -383,6 +293,10 @@ def analysis_fragment():
                      use_container_width=True):
         set_analysis_settings(selected)
 
+
+    # Run analysis button
+    left, middle, right = st.columns(3, vertical_alignment='center')
+    left.markdown("4) Run Analysis:")
 
     validations = ValidationGroup()
     validations.add_validation(NotNoneValidation('Analysis'), selected)
@@ -396,21 +310,20 @@ def analysis_fragment():
     if not run_enabled:
         msg = validations.message
 
-    with run_analyses:
-        left, middle, right = st.columns(3, vertical_alignment='center')
-
-    left.markdown("4) Run Analysis:")
     if middle.button("Run", use_container_width=True, disabled=not run_enabled, help=msg):
         try:
-            client.analyses.run(selected['id'])
-            st.session_state.rerun_analysis = True
-            st.session_state.rerun_queue.append((selected['id'], 'RUN_COMPLETED'))
-            st.rerun()
-        except HTTPError as e:
-            st.error(e)
+            client_interface.run(selected['id'])
 
-    with run_analyses:
-        left, middle, right = st.columns(3, vertical_alignment='center')
+            st.success("Run started")
+            time.sleep(0.5)
+
+            re_handler.start(selected['id'], completed_statuses)
+        except HTTPError as e:
+            st.error('Starting run failed.')
+            logger.error(e)
+
+    # Misc buttons
+    left, middle, right = st.columns(3, vertical_alignment='center')
 
     validation = NotNoneValidation('Selected analysis')
     button_enabled = validation.is_valid(selected)
@@ -425,4 +338,21 @@ def analysis_fragment():
     if selected is not None and selected['status'] in ['READY', 'RUN_COMPLETED']:
         analysis_summary_expander(selected)
 
+
+# Initialise refreshing
+re_handler = RefreshHandler(client_interface)
+run_every = re_handler.run_every()
+
+@st.fragment(run_every=run_every)
+def analysis_fragment():
+    run_analysis_tab, create_analysis_tab = st.tabs(["Run Analysis", "Create Analysis"])
+    with create_analysis_tab:
+        new_analysis()
+
+    with run_analysis_tab:
+        run_analysis(re_handler)
+
+
 analysis_fragment()
+if run_every is not None:
+    st.info('Analysis running.')
