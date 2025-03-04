@@ -443,6 +443,12 @@ with run_container:
                                file_name=fname)
 
 
+        valid_statuses = ['RUN_COMPLETED']
+        validations = ValidationGroup()
+        validations.add_validation(NotNoneValidation('Analysis'), selected)
+        validations.add_validation(KeyInValuesValidation('Status'), selected, 'status', valid_statuses)
+        download_enabled = validations.is_valid()
+
         with columns[1]:
             if st.button("Show Output", use_container_width=True, disabled = not download_enabled):
                 display_outputs(client_interface, selected["id"])

@@ -15,6 +15,7 @@ from pages.components.display import DataframeView, MapView
 import logging
 
 from pages.components.process import enrich_analyses
+from pages.components.output import summarise_intputs
 
 logger = logging.getLogger(__name__)
 
@@ -43,17 +44,14 @@ else:
 ##########################################################################################
 "## Portfolios"
 
-show_portfolio_tab, create_portfolio_tab = st.tabs(['Show Portfolios', 'Create Portfolio'])
-
 def show_portfolio():
-    datetime_cols = ['created', 'modified']
-    display_cols = [ 'id', 'name', 'created', 'modified', ]
+    display_cols = [ 'name' ]
 
     portfolios = client_interface.portfolios.get(df=True)
     portfolio_view = DataframeView(portfolios, display_cols=display_cols)
-    portfolio_view.convert_datetime_cols(datetime_cols)
     portfolio_view.display()
 
+@st.dialog(title="Create Portfolio")
 def create_portfolio():
     form_data = create_portfolio_form()
 
@@ -74,11 +72,11 @@ def create_portfolio():
     except HTTPError as e:
         st.error(e)
 
-
-with show_portfolio_tab:
-    show_portfolio()
-with create_portfolio_tab:
+st.write("Available Portfolios: ")
+show_portfolio()
+if st.button("Create Portfolio"):
     create_portfolio()
+
 
 ##########################################################################################
 "## Analyses"
