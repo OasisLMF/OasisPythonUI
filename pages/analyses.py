@@ -14,6 +14,8 @@ from pages.components.create import create_analysis_form, create_portfolio_form,
 from pages.components.display import DataframeView, MapView
 import logging
 
+from pages.components.process import enrich_analyses
+
 logger = logging.getLogger(__name__)
 
 st.set_page_config(
@@ -210,14 +212,16 @@ def run_analysis(re_handler):
         for analysis_id in running_analyses['id']:
             re_handler.start(analysis_id, completed_statuses)
 
-    display_cols = [ 'id', 'name', 'portfolio', 'model', 'created', 'modified',
-                    'status' ]
-    datetime_cols = ['created', 'modified']
-
     left, middle, right = st.columns(3, vertical_alignment='center')
-    '1) Select an analysis:'
+    st.write('1) Select an analysis:')
+
+    portfolios = client_interface.portfolios.get(df=True)
+    models = client_interface.models.get(df=True)
+    analyses = enrich_analyses(analyses, portfolios, models).sort_values('id')
+
+    display_cols = ['name', 'portfolio_name', 'model_id', 'model_supplier', 'status']
+
     analyses_view = DataframeView(analyses, selectable=True, display_cols=display_cols)
-    analyses_view.convert_datetime_cols(datetime_cols)
     selected = analyses_view.display()
 
     # Analysis run buttons
