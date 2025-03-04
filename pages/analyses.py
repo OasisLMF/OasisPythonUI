@@ -134,6 +134,7 @@ def analysis_summary_expander(selected):
                                       key=f'download_{fname}',
                                       file_name=fname)
 
+
         @st.cache_data(show_spinner="Fetching output data...")
         def get_output_file(analysis_id):
             return client_interface.analyses.get_file(analysis_id, 'output_file', df=True)
@@ -151,6 +152,16 @@ def analysis_summary_expander(selected):
                     right.download_button("Download", convert_df(outputs[fname]),
                                           key=f'download_{fname}',
                                           file_name=fname)
+
+                fname = f"analysis_{analysis_id}_output.tar.gz"
+                @st.cache_data(show_spinner="Fetching output tar data...")
+                def get_output_tar(analysis_id):
+                    return client_interface.download_output(analysis_id)
+                fdata = get_output_tar(analysis_id)
+
+                st.download_button('Download All Outputs',
+                                   data=fdata,
+                                   file_name=fname)
         else:
             outputs = None
             with outputs_tab:
