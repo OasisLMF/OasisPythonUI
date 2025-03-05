@@ -57,6 +57,9 @@ def summarise_analysis_settings(analysis_settings):
 
 
 def summarise_intputs(locations=None, analysis_settings=None, title_prefix='##'):
+    if locations is None and analysis_settings is None:
+        st.info('No locations or analysis settings.')
+
     if locations is not None:
         st.markdown(f'{title_prefix} Input Summary')
         loc_summary = summarise_locations(locations)
