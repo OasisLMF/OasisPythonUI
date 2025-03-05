@@ -225,7 +225,7 @@ with run_container:
                     if analysis_settings.get('il_output', False):
                         analysis_settings['il_summaries'][0]['oed_fields'] = oed_group_codes
                     if analysis_settings.get('ri_output', False):
-                        analysis_settings['il_summaries'][0]['oed_fields'] = oed_group_codes
+                        analysis_settings['ri_summaries'][0]['oed_fields'] = oed_group_codes
 
                 try:
                     client_interface.upload_settings(selected['id'], analysis_settings)

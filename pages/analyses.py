@@ -338,7 +338,6 @@ def analysis_fragment():
     with run_analysis_tab:
         run_analysis(re_handler)
 
-
 analysis_fragment()
 if run_every is not None:
     st.info('Analysis running.')
