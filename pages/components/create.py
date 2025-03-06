@@ -90,8 +90,14 @@ def create_analysis_settings(model, model_settings):
         analysis_settings = {
                     'model_settings': {},
                     'model_supplier_id': model["supplier_id"],
-                    'model_name_id': model["model_id"]
+                    'model_name_id': model["model_id"],
+                    'gul_output': True,
+                    'gul_summaries': [{
+                        'eltcalc': True,
+                        'id': 1
+                    }]
         }
+
 
     with st.form("create_analysis_settings_form", enter_to_submit=False, clear_on_submit=True):
         # Handle categorical settings
