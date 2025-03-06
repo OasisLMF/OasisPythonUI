@@ -4,6 +4,13 @@ from modules.settings import get_analyses_settings
 from modules.validation import NameValidation, NotNoneValidation, ValidationError, ValidationGroup
 import json
 
+class FormFragment():
+    def __init__(self, params={}):
+        self.params = params
+
+    def display(self):
+        return {}
+
 def create_analysis_form(portfolios, models):
     """Analysis creation form ui component."""
 
@@ -100,43 +107,6 @@ def create_portfolio_form():
 
 
 
-class FormGenerator():
-    def __init__(self, form_name, submit_name='Submit'):
-        self.name = form_name
-        self.submit = submit_name
-        self.fragments = []
-
-    def generate(self):
-        output = {}
-        with st.form(self.name, enter_to_submit=False, clear_on_submit=True):
-            for fragment in self.fragments:
-                output |= fragment.display()
-
-            submitted = st.form_submit_button(self.submit)
-
-        if submitted:
-            return output
-        return None
-
-    def add_fragment(self, fragment):
-        '''
-        Add a form fragment to the end of the fragment list.
-
-        Parameters
-        ----------
-
-        fragment : FormFragment
-                   Fragment to append.
-        '''
-        self.fragments.append(fragment)
-
-class FormFragment():
-    def __init__(self, params={}):
-        self.params = params
-
-    def display(self):
-        return {}
-
 class ModelSettingsFragment(FormFragment):
     def display(self):
         # Handle categorical settings
@@ -215,9 +185,12 @@ class NumberSamplesFragment(FormFragment):
 class OEDGroupFragment(FormFragment):
     def display(self):
         #todo extend to any field from loc / acc file
-        oed_group = st.pills("Group output by:",
-                             [ "Portfolio", "Country", "Location"], selection_mode="multi")
 
+        perspective = self.params.get('perspective', 'gul')
+
+        oed_group = st.multiselect(f"{perspective.upper()} OED grouping:",
+                             [ "Portfolio", "Country", "Location"],
+                             key=f'{id}_{perspective}_oed')
 
         group_to_field = {
             'Portfolio': 'PortNumber',
@@ -225,16 +198,64 @@ class OEDGroupFragment(FormFragment):
             'Location': 'LocNumber'
         }
 
-
-        perspectives = ['gul', 'il', 'ri']
         oed_fields = [group_to_field[g] for g in oed_group]
 
-        output = self.params.get('summaries_template', {f'{p}_summaries': [{'id': 1}] for p in perspectives})
-
-        for p in perspectives:
-            output[f'{p}_summaries'][0]['oed_fields'] = oed_fields
+        output = {'oed_fields': oed_fields}
 
         return output
+
+class OutputFragment(FormFragment):
+    def display(self):
+        perspective = self.params.get('perspective', 'gul')
+        default = self.params.get('default', [])
+
+        options = [
+            'eltcalc', 'aalcalc', 'pltcalc', 'summarycalc'
+        ]
+
+        selected = st.multiselect(f"{perspective.upper()} Outputs",
+                                 options, key=f'{id}_{perspective}_output',
+                                 default=default)
+
+        return {f: f in selected for f in options}
+
+
+def merge_settings(settings1, settings2):
+    from copy import copy
+    settings1 = copy(settings1)
+
+    for key, value in settings2.items():
+        if key in settings1 and isinstance(settings1[key], dict) and isinstance(value, dict):
+            settings1[key] = merge_settings(settings1[key], value)
+        elif key in settings1 and isinstance(settings1[key], list) and isinstance(value, list):
+            settings1[key] += value
+        else:
+            settings1[key] = value
+    return settings1
+
+def merge_summaries(summaries1, summaries2):
+    summaries1 = list(sorted(summaries1, key= lambda x: x['id']))
+    summaries2 = list(sorted(summaries2, key= lambda x: x['id']))
+
+    i1, i2, output_summaries = 0, 0, []
+
+    while i1 < len(summaries1) and i2 < len(summaries2):
+        if summaries1[i1]['id'] == summaries2[i2]['id']:
+            output_summaries.append(summaries1[i1] | summaries2[i2])
+            i1 += 1
+            i2 += 1
+        elif summaries1[i1]['id'] < summaries2[i2]['id']:
+            output_summaries.append(summaries1[i1])
+            i1 += 1
+        else:
+            output_summaries.append(summaries2[i2])
+            i2 += 1
+
+    output_summaries.extend(summaries1[i1:])
+    output_summaries.extend(summaries2[i2:])
+
+    return output_summaries
+
 
 def create_analysis_settings(model, model_settings):
     default = get_analyses_settings(model_name_id=model["model_id"], supplier_id=model["supplier_id"])
@@ -249,39 +270,63 @@ def create_analysis_settings(model, model_settings):
                     'model_name_id': model["model_id"],
                     'gul_output': True,
                     'gul_summaries': [{
-                        'eltcalc': True,
-                        'id': 1
+                        'id': 1,
+                        'pltcalc': True,
+                        'aalcalcmeanonly': True,
+                        'eltcalc': True
                     }]
         }
 
-    form_generator = FormGenerator(form_name="create_analysis_settings_form")
-    form_generator.add_fragment(ModelSettingsFragment(params={'model_settings': model_settings}))
-    form_generator.add_fragment(PerspectivesFragment(params={'model_settings': model_settings}))
-    form_generator.add_fragment(NumberSamplesFragment(params={'model_settings': model_settings,
-                                                              'analysis_settings': analysis_settings}))
-    # Set default summaries
-    summaries_template = {
-            f'{p}_summaries': analysis_settings.pop(f'{p}_summaries', [{'id': 1}]) for p in ['gul', 'il', 'ri']
-    }
-    form_generator.add_fragment(OEDGroupFragment(params={'summaries_template': summaries_template}))
+    with st.form("create_analysis_settings_form", enter_to_submit=False, clear_on_submit=True):
+        selected_settings = {}
 
-    form_output = form_generator.generate()
+        selected_settings |= ModelSettingsFragment(params={'model_settings': model_settings}).display()
+        selected_settings |= NumberSamplesFragment(params={'model_settings': model_settings,
+                                                           'analysis_settings': analysis_settings}).display()
+        selected_settings |= PerspectivesFragment(params={'model_settings': model_settings}).display()
 
-    def merge_settings(settings1, settings2):
-        from copy import copy
-        settings1 = copy(settings1)
+        # Generate summaries
+        perspectives = ['gul', 'il', 'ri']
+        summaries = {f'{p}_summaries': [{'id': 1}] for p in perspectives}
 
-        for key, value in settings2.items():
-            if key in settings1 and isinstance(settings1[key], dict) and isinstance(value, dict):
-                settings1[key] = merge_settings(settings1[key], value)
-            elif key in settings1 and isinstance(settings1[key], list) and isinstance(value, list):
-                settings1[key] += value
+        # Load default outputs
+        default_dict = {}
+        supported_outputs = set([
+            'eltcalc', 'aalcalc', 'pltcalc', 'summarycalc'
+        ])
+        for p in perspectives:
+            settings_name = f'{p}_summaries'
+            default_summaries = analysis_settings.get(settings_name, None)
+
+            if default_summaries:
+                default_summaries = default_summaries[0]
+                default_outputs = supported_outputs & set(default_summaries.keys())
+                default_dict[p] = [output for output in default_outputs if default_summaries[output]]
+
+
+        for p in perspectives:
+            p_summaries = OutputFragment(params={'perspective': p, 'default': default_dict.get(p, [])}).display()
+            summaries[f'{p}_summaries'][0] |= p_summaries
+
+        with st.popover('OED Fields', use_container_width=True):
+            for p in perspectives:
+                p_summaries = OEDGroupFragment(params={'perspective': p}).display()
+                summaries[f'{p}_summaries'][0] |= p_summaries
+
+        submitted = st.form_submit_button('Submit')
+
+    if submitted:
+        # Merge summaries settings
+        st.write(summaries)
+        for p in perspectives:
+            settings_name = f'{p}_summaries'
+            default_summaries = analysis_settings.pop(settings_name, None)
+            if default_summaries is None:
+                selected_settings[settings_name] = summaries[settings_name]
             else:
-                settings1[key] = value
-        return settings1
+                selected_settings[settings_name] = merge_summaries(default_summaries, summaries[settings_name])
 
-    if form_output is None:
-        return None
-    else:
-        settings = merge_settings(analysis_settings, form_output)
+        settings = merge_settings(analysis_settings, selected_settings)
         return settings
+    else:
+        return None
