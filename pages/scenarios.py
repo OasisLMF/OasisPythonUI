@@ -183,7 +183,7 @@ with run_container:
 
         valid_statuses = ['NEW', 'READY', 'RUN_QUEUED', 'RUN_STARTED', 'RUN_COMPLETED', 'RUN_CANCELLED', 'RUN_ERROR']
         analyses = analyses[analyses['status'].isin(valid_statuses)]
-        analyses = enrich_analyses(analyses, portfolios, models).sort_values('id')
+        analyses = enrich_analyses(analyses, portfolios, models).sort_values('id', ascending=False)
 
         display_cols = ['name', 'portfolio_name', 'model_id', 'model_supplier', 'status']
 
