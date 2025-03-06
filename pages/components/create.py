@@ -50,6 +50,24 @@ def create_analysis_form(portfolios, models):
             st.error(e)
     return None
 
+class PortfolioFilesFragment(FormFragment):
+    def display(self):
+        options = self.params.get('options', [])
+
+        name = st.text_input('Portfolio Name', value=None, key='portfolio_name')
+        loc_file = st.selectbox('Select Location File', options, index=None)
+        acc_file = st.selectbox('Select Accounts File', options, index=None)
+        ri_file = st.selectbox('Select Reinsurance Info File', options, index=None)
+        rs_file = st.selectbox('Select Reinsurance Scope File', options, index=None)
+
+        return {
+                'name': name,
+                'location_file': loc_file,
+                'accounts_file': acc_file,
+                'reinsurance_info_file': ri_file,
+                'reinsurance_scope_file': rs_file
+        }
+
 def create_portfolio_form():
     files = st.file_uploader("Upload portfolio files", accept_multiple_files=True)
     filesDict = { f.name: f for f in files}
