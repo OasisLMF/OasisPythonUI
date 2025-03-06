@@ -89,8 +89,8 @@ def create_analysis_settings(model, model_settings):
     else:
         analysis_settings = {
                     'model_settings': {},
-                    'model_supplier_id': model["model_supplier_id"],
-                    'model_name_id': model["model_name_id"]
+                    'model_supplier_id': model["supplier_id"],
+                    'model_name_id': model["model_id"]
         }
 
     with st.form("create_analysis_settings_form", enter_to_submit=False, clear_on_submit=True):
