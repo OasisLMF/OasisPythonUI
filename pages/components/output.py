@@ -55,6 +55,7 @@ def summarise_output_settings(analysis_settings):
         output_options = [
             'eltcalc',
             'aalcalc',
+            'aalcalcmeanonly',
             'pltcalc',
             'summarycalc']
         curr_summary[f'outputs'] = [o for o in output_options if p_summaries.get(o, False)]

@@ -154,16 +154,20 @@ class PerspectivesFragment(FormFragment):
 
         outputs = {}
 
+        default = self.params.get('default', [])
+
+        perspectives = {'gul': 'Ground up loss',
+                        'il': 'Insured loss',
+                        'ri': 'Reinsurance net loss'}
         opt_cols = st.columns(3)
-        with opt_cols[0]:
-            gul_opt = st.checkbox("GUL", help="Ground up loss", value=True, disabled=("gul" not in valid_outputs))
-            outputs["gul_output"] = gul_opt
-        with opt_cols[1]:
-            il_opt = st.checkbox("IL", help="Insured loss", disabled=("il" not in valid_outputs))
-            outputs["il_output"] = il_opt
-        with opt_cols[2]:
-            ri_opt = st.checkbox("RI", help="Reinsurance net loss", disabled=("ri" not in valid_outputs))
-            outputs["ri_output"] = ri_opt
+
+        for col, p in zip(opt_cols, perspectives.keys()):
+            with col:
+                opt = st.checkbox(p.upper(), help=perspectives[p],
+                                  value = p in default,
+                                  disabled = (p not in valid_outputs)
+                                  )
+                outputs[f'{p}_output'] = opt
 
         return outputs
 
@@ -212,6 +216,7 @@ class OutputFragment(FormFragment):
         options = [
             'eltcalc',
             'aalcalc',
+            'aalcalcmeanonly',
             'pltcalc',
             'summarycalc',
             'leccalc-full_uncertainty_aep',
@@ -231,6 +236,7 @@ class OutputFragment(FormFragment):
         output_dict = {
             'eltcalc': False,
             'aalcalc': False,
+            'aalcalcmeanonly': False,
             'pltcalc': False,
             'summarycalc': False,
             'lec_output': False,
@@ -308,8 +314,10 @@ def create_analysis_settings(model, model_settings):
                     'gul_output': True,
                     'gul_summaries': [{
                         'id': 1,
-                    }]
+                    }],
         }
+
+    perspectives = ['gul', 'il', 'ri']
 
     with st.form("create_analysis_settings_form", enter_to_submit=False, clear_on_submit=True):
         selected_settings = {}
@@ -317,10 +325,11 @@ def create_analysis_settings(model, model_settings):
         selected_settings |= ModelSettingsFragment(params={'model_settings': model_settings}).display()
         selected_settings |= NumberSamplesFragment(params={'model_settings': model_settings,
                                                            'analysis_settings': analysis_settings}).display()
-        selected_settings |= PerspectivesFragment(params={'model_settings': model_settings}).display()
+        default_perspectives = [p for p in perspectives if analysis_settings.get(f'{p}_output', False)]
+        selected_settings |= PerspectivesFragment(params={'model_settings': model_settings,
+                                                          'default': default_perspectives}).display()
 
         # Generate summaries
-        perspectives = ['gul', 'il', 'ri']
         summaries = {f'{p}_summaries': [{'id': 1}] for p in perspectives}
 
         # Load default outputs
