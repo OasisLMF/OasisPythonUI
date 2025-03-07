@@ -210,14 +210,51 @@ class OutputFragment(FormFragment):
         default = self.params.get('default', [])
 
         options = [
-            'eltcalc', 'aalcalc', 'pltcalc', 'summarycalc'
+            'eltcalc',
+            'aalcalc',
+            'pltcalc',
+            'summarycalc',
+            'leccalc-full_uncertainty_aep',
+            'leccalc-full_uncertainty_oep',
+            'leccalc-wheatsheaf_aep',
+            'leccalc-wheatsheaf_oep',
+            'leccalc-wheatsheaf_mean_aep',
+            'leccalc-wheatsheaf_mean_oep',
+            'leccalc-sample_mean_aep',
+            'leccalc-sample_mean_oep'
         ]
 
         selected = st.multiselect(f"{perspective.upper()} Outputs",
                                  options, key=f'{id}_{perspective}_output',
                                  default=default)
 
-        return {f: f in selected for f in options}
+        output_dict = {
+            'eltcalc': False,
+            'aalcalc': False,
+            'pltcalc': False,
+            'summarycalc': False,
+            'lec_output': False,
+            'leccalc': {
+                'full_uncertainty_aep': False,
+                'full_uncertainty_oep': False,
+                'wheatsheaf_aep': False,
+                'wheatsheaf_oep': False,
+                'wheatsheaf_mean_aep': False,
+                'wheatsheaf_mean_oep': False,
+                'sample_mean_aep': False,
+                'sample_mean_oep': False
+            }
+
+        }
+
+        for output_option in selected:
+            if output_option[:7] == 'leccalc':
+                output_dict['lec_output'] = True
+                output_dict['leccalc'][output_option[8:]] = True
+            else:
+                output_dict[output_option] = True
+
+        return output_dict
 
 
 def merge_settings(settings1, settings2):
@@ -317,7 +354,6 @@ def create_analysis_settings(model, model_settings):
 
     if submitted:
         # Merge summaries settings
-        st.write(summaries)
         for p in perspectives:
             settings_name = f'{p}_summaries'
             default_summaries = analysis_settings.pop(settings_name, None)
