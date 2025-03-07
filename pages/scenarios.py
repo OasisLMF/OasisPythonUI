@@ -18,7 +18,7 @@ import json
 from modules.client import ClientInterface
 import logging
 
-from pages.components.output import model_summary, summarise_intputs
+from pages.components.output import model_summary, summarise_inputs
 from pages.components.process import enrich_analyses, enrich_portfolios
 
 logger = logging.getLogger(__name__)
@@ -251,7 +251,7 @@ with run_container:
             st.markdown('# Analysis Summary')
             locations = ci.analyses.get_file(analysis_id, 'input_file', df=True)['location.csv']
             a_settings = client.analyses.settings.get(analysis_id).json()
-            summarise_intputs(locations, a_settings)
+            summarise_inputs(locations, a_settings)
 
 
             st.markdown('# Results Summary')

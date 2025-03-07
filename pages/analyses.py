@@ -13,7 +13,7 @@ from pages.components.display import DataframeView
 import logging
 
 from pages.components.process import enrich_analyses
-from pages.components.output import summarise_intputs
+from pages.components.output import summarise_inputs
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +117,7 @@ def analysis_summary_expander(selected):
             a_settings = None
 
         with summary_tab:
-            summarise_intputs(locations, a_settings)
+            summarise_inputs(locations, a_settings)
 
         @st.cache_data
         def convert_df(df):

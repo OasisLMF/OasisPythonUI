@@ -46,13 +46,14 @@ class DataframeView(View):
     display_cols : list[str]
                    The names of the columns to display. By default displays all the columns.
     '''
-    def __init__(self, data=None, selectable=False, display_cols=None):
+    def __init__(self, data=None, selectable=False, display_cols=None, hide_index=True):
         if data is None:
             data = pd.DataFrame(columns=display_cols)
         self.data = data
         super().__init__(self.data)
         self.selectable = selectable
         self.status_style = True
+        self.hide_index = hide_index
 
         if display_cols is None:
             display_cols = data.columns.to_list()
@@ -71,12 +72,12 @@ class DataframeView(View):
         '''
         if self.data.empty:
             st.dataframe(pd.DataFrame(columns=self.display_cols),
-                         hide_index=True, column_config=self.column_config,
+                         hide_index=self.hide_index, column_config=self.column_config,
                          column_order=self.display_cols)
             return None
 
         args = {
-            'hide_index': True,
+            'hide_index': self.hide_index,
             'column_config': self.column_config,
             'use_container_width': True,
             'column_order': self.display_cols
