@@ -308,9 +308,6 @@ def create_analysis_settings(model, model_settings):
                     'gul_output': True,
                     'gul_summaries': [{
                         'id': 1,
-                        'pltcalc': True,
-                        'aalcalcmeanonly': True,
-                        'eltcalc': True
                     }]
         }
 
