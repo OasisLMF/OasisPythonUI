@@ -15,9 +15,9 @@ class EndpointInterface:
         return data
 
     def get_file(self, ID, filename, df=False):
-        data = getattr(self.endpoint, filename, None)
+        data = self.get(ID).get(filename, None)
         if data is None:
-            return data
+            return None
         if df:
             data = data.get_dataframe(ID)
         else:

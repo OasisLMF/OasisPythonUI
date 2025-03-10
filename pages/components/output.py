@@ -3,9 +3,10 @@ import streamlit as st
 import pandas as pd
 import logging
 
+from pages.components.display import DataframeView
+
 logger = logging.getLogger(__name__)
 
-from pages.components.display import DataframeView
 
 def summarise_locations(locations):
     summary = pd.Series()
@@ -58,7 +59,7 @@ def summarise_output_settings(analysis_settings):
             'aalcalcmeanonly',
             'pltcalc',
             'summarycalc']
-        curr_summary[f'outputs'] = [o for o in output_options if p_summaries.get(o, False)]
+        curr_summary['outputs'] = [o for o in output_options if p_summaries.get(o, False)]
 
         if p_summaries.get('lec_output', False):
             lec_dict = p_summaries.get('leccalc', {'full_uncertainty_aep': True})
@@ -72,11 +73,11 @@ def summarise_output_settings(analysis_settings):
                 'sample_mean_aep',
                 'sample_mean_oep'
             ]
-            curr_summary[f'outputs'] = [f'leccalc-{o}' for o in lec_opts if lec_dict.get(o, False)]
+            curr_summary['outputs'] = [f'leccalc-{o}' for o in lec_opts if lec_dict.get(o, False)]
 
         oed_fields = p_summaries.get('oed_fields', None)
         if oed_fields:
-            curr_summary[f'oed_fields'] = oed_fields
+            curr_summary['oed_fields'] = oed_fields
         summary.append(curr_summary)
 
     return pd.DataFrame(summary, index=active_perspectives)

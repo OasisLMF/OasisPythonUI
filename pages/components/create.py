@@ -40,7 +40,7 @@ def create_analysis_form(portfolios, models):
 
         selected_model = 0 if len(models) == 1 else None
         model = st.selectbox('Select Model', options=models,
-                             index=selected_port, format_func=format_model)
+                             index=selected_model, format_func=format_model)
 
         submitted = st.form_submit_button("Create Analysis")
 
@@ -187,26 +187,31 @@ class NumberSamplesFragment(FormFragment):
         return outputs
 
 class OEDGroupFragment(FormFragment):
+    EXCLUDED_FIELDS = [ "BuildingTIV", "ContentsTIV", "OtherTIV", "BITIV", "OEDVersion" ]
+
     def display(self):
-        #todo extend to any field from loc / acc file
-
         perspective = self.params.get('perspective', 'gul')
+        oed_options = self.params.get('oed_fields', None)
+        if oed_options is None:
+            oed_options = ['PortNumber', 'CountryCode', 'LocNumber']
 
-        oed_group = st.multiselect(f"{perspective.upper()} OED grouping:",
-                             [ "Portfolio", "Country", "Location"],
+        oed_options = sorted(filter(self.valid_field_filter, oed_options))
+
+        oed_fields = st.multiselect(f"{perspective.upper()} OED grouping:",
+                             oed_options,
                              key=f'{id}_{perspective}_oed')
-
-        group_to_field = {
-            'Portfolio': 'PortNumber',
-            'Country': 'CountryCode',
-            'Location': 'LocNumber'
-        }
-
-        oed_fields = [group_to_field[g] for g in oed_group]
 
         output = {'oed_fields': oed_fields}
 
         return output
+
+    @staticmethod
+    def valid_field_filter(field):
+        if field in OEDGroupFragment.EXCLUDED_FIELDS:
+            return False
+        return True
+
+
 
 class OutputFragment(FormFragment):
     def display(self):
@@ -300,7 +305,23 @@ def merge_summaries(summaries1, summaries2):
     return output_summaries
 
 
-def create_analysis_settings(model, model_settings):
+def create_analysis_settings(model, model_settings, oed_fields=None):
+    '''
+    Create a form to get user input for setting analysis settings.
+
+    Parameters
+    ----------
+    model : dict
+            Information about the model, particularly `model_id` and `supplier_id`.
+    model_settings : dict
+            Model settings dictionary for given model.
+    oed_fields : list[str]
+                 List of OED Fields to allow user to group by.
+
+    Returns
+    -------
+    dict : Dictionary of settings for analysis, can be used in `client.upload_settings`
+    '''
     default = get_analyses_settings(model_name_id=model["model_id"], supplier_id=model["supplier_id"])
 
     if default:
@@ -353,7 +374,8 @@ def create_analysis_settings(model, model_settings):
 
         with st.popover('OED Fields', use_container_width=True):
             for p in perspectives:
-                p_summaries = OEDGroupFragment(params={'perspective': p}).display()
+                p_summaries = OEDGroupFragment(params={'perspective': p,
+                                                       'oed_fields': oed_fields}).display()
                 summaries[f'{p}_summaries'][0] |= p_summaries
 
         submitted = st.form_submit_button('Submit')
