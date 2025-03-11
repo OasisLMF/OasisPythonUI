@@ -2,6 +2,7 @@
 import streamlit as st
 import pandas as pd
 import logging
+from oasis_data_manager.errors import OasisException
 
 from pages.components.display import DataframeView
 
@@ -233,3 +234,48 @@ def model_summary(model, model_settings, detail_level="full"):
             settings_list.append({"parameter": "Damage Group Fields", "value": group_field_str})
 
     show_settings(settings_list)
+
+
+def eltcalc_table(perspective, vis_interface, oed_fields = []):
+    if oed_fields:
+        group_fields = st.pills("Group Columns",
+                                oed_fields,
+                                key=f'{perspective}_group_pill',
+                                selection_mode='multi')
+    else:
+        group_fields = []
+
+    group_fields = ['type'] + group_fields
+    try:
+        eltcalc_df = vis_interface.get(summary_level=1,
+                                       perspective=perspective,
+                                       output_type='eltcalc',
+                                       group_fields=group_fields,
+                                       categorical_cols=oed_fields)
+    except OasisException:
+        return None
+
+    # Sort by loss
+    eltcalc_df = eltcalc_df.sort_values('mean', ascending=False)
+
+    df_memory = eltcalc_df.memory_usage().sum() / 1e6
+
+    if df_memory > 200:
+        st.error('Output too large, try grouping')
+        logger.error(f'eltcalc view df size: {df_memory}')
+    else:
+        eltcalc_df = DataframeView(eltcalc_df)
+        eltcalc_df.column_config['mean'] = st.column_config.NumberColumn('Mean', format='%.2f')
+        for c in oed_fields:
+            eltcalc_df.column_config[c] = st.column_config.ListColumn(c)
+        # fix type column heading
+        eltcalc_df.column_config['type'] = st.column_config.ListColumn('Type')
+
+        eltcalc_df.display()
+
+def generate_eltcalc_fragment(perspective, vis_interface,
+                              table = True, map = False):
+    oed_fields = vis_interface.oed_fields.get(perspective, [])
+
+    if table:
+        eltcalc_table(perspective, vis_interface, oed_fields)

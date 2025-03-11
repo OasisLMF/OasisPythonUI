@@ -4,7 +4,8 @@ from modules.nav import SidebarNav
 import pandas as pd
 import altair as alt
 
-from pages.components.output import summarise_inputs
+from pages.components.output import generate_eltcalc_fragment, summarise_inputs
+from modules.visualisation import OutputVisualisationInterface
 
 st.set_page_config(
     page_title = "Dashboard",
@@ -58,6 +59,31 @@ def leccalc_plot_data(oep_df, aep_df):
     oep_df = oep_df[['return_period', 'loss', 'ep_type']]
     aep_df = aep_df[['return_period', 'loss', 'ep_type']]
     return pd.concat([oep_df, aep_df], axis=0)
+
+@st.cache_data
+def get_analysis_outputs(ID):
+    return client_interface.analyses.get_file(ID, 'output_file', df=True)
+
+with st.spinner("Loading data..."):
+    outputs = get_analysis_outputs(analysis_id)
+
+# Set up visualisation interface
+vis = OutputVisualisationInterface(outputs)
+perspectives = ['gul', 'il', 'ri']
+for p in perspectives:
+    p_oed_fields = settings.get(f'{p}_summaries', [{}])[0].get('oed_fields', None)
+    if p_oed_fields:
+        vis.set_oed_fields(p, p_oed_fields)
+
+st.write("# Output Visualisation")
+st.write("## eltcalc output")
+for p in perspectives:
+    if not settings.get(f'{p}_output', False):
+        continue
+    summaries_settings = settings.get(f'{p}_summaries', [{}])[0]
+    if summaries_settings.get('eltcalc', False):
+        st.write(f'### {p.upper()}')
+        generate_eltcalc_fragment(p, vis)
 
 st.stop()
 if selected_analysis:
