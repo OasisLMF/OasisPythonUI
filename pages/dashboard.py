@@ -27,11 +27,9 @@ def search_client_endpoint(endpoint, metadata={}):
     analyses = getattr(client, endpoint).search(metadata).json()
     return analyses
 
-def format_analysis(analysis):
-    return f'{analysis["id"]}: {analysis["name"]}'
-
-analyses = search_client_endpoint('analyses', metadata={"status":"RUN_COMPLETED"})
-analysis = st.selectbox("Select Analysis", options=analyses, format_func=format_analysis, index=None)
+analyses = sorted(client_interface.analyses.search(metadata={'status': 'RUN_COMPLETED'}), key=lambda x: x['id'], reverse=True)
+analysis = st.selectbox("Select Analysis", options=analyses,
+                        format_func= lambda x : x['name'], index=None)
 
 @st.cache_data
 def summarise_inputs(inputs_dict):
