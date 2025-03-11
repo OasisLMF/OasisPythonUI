@@ -4,7 +4,7 @@ import pandas as pd
 import logging
 from oasis_data_manager.errors import OasisException
 
-from pages.components.display import DataframeView
+from pages.components.display import DataframeView, MapView
 
 logger = logging.getLogger(__name__)
 
@@ -273,9 +273,73 @@ def eltcalc_table(perspective, vis_interface, oed_fields = []):
 
         eltcalc_df.display()
 
-def generate_eltcalc_fragment(perspective, vis_interface,
+def eltcalc_map(perspective, vis_interface, locations, oed_fields = [], map_type = None):
+    '''
+    Generate MapView of output of eltcalc. Either `heatmap` or `choropleth` depending on portfolio.
+    '''
+
+    if map_type == 'choropleth':
+        group_fields = ['CountryCode']
+        eltcalc_df = vis_interface.get(summary_level=1,
+                                       perspective=perspective,
+                                       output_type='eltcalc',
+                                       group_fields=group_fields,
+                                       categorical_cols = oed_fields,
+                                       filter_type = 2) # Only output sample
+
+        mv = MapView(eltcalc_df, weight="mean", map_type="choropleth")
+        mv.display()
+        return
+
+    if map_type == 'heatmap':
+        group_fields = ['LocNumber']
+        eltcalc_df = vis_interface.get(summary_level=1,
+                                       perspective=perspective,
+                                       output_type='eltcalc',
+                                       group_fields=group_fields,
+                                       categorical_cols = oed_fields,
+                                       filter_type = 2) # Only output sample data
+        loc_reduced = locations[['LocNumber', 'Longitude', 'Latitude']]
+        heatmap_data = eltcalc_df.merge(loc_reduced, how="left", on="LocNumber")
+        heatmap_data = heatmap_data[['Longitude', 'Latitude', 'mean']]
+
+        mv = MapView(heatmap_data, longitude='Longitude', latitude='Latitude',
+                     map_type='heatmap', weight='mean')
+        mv.display()
+
+def generate_eltcalc_fragment(perspective, vis_interface, locations,
                               table = True, map = False):
     oed_fields = vis_interface.oed_fields.get(perspective, [])
 
+    table_tab, map_tab = st.tabs(['Table', 'Map'])
+
     if table:
-        eltcalc_table(perspective, vis_interface, oed_fields)
+        with table_tab:
+            eltcalc_table(perspective, vis_interface, oed_fields)
+
+    def valid_locations(loc_df):
+        '''
+        Check if `Latitude` and `Longitude` columns are present
+        and if they are unique between locations.
+        '''
+        if loc_df is None:
+            return False
+        if not set(['Latitude', 'Longitude']).issubset(loc_df.columns):
+            return False
+
+        lat_long = loc_df[['Latitude', 'Longitude']]
+        if (lat_long == lat_long.iloc[0]).all(axis=None):
+            return False
+
+        return True
+
+    if map:
+        map_type = None
+
+        if 'LocNumber' in vis_interface.oed_fields.get(perspective, []) and valid_locations(locations):
+            map_type = 'heatmap'
+        elif 'CountryCode' in vis_interface.oed_fields.get(perspective, []):
+            map_type = 'choropleth'
+
+        with map_tab:
+            eltcalc_map(perspective, vis_interface, locations, oed_fields, map_type)

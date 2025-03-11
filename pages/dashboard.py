@@ -83,7 +83,10 @@ for p in perspectives:
     summaries_settings = settings.get(f'{p}_summaries', [{}])[0]
     if summaries_settings.get('eltcalc', False):
         st.write(f'### {p.upper()}')
-        generate_eltcalc_fragment(p, vis)
+        locations = None
+        if inputs:
+            locations = inputs.get('location.csv')
+        generate_eltcalc_fragment(p, vis, locations=locations, map=True)
 
 st.stop()
 if selected_analysis:
