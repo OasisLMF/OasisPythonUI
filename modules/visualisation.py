@@ -143,8 +143,7 @@ class OutputVisualisationInterface:
     @staticmethod
     def generate_aalcalc(results, **kwargs):
         results['type'] = results['type'].replace(TYPE_MAP)
-        fig = px.bar(results, x='type', y='mean', labels={'type': 'Type', 'mean': 'Average Annual Loss'})
-        return fig
+        return results
 
     @staticmethod
     def generate_leccalc(results, **kwargs):
