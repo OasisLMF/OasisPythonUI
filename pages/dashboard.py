@@ -4,7 +4,7 @@ from modules.nav import SidebarNav
 import pandas as pd
 import altair as alt
 
-from pages.components.output import generate_eltcalc_fragment, summarise_inputs
+from pages.components.output import generate_eltcalc_fragment, summarise_inputs, generate_aalcalc_fragment
 from modules.visualisation import OutputVisualisationInterface
 
 st.set_page_config(
@@ -76,17 +76,24 @@ for p in perspectives:
         vis.set_oed_fields(p, p_oed_fields)
 
 st.write("# Output Visualisation")
-st.write("## eltcalc output")
 for p in perspectives:
     if not settings.get(f'{p}_output', False):
         continue
+
+    st.write(f'## {p.upper()}')
+
     summaries_settings = settings.get(f'{p}_summaries', [{}])[0]
+
+    st.write("### ELT Output")
     if summaries_settings.get('eltcalc', False):
-        st.write(f'### {p.upper()}')
         locations = None
         if inputs:
             locations = inputs.get('location.csv')
         generate_eltcalc_fragment(p, vis, locations=locations, map=True)
+
+    st.write("## AAL Output")
+    if summaries_settings.get('aalcalc', False):
+        generate_aalcalc_fragment(p, vis)
 
 st.stop()
 if selected_analysis:

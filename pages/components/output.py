@@ -3,6 +3,7 @@ import streamlit as st
 import pandas as pd
 import logging
 from oasis_data_manager.errors import OasisException
+import plotly.express as px
 
 from pages.components.display import DataframeView, MapView
 
@@ -374,3 +375,24 @@ def generate_eltcalc_fragment(perspective, vis_interface,
         elif name == 'table':
             with tab:
                 eltcalc_table(perspective, vis_interface, oed_fields)
+
+def generate_aalcalc_fragment(p, vis):
+    result = vis.get(1, 'gul', 'aalcalc')
+
+    oed_fields = vis.oed_fields.get(p)
+    breakdown_field = st.pills('Breakdown OED Field: ', options=oed_fields)
+
+    group_field = ['type']
+
+    if breakdown_field:
+        result[breakdown_field] = result[breakdown_field].astype(str)
+        group_field += [breakdown_field]
+
+    result = result.loc[:, group_field + ['mean']]
+    result = result.groupby(group_field, as_index=False).agg({'mean': 'sum'})
+
+    graph = px.bar(result, x='type', y='mean', color=breakdown_field,
+                   labels = {'type': 'Type', 'mean': 'Mean'},
+                   color_discrete_sequence= px.colors.sequential.RdBu)
+
+    st.plotly_chart(graph, use_container_width=True)
