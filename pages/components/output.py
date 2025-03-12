@@ -307,15 +307,38 @@ def eltcalc_map(perspective, vis_interface, locations, oed_fields = [], map_type
                      map_type='heatmap', weight='mean')
         mv.display()
 
-def generate_eltcalc_fragment(perspective, vis_interface, locations,
-                              table = True, map = False):
+def generate_eltcalc_fragment(perspective, vis_interface,
+                              table = True, map = False, locations = None):
+    '''
+    Generate an `eltcalc` visualisation. Currently supports the `table`
+    and `map` visualisation.
+    For `map` visualisation, a `locations` dataframe is required.
+
+    Parameters
+    ----------
+    perspective : str
+                  Chosen perspective `gul`, `il` or `ri`.
+    vis_interface : OutputVisualisationInterface
+    table : bool
+            If `True` displays table view.
+    map : bool
+          If `True` displays map view.
+    locations : DataFrame
+                DataFrame representing `locations.csv` file. Required for `map` view.
+
+    '''
     oed_fields = vis_interface.oed_fields.get(perspective, [])
 
-    table_tab, map_tab = st.tabs(['Table', 'Map'])
-
+    tab_names = []
     if table:
-        with table_tab:
-            eltcalc_table(perspective, vis_interface, oed_fields)
+        tab_names.append('table')
+    if map:
+        tab_names.append('map')
+
+    if len(tab_names) == 0:
+        return None
+
+    tabs = st.tabs([t.title() for t in tab_names])
 
     def valid_locations(loc_df):
         '''
@@ -333,13 +356,18 @@ def generate_eltcalc_fragment(perspective, vis_interface, locations,
 
         return True
 
-    if map:
-        map_type = None
+    for name, tab in zip(tab_names, tabs):
+        if name == 'map':
+            assert locations is not None, "Locations required for map view."
+            map_type = None
 
-        if 'LocNumber' in vis_interface.oed_fields.get(perspective, []) and valid_locations(locations):
-            map_type = 'heatmap'
-        elif 'CountryCode' in vis_interface.oed_fields.get(perspective, []):
-            map_type = 'choropleth'
+            if 'LocNumber' in vis_interface.oed_fields.get(perspective, []) and valid_locations(locations):
+                map_type = 'heatmap'
+            elif 'CountryCode' in vis_interface.oed_fields.get(perspective, []):
+                map_type = 'choropleth'
 
-        with map_tab:
-            eltcalc_map(perspective, vis_interface, locations, oed_fields, map_type)
+            with tab:
+                eltcalc_map(perspective, vis_interface, locations, oed_fields, map_type)
+        elif name == 'table':
+            with tab:
+                eltcalc_table(perspective, vis_interface, oed_fields)
