@@ -74,7 +74,10 @@ def summarise_output_settings(analysis_settings):
                 'sample_mean_aep',
                 'sample_mean_oep'
             ]
-            curr_summary['outputs'] = [f'leccalc-{o}' for o in lec_opts if lec_dict.get(o, False)]
+            if curr_summary.get('outputs'):
+                curr_summary['outputs'] += [f'leccalc-{o}' for o in lec_opts if lec_dict.get(o, False)]
+            else:
+                curr_summary['outputs'] = [f'leccalc-{o}' for o in lec_opts if lec_dict.get(o, False)]
 
         oed_fields = p_summaries.get('oed_fields', None)
         if oed_fields:
