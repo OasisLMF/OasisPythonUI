@@ -97,19 +97,6 @@ for p in perspectives:
 
 st.stop()
 if selected_analysis:
-    '## Graphs'
-    "### AAL Plots"
-    outputs_dict = get_outputs(selected_analysis["id"])
-    output_summary = summarise_outputs(outputs_dict)
-    bar_data = output_summary[['perspective', 'type', 'value']]
-    bar_chart = alt.Chart(bar_data).mark_bar().encode(x=alt.X('perspective:N'),
-                                                      xOffset="type:N",
-                                                      y=alt.Y('value'),
-                                                      color='type:N')
-
-    st.altair_chart(bar_chart, use_container_width=True)
-
-
     "### EP Sample Plots"
 
     leccalc_dict = {'gul': {'aep': None, 'oep': None},
