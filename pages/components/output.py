@@ -4,6 +4,7 @@ import pandas as pd
 import logging
 from oasis_data_manager.errors import OasisException
 import plotly.express as px
+from math import log10
 
 from pages.components.display import DataframeView, MapView
 
@@ -396,3 +397,41 @@ def generate_aalcalc_fragment(p, vis):
                    color_discrete_sequence= px.colors.sequential.RdBu)
 
     st.plotly_chart(graph, use_container_width=True)
+
+def generate_leccalc_fragment(p, vis, lec_outputs):
+    lec_options = [option for option in lec_outputs.keys() if lec_outputs[option]]
+    option = st.pills('Select Output:', options=lec_options)
+
+    if option:
+        analysis_type = '_'.join(option.split('_')[:-1])
+        loss_type = option.split('_')[-1]
+        result = vis.get(1, p, 'leccalc', analysis_type = analysis_type, loss_type = loss_type)
+        oed_fields = vis.oed_fields.get(p)
+
+        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key='leccalc_group_field_pills')
+
+        if selected_group is None:
+            selected_group = 'summary_id'
+
+        result_plot = result[[selected_group, 'return_period', 'type', 'loss']]
+        result_plot = result_plot.groupby([selected_group, 'return_period', 'type'], as_index=False).agg({'loss': 'sum'}).sort_values(by='loss', ascending=False)
+
+        log_x = log10(result_plot['return_period'].max()) - log10(result_plot['return_period'].min()) > 2
+
+        unique_group = result_plot[selected_group].unique().tolist()
+
+        if len(unique_group) > 5:
+            filter_group = st.multiselect(f'Filtered {selected_group} Values:',
+                                          options = unique_group,
+                                          default = unique_group[:5])
+            result_plot = result_plot[result_plot[selected_group].isin(filter_group)]
+
+
+        fig = px.line(result_plot, x='return_period', y='loss',
+                      color=selected_group, line_dash='type', markers=False,
+                      labels = {'return_period': 'Return Period', 'loss':
+                                'Loss', 'type': 'Type',
+                                selected_group: selected_group},
+                      line_group='type',
+                      log_x=log_x)
+        st.plotly_chart(fig)

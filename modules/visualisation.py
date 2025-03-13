@@ -148,16 +148,7 @@ class OutputVisualisationInterface:
     @staticmethod
     def generate_leccalc(results, **kwargs):
         results['type'] = results['type'].replace(TYPE_MAP)
-        title = ''
-        if kwargs.get('analysis_type'):
-            a_type = kwargs['analysis_type'].replace('_', ' ').title()
-            o_type = kwargs['loss_type'].upper()
-            title = f'{a_type} {o_type}'
-        fig = px.line(results, x='return_period', y='loss', color='type', markers=False, log_x=True,
-                      labels={'loss': 'Loss', 'return_period': 'Return Period', 'type': 'Type'}, title=title)
-
-
-        return fig
+        return results
 
     @staticmethod
     def generate_pltcalc(results, **kwargs):

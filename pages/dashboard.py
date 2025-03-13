@@ -4,7 +4,7 @@ from modules.nav import SidebarNav
 import pandas as pd
 import altair as alt
 
-from pages.components.output import generate_eltcalc_fragment, summarise_inputs, generate_aalcalc_fragment
+from pages.components.output import generate_eltcalc_fragment, generate_leccalc_fragment, summarise_inputs, generate_aalcalc_fragment
 from modules.visualisation import OutputVisualisationInterface
 
 st.set_page_config(
@@ -94,6 +94,12 @@ for p in perspectives:
     st.write("## AAL Output")
     if summaries_settings.get('aalcalc', False):
         generate_aalcalc_fragment(p, vis)
+
+    st.write("## LEC Output")
+    if summaries_settings.get('lec_output', False):
+        lec_options = summaries_settings.get('leccalc')
+        generate_leccalc_fragment(p, vis, lec_options)
+
 
 st.stop()
 if selected_analysis:
