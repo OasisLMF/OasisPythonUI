@@ -4,6 +4,7 @@ import pandas as pd
 import logging
 from oasis_data_manager.errors import OasisException
 import plotly.express as px
+import plotly.graph_objects as go
 from math import log10
 
 from pages.components.display import DataframeView, MapView
@@ -413,11 +414,23 @@ def generate_leccalc_fragment(p, vis, lec_outputs):
         if selected_group is None:
             selected_group = 'summary_id'
 
-        result_plot = result[[selected_group, 'return_period', 'type', 'loss']]
-        result_plot = result_plot.groupby([selected_group, 'return_period', 'type'], as_index=False).agg({'loss': 'sum'}).sort_values(by='loss', ascending=False)
+        if analysis_type == "wheatsheaf":
+            result_plot = result.groupby(["summary_id", "return_period"] + oed_fields, as_index=False).agg(min_loss = ("loss", "min"),
+                                                                                              max_loss = ("loss", "max"),
+                                                                                              mean_loss = ("loss", "mean"))
+
+            result_plot = result_plot[[selected_group, "return_period", "mean_loss", "max_loss", "min_loss"]]
+            result_plot = result_plot.groupby([selected_group, 'return_period'], as_index=False).agg({'mean_loss': 'sum',
+                                                                                                       'max_loss': 'sum',
+                                                                                                       'min_loss': 'sum',
+                                                                                                      })
+            result_plot = result_plot.sort_values(by="mean_loss", ascending=False)
+
+        else:
+            result_plot = result[[selected_group, 'return_period', 'type', 'loss']]
+            result_plot = result_plot.groupby([selected_group, 'return_period', 'type'], as_index=False).agg({'loss': 'sum'}).sort_values(by='loss', ascending=False)
 
         log_x = log10(result_plot['return_period'].max()) - log10(result_plot['return_period'].min()) > 2
-
         unique_group = result_plot[selected_group].unique().tolist()
 
         if len(unique_group) > 5:
@@ -427,11 +440,31 @@ def generate_leccalc_fragment(p, vis, lec_outputs):
             result_plot = result_plot[result_plot[selected_group].isin(filter_group)]
 
 
-        fig = px.line(result_plot, x='return_period', y='loss',
-                      color=selected_group, line_dash='type', markers=False,
-                      labels = {'return_period': 'Return Period', 'loss':
-                                'Loss', 'type': 'Type',
-                                selected_group: selected_group},
-                      line_group='type',
-                      log_x=log_x)
+        if analysis_type == "wheatsheaf":
+            fig = go.Figure()
+            for item in result_plot[selected_group].unique().tolist():
+                result_item = result_plot[result_plot[selected_group] == item]
+                fig.add_trace(go.Scatter(
+                    x = result_item["return_period"],
+                    y = result_item["mean_loss"],
+                    error_y = {'array': result_item["max_loss"],
+                               'arrayminus': result_item["min_loss"]},
+                    name = item))
+                fig.update_layout(
+                    xaxis = dict(title = dict(text = 'Return Period')),
+                    yaxis = dict(title = dict(text = 'Loss')),
+                    legend_title_text=selected_group,
+                    showlegend=True
+                )
+                if log_x:
+                    fig.update_xaxes(type="log")
+
+        else:
+            fig = px.line(result_plot, x='return_period', y='loss',
+                          color=selected_group, line_dash='type', markers=False,
+                          labels = {'return_period': 'Return Period', 'loss':
+                                    'Loss', 'type': 'Type',
+                                    selected_group: selected_group},
+                          line_group='type',
+                          log_x=log_x)
         st.plotly_chart(fig)

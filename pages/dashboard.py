@@ -100,7 +100,6 @@ for p in perspectives:
         lec_options = summaries_settings.get('leccalc')
         generate_leccalc_fragment(p, vis, lec_options)
 
-
 st.stop()
 if selected_analysis:
     "### EP Sample Plots"

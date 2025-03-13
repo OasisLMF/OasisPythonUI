@@ -147,7 +147,8 @@ class OutputVisualisationInterface:
 
     @staticmethod
     def generate_leccalc(results, **kwargs):
-        results['type'] = results['type'].replace(TYPE_MAP)
+        if 'type' in results.columns:
+            results['type'] = results['type'].replace(TYPE_MAP)
         return results
 
     @staticmethod
