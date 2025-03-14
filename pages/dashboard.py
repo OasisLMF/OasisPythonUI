@@ -4,7 +4,7 @@ from modules.nav import SidebarNav
 import pandas as pd
 import altair as alt
 
-from pages.components.output import generate_eltcalc_fragment, generate_leccalc_fragment, summarise_inputs, generate_aalcalc_fragment
+from pages.components.output import generate_eltcalc_fragment, generate_leccalc_fragment, generate_pltcalc_fragment, summarise_inputs, generate_aalcalc_fragment
 from modules.visualisation import OutputVisualisationInterface
 
 st.set_page_config(
@@ -84,18 +84,26 @@ for p in perspectives:
 
     summaries_settings = settings.get(f'{p}_summaries', [{}])[0]
 
-    st.write("### ELT Output")
     if summaries_settings.get('eltcalc', False):
-        locations = None
-        if inputs:
-            locations = inputs.get('location.csv')
-        generate_eltcalc_fragment(p, vis, locations=locations, map=True)
+        elt_expander = st.expander("ELT Output")
+        with elt_expander:
+            locations = None
+            if inputs:
+                locations = inputs.get('location.csv')
+            generate_eltcalc_fragment(p, vis, locations=locations, map=True)
 
-    st.write("## AAL Output")
     if summaries_settings.get('aalcalc', False):
-        generate_aalcalc_fragment(p, vis)
+        aal_expander = st.expander("AAL Output")
+        with aal_expander:
+            generate_aalcalc_fragment(p, vis)
 
-    st.write("## LEC Output")
     if summaries_settings.get('lec_output', False):
-        lec_options = summaries_settings.get('leccalc')
-        generate_leccalc_fragment(p, vis, lec_options)
+        lec_expander = st.expander("### LEC Output")
+        with lec_expander:
+            lec_options = summaries_settings.get('leccalc')
+            generate_leccalc_fragment(p, vis, lec_options)
+
+    if summaries_settings.get("pltcalc", False):
+        plt_expander = st.expander("PLT Output")
+        with plt_expander:
+            generate_pltcalc_fragment(p, vis)

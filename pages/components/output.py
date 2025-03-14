@@ -6,6 +6,7 @@ from oasis_data_manager.errors import OasisException
 import plotly.express as px
 import plotly.graph_objects as go
 from math import log10
+from datetime import date, datetime
 
 from pages.components.display import DataframeView, MapView
 
@@ -424,11 +425,13 @@ def generate_leccalc_fragment(p, vis, lec_outputs):
                                                                                                        'max_loss': 'sum',
                                                                                                        'min_loss': 'sum',
                                                                                                       })
-            result_plot = result_plot.sort_values(by="mean_loss", ascending=False)
+            result_plot = result_plot.sort_values(by=["return_period", "mean_loss"], ascending=[True, False])
 
         else:
             result_plot = result[[selected_group, 'return_period', 'type', 'loss']]
-            result_plot = result_plot.groupby([selected_group, 'return_period', 'type'], as_index=False).agg({'loss': 'sum'}).sort_values(by='loss', ascending=False)
+            result_plot = result_plot.groupby([selected_group, 'return_period', 'type'],
+                                              as_index=False).agg({'loss': 'sum'})
+            result_plot = result_plot.sort_values(by=['return_period', 'loss'], ascending=[True, False])
 
         log_x = log10(result_plot['return_period'].max()) - log10(result_plot['return_period'].min()) > 2
         unique_group = result_plot[selected_group].unique().tolist()
@@ -468,3 +471,83 @@ def generate_leccalc_fragment(p, vis, lec_outputs):
                           line_group='type',
                           log_x=log_x)
         st.plotly_chart(fig)
+
+def pltcalc_scatter_date_id(result, selected_group):
+    min_date_id = result['date_id'].min()
+    max_date_id = result['date_id'].max()
+
+    selected_date_id = st.slider("Display date_id: ",
+                                min_value=min_date_id,
+                                max_value=max_date_id,
+                                value=(min_date_id, max_date_id))
+
+    result = result.loc[(result["date_id"] >= selected_date_id[0]) & (result["date_id"] <= selected_date_id[1])]
+
+    fig = px.scatter(result, x='date_id', y='mean', color=selected_group,
+                     labels = {'date_id': 'Date ID', 'mean': 'Mean Loss'})
+    fig.update_xaxes(minor=dict(ticks="outside", showgrid=True),
+                     ticks="outside",
+                     showgrid=True)
+    st.plotly_chart(fig)
+
+
+def pltcalc_scatter_date(result, selected_group):
+    date_cols = result[["occ_year", "occ_month", "occ_day"]].rename(columns={"occ_year": "year",
+                                                                               "occ_month": "month",
+                                                                               "occ_day": "day"})
+
+    if date_cols['year'].min() <= 1:
+        date_cols['year'] += datetime.now().year - date_cols['year'].min()
+
+    def convert_date_cols(x):
+        return pd.Timestamp(year=x['year'], month=x['month'], day=x['day'], unit='D')
+
+    result['date'] = date_cols.apply(convert_date_cols, axis=1)
+
+    date_range = st.date_input("Date Range: ", min_value=result['date'].min(), max_value=result['date'].max(),
+                             value = [result['date'].min(), result['date'].max()])
+
+    if date_range is None or len(date_range) == 0 :
+        date_range = [result['date'].min(), result['date'].max()]
+    elif isinstance(date_range, date):
+        date_range = [date_range, result['date'].max()]
+    elif len(date_range) == 1:
+        date_range = [date_range[0], result['date'].max()]
+
+    result = result.loc[(result["date"] >= pd.Timestamp(date_range[0])) & (result["date"] <= pd.Timestamp(date_range[1]))]
+
+    fig = px.scatter(result, x='date', y='mean', color=selected_group,
+                     labels={'date': 'Date', 'mean': 'Mean Loss'})
+
+    fig.update_layout(
+        xaxis=dict(
+            minor=dict(ticks="outside", showgrid=True),
+            ticks='outside',
+            showgrid=True,
+        )
+    )
+    st.plotly_chart(fig)
+
+def generate_pltcalc_fragment(p, vis):
+    result = vis.get(1, 'gul', 'pltcalc')
+    oed_fields = vis.oed_fields.get(p)
+    selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key='leccalc_group_field_pills')
+
+    result['date_id'] = result['period_no']
+
+    result = result.drop(labels='occ_year', axis=1)
+
+    types = result['type'].unique()
+    selected_type = st.pills('Type filter: ', options=types, default=types[0])
+
+    result = result[result['type'] == selected_type]
+
+    if selected_group is None:
+        selected_group = 'summary_id'
+
+    result[selected_group] = result[selected_group].astype(str)
+
+    if set(['occ_year', 'occ_month', 'occ_day']).issubset(result.columns):
+        pltcalc_scatter_date(result, selected_group)
+    else:
+        pltcalc_scatter_date_id(result, selected_group)

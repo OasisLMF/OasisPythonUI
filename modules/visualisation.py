@@ -154,10 +154,4 @@ class OutputVisualisationInterface:
     @staticmethod
     def generate_pltcalc(results, **kwargs):
         results['type'] = results['type'].replace(TYPE_MAP)
-
-        fig = px.scatter(results, x='period_no', y='mean', color='type', marginal_y='histogram',
-                         labels = {'period_no': 'Period No.',
-                                   'mean': 'Mean Loss',
-                                   'type': 'Type'
-                                  })
-        return fig
+        return results
