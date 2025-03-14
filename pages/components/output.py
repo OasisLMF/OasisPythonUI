@@ -476,7 +476,7 @@ def pltcalc_scatter_date_id(result, selected_group):
     min_date_id = result['date_id'].min()
     max_date_id = result['date_id'].max()
 
-    selected_date_id = st.slider("Display date_id: ",
+    selected_date_id = st.slider("Filter date_id: ",
                                 min_value=min_date_id,
                                 max_value=max_date_id,
                                 value=(min_date_id, max_date_id))
