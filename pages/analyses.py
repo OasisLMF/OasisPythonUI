@@ -247,21 +247,15 @@ def run_analysis(re_handler):
         model = client.models.get(analysis['model']).json()
         model_settings = client.models.settings.get(analysis['model']).json()
 
-        # Collect OED fields from location file or accounts file.
-        portfolio = analysis.get('portfolio')
-        loc_file_oed = client_interface.portfolios.get_location_file(portfolio, df=True)
-        if loc_file_oed is None:
-            loc_file_oed = []
-        else:
-            loc_file_oed = loc_file_oed.columns
+        valid_oed_fields = client.analyses.summary_levels_file.get(analysis['id']).json()
+        invalid_fields = ['OEDVersion']
 
-        acc_file_oed = client_interface.portfolios.get_accounts_file(portfolio, df=True)
-        if acc_file_oed is None:
-            acc_file_oed = []
-        else:
-            acc_file_oed = acc_file_oed.columns
-
-        valid_oed_fields = list(set(loc_file_oed).union(acc_file_oed))
+        keys = list(valid_oed_fields.keys())
+        for k in keys:
+            new_k = k.lower()
+            valid_oed_fields[new_k] = valid_oed_fields.pop(k)['available']
+            for f in invalid_fields:
+                valid_oed_fields[new_k].pop(f, None)
 
         analysis_settings = create_analysis_settings(model, model_settings, oed_fields=valid_oed_fields)
 

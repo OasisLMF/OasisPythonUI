@@ -374,8 +374,14 @@ def create_analysis_settings(model, model_settings, oed_fields=None):
 
         with st.popover('OED Fields', use_container_width=True):
             for p in perspectives:
-                p_summaries = OEDGroupFragment(params={'perspective': p,
-                                                       'oed_fields': oed_fields}).display()
+                if isinstance(oed_fields, dict):
+                    if oed_fields.get(p, None):
+                        p_summaries = OEDGroupFragment(params={'perspective': p,
+                                                               'oed_fields': oed_fields[p]}).display()
+                else:
+                    p_summaries = OEDGroupFragment(params={'perspective': p,
+                                                           'oed_fields': oed_fields}).display()
+
                 summaries[f'{p}_summaries'][0] |= p_summaries
 
         submitted = st.form_submit_button('Submit')
