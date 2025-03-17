@@ -51,7 +51,7 @@ def summarise_output_settings(analysis_settings):
 
     summary = []
     for p in active_perspectives:
-        curr_summary = {}
+        curr_summary = {'outputs': []}
         p_summaries = analysis_settings[f'{p}_summaries'][0]
         output_options = [
             'eltcalc',
@@ -59,21 +59,21 @@ def summarise_output_settings(analysis_settings):
             'aalcalcmeanonly',
             'pltcalc',
             'summarycalc']
-        curr_summary['outputs'] = [o for o in output_options if p_summaries.get(o, False)]
+        curr_summary['outputs'] += [o for o in output_options if p_summaries.get(o, False)]
 
         if p_summaries.get('lec_output', False):
             lec_dict = p_summaries.get('leccalc', {'full_uncertainty_aep': True})
-            lec_opts = [
-                'full_uncertainty_aep',
-                'full_uncertainty_oep',
-                'wheatsheaf_aep',
-                'wheatsheaf_oep',
-                'wheatsheaf_mean_aep',
-                'wheatsheaf_mean_oep',
-                'sample_mean_aep',
-                'sample_mean_oep'
-            ]
-            curr_summary['outputs'] = [f'leccalc-{o}' for o in lec_opts if lec_dict.get(o, False)]
+            lec_opts = {
+                'full_uncertainty_aep': 'full_uncertainty_aep',
+                'full_uncertainty_oep': 'full_uncertainty_oep',
+                'wheatsheaf_aep': 'persample_aep',
+                'wheatsheaf_oep': 'persample_oep',
+                'wheatsheaf_mean_aep': 'persample_mean_aep',
+                'wheatsheaf_mean_oep': 'persample_mean_oep',
+                'sample_mean_aep': 'sample_mean_aep',
+                'sample_mean_oep': 'sample_mean_oep'
+            }
+            curr_summary['outputs'] += [f'leccalc-{v}' for k, v in lec_opts.items() if lec_dict.get(k, False)]
 
         oed_fields = p_summaries.get('oed_fields', None)
         if oed_fields:

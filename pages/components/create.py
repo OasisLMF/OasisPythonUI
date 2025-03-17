@@ -226,10 +226,10 @@ class OutputFragment(FormFragment):
             'summarycalc',
             'leccalc-full_uncertainty_aep',
             'leccalc-full_uncertainty_oep',
-            'leccalc-wheatsheaf_aep',
-            'leccalc-wheatsheaf_oep',
-            'leccalc-wheatsheaf_mean_aep',
-            'leccalc-wheatsheaf_mean_oep',
+            'leccalc-persample_aep',
+            'leccalc-persample_oep',
+            'leccalc-persample_mean_aep',
+            'leccalc-persample_mean_oep',
             'leccalc-sample_mean_aep',
             'leccalc-sample_mean_oep'
         ]
@@ -261,7 +261,9 @@ class OutputFragment(FormFragment):
         for output_option in selected:
             if output_option[:7] == 'leccalc':
                 output_dict['lec_output'] = True
-                output_dict['leccalc'][output_option[8:]] = True
+                lec_option = output_option[8:]
+                lec_option = lec_option.replace('persample', 'wheatsheaf')
+                output_dict['leccalc'][lec_option] = True
             else:
                 output_dict[output_option] = True
 
