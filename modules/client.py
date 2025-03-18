@@ -14,6 +14,9 @@ class EndpointInterface:
             data = pd.json_normalize(data)
         return data
 
+    def search(self, metadata={}):
+        return self.endpoint.search(metadata=metadata).json()
+
     def get_file(self, ID, filename, df=False):
         file_available = self.get(ID).get(filename, None)
         if file_available is None:
