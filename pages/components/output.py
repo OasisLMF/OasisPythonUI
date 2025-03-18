@@ -314,6 +314,7 @@ def eltcalc_map(perspective, vis_interface, locations, oed_fields = [], map_type
                      map_type='heatmap', weight='mean')
         mv.display()
 
+@st.fragment
 def generate_eltcalc_fragment(perspective, vis_interface,
                               table = True, map = False, locations = None):
     '''
@@ -379,11 +380,17 @@ def generate_eltcalc_fragment(perspective, vis_interface,
             with tab:
                 eltcalc_table(perspective, vis_interface, oed_fields)
 
+@st.fragment
 def generate_aalcalc_fragment(p, vis):
     result = vis.get(1, 'gul', 'aalcalc')
 
     oed_fields = vis.oed_fields.get(p)
     breakdown_field = st.pills('Breakdown OED Field: ', options=oed_fields)
+
+    breakdown_field_invalid = False
+    if breakdown_field and result[breakdown_field].nunique() > 100:
+        breakdown_field_invalid = True
+        breakdown_field = None
 
     group_field = ['type']
 
@@ -397,6 +404,9 @@ def generate_aalcalc_fragment(p, vis):
     graph = px.bar(result, x='type', y='mean', color=breakdown_field,
                    labels = {'type': 'Type', 'mean': 'Mean'},
                    color_discrete_sequence= px.colors.sequential.RdBu)
+
+    if breakdown_field_invalid:
+        st.error("Too many values in group field.")
 
     st.plotly_chart(graph, use_container_width=True)
 
@@ -472,7 +482,8 @@ def generate_leccalc_fragment(p, vis, lec_outputs):
                           log_x=log_x)
         st.plotly_chart(fig)
 
-def pltcalc_bar(result, selected_group, number_shown=10, date_id = False):
+@st.cache_data(show_spinner='Creating pltcalc bar')
+def pltcalc_bar(result, selected_group=None, number_shown=10, date_id = False):
     '''
     Bar plot of pltcalc output ranked by loss in descending order by year.
 
@@ -497,7 +508,10 @@ def pltcalc_bar(result, selected_group, number_shown=10, date_id = False):
         result["occ_day"] = result["occ_day"].str.zfill(2)
         result['date_id'] = result[date_cols].agg('-'.join, axis=1)
 
-    result_df = result[[selected_group, 'date_id', 'mean']]
+    if selected_group:
+        result_df = result[[selected_group, 'date_id', 'mean']]
+    else:
+        result_df = result[['date_id', 'mean']]
 
     ranked_dates = result_df.groupby('date_id', as_index=False).agg({'mean': 'sum'}).sort_values(by='mean', ascending=False)
 
@@ -506,7 +520,11 @@ def pltcalc_bar(result, selected_group, number_shown=10, date_id = False):
 
     result_df = result_df[result_df['date_id'].isin(ranked_dates['date_id'])]
     result_df = pd.merge(result_df, ranked_dates, how='left', on='date_id')
-    result_df = result_df.groupby([selected_group, 'date_id'], as_index=False).agg({'mean': 'sum', 'total_mean': 'first'})
+
+    if selected_group:
+        result_df = result_df.groupby([selected_group, 'date_id'], as_index=False).agg({'mean': 'sum', 'total_mean': 'first'})
+    else:
+        result_df = result_df.groupby(['date_id'], as_index=False).agg({'mean': 'sum', 'total_mean': 'first'})
 
     fig = px.bar(result_df, x='date_id', y='mean', color=selected_group,
                  hover_data={
@@ -516,24 +534,31 @@ def pltcalc_bar(result, selected_group, number_shown=10, date_id = False):
     fig.update_xaxes(type='category', categoryorder='array',
                      categoryarray=ranked_dates['date_id'])
 
-    st.plotly_chart(fig)
+    return fig
 
+@st.fragment
 def generate_pltcalc_fragment(p, vis):
     result = vis.get(1, 'gul', 'pltcalc')
     oed_fields = vis.oed_fields.get(p)
     selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key='leccalc_group_field_pills')
+
+    selected_group_invalid = False
+    if selected_group and result[selected_group].nunique() > 100:
+        selected_group_invalid = True
+        selected_group = None
+    elif selected_group:
+        result[selected_group] = result[selected_group].astype(str)
 
     types = result['type'].unique()
     selected_type = st.radio('Type filter: ', options=types, index=0)
 
     result = result[result['type'] == selected_type]
 
-    if selected_group is None:
-        selected_group = 'summary_id'
-
-    result[selected_group] = result[selected_group].astype(str)
-
-    if set(['occ_year', 'occ_month', 'occ_day']).issubset(result.columns):
-        pltcalc_bar(result, selected_group, date_id=False)
-    else:
-        pltcalc_bar(result, selected_group, date_id=True)
+    with st.spinner('Generating pltcalc...'):
+        if set(['occ_year', 'occ_month', 'occ_day']).issubset(result.columns):
+            fig = pltcalc_bar(result, selected_group, date_id=False)
+        else:
+            fig = pltcalc_bar(result, selected_group, date_id=True)
+    st.plotly_chart(fig)
+    if selected_group_invalid:
+        st.error(f"Too many values in group field.")

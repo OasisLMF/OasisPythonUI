@@ -44,21 +44,8 @@ with st.spinner("Loading data..."):
     settings = client.analyses.settings.get(analysis_id).json()
 
 st.write("# Analysis Summary")
-summarise_inputs(inputs.get('location.csv', None), settings)
-
-@st.cache_data
-def leccalc_plot_data(oep_df, aep_df):
-    oep_df['ep_type'] = 'oep'
-    aep_df['ep_type'] = 'aep'
-
-    # Filter only sampled
-    oep_df = oep_df[oep_df['type'] == 2]
-    aep_df = aep_df[aep_df['type'] == 2]
-
-    # Extract relevent columns
-    oep_df = oep_df[['return_period', 'loss', 'ep_type']]
-    aep_df = aep_df[['return_period', 'loss', 'ep_type']]
-    return pd.concat([oep_df, aep_df], axis=0)
+with st.spinner('Loading analysis summary...'):
+    summarise_inputs(inputs.get('location.csv', None), settings)
 
 @st.cache_data
 def get_analysis_outputs(ID):
@@ -76,34 +63,35 @@ for p in perspectives:
         vis.set_oed_fields(p, p_oed_fields)
 
 st.write("# Output Visualisation")
-for p in perspectives:
-    if not settings.get(f'{p}_output', False):
-        continue
+with st.spinner("Loading visualisations..."):
+    for p in perspectives:
+        if not settings.get(f'{p}_output', False):
+            continue
 
-    st.write(f'## {p.upper()}')
+        st.write(f'## {p.upper()}')
 
-    summaries_settings = settings.get(f'{p}_summaries', [{}])[0]
+        summaries_settings = settings.get(f'{p}_summaries', [{}])[0]
 
-    if summaries_settings.get('eltcalc', False):
-        elt_expander = st.expander("ELT Output")
-        with elt_expander:
-            locations = None
-            if inputs:
-                locations = inputs.get('location.csv')
-            generate_eltcalc_fragment(p, vis, locations=locations, map=True)
+        if summaries_settings.get('eltcalc', False):
+            elt_expander = st.expander("ELT Output")
+            with elt_expander:
+                locations = None
+                if inputs:
+                    locations = inputs.get('location.csv')
+                generate_eltcalc_fragment(p, vis, locations=locations, map=True)
 
-    if summaries_settings.get('aalcalc', False):
-        aal_expander = st.expander("AAL Output")
-        with aal_expander:
-            generate_aalcalc_fragment(p, vis)
+        if summaries_settings.get('aalcalc', False):
+            aal_expander = st.expander("AAL Output")
+            with aal_expander:
+                generate_aalcalc_fragment(p, vis)
 
-    if summaries_settings.get('lec_output', False):
-        lec_expander = st.expander("### LEC Output")
-        with lec_expander:
-            lec_options = summaries_settings.get('leccalc')
-            generate_leccalc_fragment(p, vis, lec_options)
+        if summaries_settings.get('lec_output', False):
+            lec_expander = st.expander("LEC Output")
+            with lec_expander:
+                lec_options = summaries_settings.get('leccalc')
+                generate_leccalc_fragment(p, vis, lec_options)
 
-    if summaries_settings.get("pltcalc", False):
-        plt_expander = st.expander("PLT Output")
-        with plt_expander:
-            generate_pltcalc_fragment(p, vis)
+        if summaries_settings.get("pltcalc", False):
+            plt_expander = st.expander("PLT Output")
+            with plt_expander:
+                generate_pltcalc_fragment(p, vis)
