@@ -472,60 +472,50 @@ def generate_leccalc_fragment(p, vis, lec_outputs):
                           log_x=log_x)
         st.plotly_chart(fig)
 
-def pltcalc_scatter_date_id(result, selected_group):
-    min_date_id = result['date_id'].min()
-    max_date_id = result['date_id'].max()
+def pltcalc_bar(result, selected_group, number_shown=10, date_id = False):
+    '''
+    Bar plot of pltcalc output ranked by loss in descending order by year.
 
-    selected_date_id = st.slider("Filter date_id: ",
-                                min_value=min_date_id,
-                                max_value=max_date_id,
-                                value=(min_date_id, max_date_id))
+    Parameters
+    ----------
+    result : pd.DataFrame
+             pltcalc results dataframe.
+    selected_group : str
+                     Column to group by.
+    number_shown : int
+                   Number of years to show.
+    date_id : bool
+              If `True` then pltcalc produced data with a `date_id` column.
+              Otherwise `occ_year`, `occ_month` and `occ_day` columns expected
+              in `result`.
+    '''
+    if not date_id:
+        date_cols = ["occ_year", "occ_month", "occ_day"]
+        result[date_cols] = result[date_cols].astype(str)
+        result["occ_year"] = result["occ_year"].str.zfill(result["occ_year"].str.len().max())
+        result["occ_month"] = result["occ_month"].str.zfill(2)
+        result["occ_day"] = result["occ_day"].str.zfill(2)
+        result['date_id'] = result[date_cols].agg('-'.join, axis=1)
 
-    result = result.loc[(result["date_id"] >= selected_date_id[0]) & (result["date_id"] <= selected_date_id[1])]
+    result_df = result[[selected_group, 'date_id', 'mean']]
 
-    fig = px.scatter(result, x='date_id', y='mean', color=selected_group,
-                     labels = {'date_id': 'Date ID', 'mean': 'Mean Loss'})
-    fig.update_xaxes(minor=dict(ticks="outside", showgrid=True),
-                     ticks="outside",
-                     showgrid=True)
-    st.plotly_chart(fig)
+    ranked_dates = result_df.groupby('date_id', as_index=False).agg({'mean': 'sum'}).sort_values(by='mean', ascending=False)
 
+    ranked_dates = ranked_dates.iloc[:number_shown]
+    ranked_dates = ranked_dates.rename(columns={'mean': 'total_mean'})
 
-def pltcalc_scatter_date(result, selected_group):
-    date_cols = result[["occ_year", "occ_month", "occ_day"]].rename(columns={"occ_year": "year",
-                                                                               "occ_month": "month",
-                                                                               "occ_day": "day"})
+    result_df = result_df[result_df['date_id'].isin(ranked_dates['date_id'])]
+    result_df = pd.merge(result_df, ranked_dates, how='left', on='date_id')
+    result_df = result_df.groupby([selected_group, 'date_id'], as_index=False).agg({'mean': 'sum', 'total_mean': 'first'})
 
-    if date_cols['year'].min() <= 1:
-        date_cols['year'] += datetime.now().year - date_cols['year'].min()
+    fig = px.bar(result_df, x='date_id', y='mean', color=selected_group,
+                 hover_data={
+                     'total_mean': ':s'
+                 },
+                 labels={'date_id': 'Date', 'total_mean': 'Total Mean', 'mean': 'Mean'})
+    fig.update_xaxes(type='category', categoryorder='array',
+                     categoryarray=ranked_dates['date_id'])
 
-    def convert_date_cols(x):
-        return pd.Timestamp(year=x['year'], month=x['month'], day=x['day'], unit='D')
-
-    result['date'] = date_cols.apply(convert_date_cols, axis=1)
-
-    date_range = st.date_input("Date Range: ", min_value=result['date'].min(), max_value=result['date'].max(),
-                             value = [result['date'].min(), result['date'].max()])
-
-    if date_range is None or len(date_range) == 0 :
-        date_range = [result['date'].min(), result['date'].max()]
-    elif isinstance(date_range, date):
-        date_range = [date_range, result['date'].max()]
-    elif len(date_range) == 1:
-        date_range = [date_range[0], result['date'].max()]
-
-    result = result.loc[(result["date"] >= pd.Timestamp(date_range[0])) & (result["date"] <= pd.Timestamp(date_range[1]))]
-
-    fig = px.scatter(result, x='date', y='mean', color=selected_group,
-                     labels={'date': 'Date', 'mean': 'Mean Loss'})
-
-    fig.update_layout(
-        xaxis=dict(
-            minor=dict(ticks="outside", showgrid=True),
-            ticks='outside',
-            showgrid=True,
-        )
-    )
     st.plotly_chart(fig)
 
 def generate_pltcalc_fragment(p, vis):
@@ -533,12 +523,8 @@ def generate_pltcalc_fragment(p, vis):
     oed_fields = vis.oed_fields.get(p)
     selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key='leccalc_group_field_pills')
 
-    result['date_id'] = result['period_no']
-
-    result = result.drop(labels='occ_year', axis=1)
-
     types = result['type'].unique()
-    selected_type = st.pills('Type filter: ', options=types, default=types[0])
+    selected_type = st.radio('Type filter: ', options=types, index=0)
 
     result = result[result['type'] == selected_type]
 
@@ -548,6 +534,6 @@ def generate_pltcalc_fragment(p, vis):
     result[selected_group] = result[selected_group].astype(str)
 
     if set(['occ_year', 'occ_month', 'occ_day']).issubset(result.columns):
-        pltcalc_scatter_date(result, selected_group)
+        pltcalc_bar(result, selected_group, date_id=False)
     else:
-        pltcalc_scatter_date_id(result, selected_group)
+        pltcalc_bar(result, selected_group, date_id=True)
