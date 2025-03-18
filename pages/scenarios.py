@@ -18,7 +18,7 @@ import json
 from modules.client import ClientInterface
 import logging
 
-from pages.components.output import model_summary, summarise_inputs
+from pages.components.output import generate_eltcalc_fragment, generate_leccalc_fragment, generate_pltcalc_fragment, model_summary, summarise_inputs, generate_aalcalc_fragment
 from pages.components.process import enrich_analyses, enrich_portfolios
 
 logger = logging.getLogger(__name__)
@@ -266,151 +266,26 @@ with run_container:
             vis_interface = OutputVisualisationInterface(results_dict)
 
             def generate_perspective_visualisation(perspective, summaries_settings):
-                if summaries_settings[0].get('eltcalc'):
+                if summaries_settings[0].get('eltcalc', False):
                     st.write("### ELT Output")
+                    generate_eltcalc_fragment(perspective, vis_interface, locations=locations, map=True)
+                    st.write('---')
 
-                    tab_list = ['Table']
-
-                    if summaries_settings[0].get('oed_fields'):
-                        vis_interface.set_oed_fields(perspective, summaries_settings[0].get('oed_fields'))
-
-                    group_cols = vis_interface.oed_fields.get(perspective, [])
-
-                    code_to_name = {
-                        'PortNumber': 'Portfolio',
-                        'CountryCode': 'Country',
-                        'LocNumber': 'Location',
-                    }
-
-
-                    def table_tab():
-                        group_fields = st.pills("Group Columns",
-                                                group_cols,
-                                                key=f'{perspective}_group_pill',
-                                                format_func = lambda x: code_to_name.get(x, x),
-                                                selection_mode='multi')
-
-                        # always group by output type
-                        categorical_cols = [str(c) for c in code_to_name.keys()]
-                        group_fields = ['type'] + group_fields
-                        eltcalc_df = vis_interface.get(summary_level=1,
-                                                       perspective=perspective,
-                                                       output_type='eltcalc',
-                                                       group_fields=group_fields,
-                                                       categorical_cols=categorical_cols)
-                        # Sort by loss
-                        eltcalc_df = eltcalc_df.sort_values('mean', ascending=False)
-
-                        df_memory = eltcalc_df.memory_usage().sum() / 1e6
-
-                        if df_memory > 200:
-                            st.error('Output too large, try grouping')
-                            logger.error(f'eltcalc view df size: {df_memory}')
-                        else:
-                            eltcalc_df = DataframeView(eltcalc_df)
-                            eltcalc_df.column_config['mean'] = st.column_config.NumberColumn('Mean', format='%.2f')
-                            for c in group_cols:
-                                col_name =  code_to_name.get(c, None)
-                                if col_name:
-                                    # All group fields categorical
-                                    eltcalc_df.column_config[c] = st.column_config.ListColumn(col_name)
-                                else:
-                                    eltcalc_df.column_config[c] = c
-                            # fix type column heading
-                            eltcalc_df.column_config['type'] = st.column_config.ListColumn('Type')
-
-                            eltcalc_df.display()
-
-                    def valid_locations(loc_df):
-                        '''
-                        Check if `Latitude` and `Longitude` columns are present
-                        and if they are unique between locations.
-                        '''
-                        if not set(['Latitude', 'Longitude']).issubset(locations.columns):
-                            return False
-
-                        lat_long = loc_df[['Latitude', 'Longitude']]
-                        if (lat_long == lat_long.iloc[0]).all(axis=None):
-                            return False
-
-                        return True
-
-                    # Determine which map to use
-                    if 'LocNumber' in vis_interface.oed_fields.get(perspective, []) and valid_locations(locations):
-                        map_type = 'heatmap'
-                        tab_list.append('Map')
-                    elif 'CountryCode' in vis_interface.oed_fields.get(perspective, []):
-                        map_type = 'choropleth'
-                        tab_list.append('Map')
-
-                    def map_tab(map_type):
-                        '''
-                        Generate MapView of output of eltcalc. Either `heatmap` or `choropleth` depending on portfolio.
-                        '''
-                        categorical_cols = [str(c) for c in code_to_name.keys()]
-
-                        if map_type == 'choropleth':
-                            group_fields = ['CountryCode']
-                            eltcalc_df = vis_interface.get(summary_level=1,
-                                                           perspective=perspective,
-                                                           output_type='eltcalc',
-                                                           group_fields=group_fields,
-                                                           categorical_cols = categorical_cols,
-                                                           filter_type = 2) # Only output sample
-
-                            mv = MapView(eltcalc_df, weight="mean", map_type="choropleth")
-                            mv.display()
-                            return
-
-                        if map_type == 'heatmap':
-                            group_fields = ['LocNumber']
-                            eltcalc_df = vis_interface.get(summary_level=1,
-                                                           perspective=perspective,
-                                                           output_type='eltcalc',
-                                                           group_fields=group_fields,
-                                                           categorical_cols = categorical_cols,
-                                                           filter_type = 2) # Only output sample data
-                            loc_reduced = locations[['LocNumber', 'Longitude', 'Latitude']]
-                            heatmap_data = eltcalc_df.merge(loc_reduced, how="left", on="LocNumber")
-                            heatmap_data = heatmap_data[['Longitude', 'Latitude', 'mean']]
-
-                            mv = MapView(heatmap_data, longitude='Longitude', latitude='Latitude',
-                                         map_type='heatmap', weight='mean')
-                            mv.display()
-
-                    # Show the tabs
-                    tabs = st.tabs(tab_list)
-
-                    with st.spinner("Loading results..."):
-                        for tab, tab_name in zip(tabs, tab_list):
-                            with tab:
-                                if tab_name == 'Table':
-                                    table_tab()
-                                elif tab_name == 'Map':
-                                    map_tab(map_type)
-
-
-                if summaries_settings[0].get('aalcalc'):
+                if summaries_settings[0].get('aalcalc', False):
                     st.write("### AAL Output")
-                    aal_fig = vis_interface.get(summary_level=1, perspective=perspective, output_type='aalcalc')
-                    st.plotly_chart(aal_fig, use_container_width=True)
-                if summaries_settings[0].get('lec_output'):
+                    generate_aalcalc_fragment(perspective, vis_interface)
+                    st.write('---')
+
+                if summaries_settings[0].get('lec_output', False):
                     st.write("### LEC Output")
-                    analysis_types = ["full_uncertainty", "wheatsheaf", "wheatsheaf_mean", "sample_mean"]
-                    loss_types = ["aep", "oep"]
-                    for a_type in analysis_types:
-                        for l_type in loss_types:
-                            param_name = f"{a_type}_{l_type}"
-                            if summaries_settings[0].get("leccalc").get(param_name):
-                                lec_fig = vis_interface.get(summary_level =1, perspective=perspective,
-                                                            output_type ='leccalc',
-                                                            analysis_type = a_type,
-                                                            loss_type = l_type)
-                                st.plotly_chart(lec_fig, use_container_width=True)
+                    lec_options = summaries_settings[0].get('leccalc')
+                    generate_leccalc_fragment(perspective, vis_interface, lec_options)
+                    st.write('---')
+
                 if summaries_settings[0].get('pltcalc'):
                     st.write("### PLT Output")
-                    plt_fig = vis_interface.get(summary_level=1, perspective=perspective, output_type='pltcalc')
-                    st.plotly_chart(plt_fig, use_container_width=True)
+                    generate_pltcalc_fragment(perspective, vis_interface)
+                    st.write('---')
 
             if a_settings['gul_output']:
                 st.write("## Ground Up Loss")

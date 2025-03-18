@@ -310,6 +310,9 @@ def eltcalc_map(perspective, vis_interface, locations, oed_fields = [], map_type
         mv = MapView(heatmap_data, longitude='Longitude', latitude='Latitude',
                      map_type='heatmap', weight='mean')
         mv.display()
+        return
+
+    st.info("No map to display")
 
 @st.fragment
 def generate_eltcalc_fragment(perspective, vis_interface,
@@ -382,7 +385,9 @@ def generate_aalcalc_fragment(p, vis):
     result = vis.get(1, 'gul', 'aalcalc')
 
     oed_fields = vis.oed_fields.get(p)
-    breakdown_field = st.pills('Breakdown OED Field: ', options=oed_fields)
+    breakdown_field = None
+    if oed_fields and len(oed_fields) > 0:
+        breakdown_field = st.pills('Breakdown OED Field: ', options=oed_fields)
 
     breakdown_field_invalid = False
     if breakdown_field and result[breakdown_field].nunique() > 100:
@@ -411,13 +416,17 @@ def generate_leccalc_fragment(p, vis, lec_outputs):
     lec_options = [option for option in lec_outputs.keys() if lec_outputs[option]]
     option = st.pills('Select Output:', options=lec_options)
 
-    if option:
+    if option is None:
+        st.info('Output option not selected.')
+    else:
         analysis_type = '_'.join(option.split('_')[:-1])
         loss_type = option.split('_')[-1]
         result = vis.get(1, p, 'leccalc', analysis_type = analysis_type, loss_type = loss_type)
         oed_fields = vis.oed_fields.get(p)
 
-        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key='leccalc_group_field_pills')
+        selected_group = None
+        if oed_fields and len(oed_fields) > 0:
+            selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key='leccalc_group_field_pills')
 
         if selected_group is None:
             selected_group = 'summary_id'
@@ -537,7 +546,10 @@ def pltcalc_bar(result, selected_group=None, number_shown=10, date_id = False):
 def generate_pltcalc_fragment(p, vis):
     result = vis.get(1, 'gul', 'pltcalc')
     oed_fields = vis.oed_fields.get(p)
-    selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key='leccalc_group_field_pills')
+
+    selected_group = None
+    if oed_fields and len(oed_fields) > 0 :
+        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key='leccalc_group_field_pills')
 
     selected_group_invalid = False
     if selected_group and result[selected_group].nunique() > 100:
