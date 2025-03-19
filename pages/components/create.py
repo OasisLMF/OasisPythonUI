@@ -293,13 +293,17 @@ class ORDOutputFragment(FormFragment):
                                                key=f'{perspective}_plt_multiselect')
 
         ord_options |= output_type_multiselect(label='Average Loss Table (ALT) Output', prefix='alt',
-                                               options=['period', 'meanonly'])
+                                               options=['period', 'meanonly'],
+                                               key=f'{perspective}_alt_multiselect')
 
         alct_enabled = ord_options.get('alt_period', False)
         with st.expander('Average Loss Convergence Table (ALCT) Options'):
             if alct_enabled:
-                ord_options['alct_convergence'] = st.checkbox('Generate Convergence Table')
-                ord_options['alct_confidence'] = st.number_input('Confidence Level', value=0.95, min_value=0.0, max_value=1.0)
+                ord_options['alct_convergence'] = st.checkbox('Generate Convergence Table',
+                                                              key=f'{perspective}_alct_conv_check')
+                ord_options['alct_confidence'] = st.number_input('Confidence Level',
+                                                                 value=0.95, min_value=0.0, max_value=1.0,
+                                                                 key=f'{perspective}_alct_conf_numeric')
             else:
                 st.caption('Requires ALT `period` option.')
 
@@ -312,10 +316,12 @@ class ORDOutputFragment(FormFragment):
             'per_sample_mean_oep'
         ]
         ord_options |= output_type_multiselect(label='Exceedance Probability Table (EPT) Output: ', prefix='ept',
-                                               options=ept_output_options)
+                                               options=ept_output_options,
+                                               key=f'{perspective}_ept_multiselect')
 
         ord_options |= output_type_multiselect(label='Per Sample Exceedance Probability Table (PS EPT) Output:', prefix='psept',
-                                               options=['aep', 'oep'])
+                                               options=['aep', 'oep'],
+                                               key=f'{perspective}_psept_multiselect')
 
         return ord_options
 
@@ -424,6 +430,13 @@ def create_analysis_settings(model, model_settings, oed_fields=None):
         for p in perspectives:
             p_summaries = OutputFragment(params={'perspective': p, 'default': default_dict.get(p, [])}).display()
             summaries[f'{p}_summaries'][0] |= p_summaries
+
+        p_tabs = st.tabs([p.upper() for p in perspectives])
+        for p, tab in zip(perspectives, p_tabs):
+            with tab:
+                st.write(f'### {p.upper()} ORD Output Settings')
+                ord_output = ORDOutputFragment(params={'perspective': p}).display()
+                st.write(ord_output)
 
         with st.popover('OED Fields', use_container_width=True):
             for p in perspectives:
