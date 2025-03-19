@@ -235,7 +235,7 @@ class OutputFragment(FormFragment):
         ]
 
         selected = st.multiselect(f"{perspective.upper()} Outputs",
-                                 options, key=f'{id}_{perspective}_output',
+                                 options, key=f'{perspective}_legacy_output_select',
                                  default=default)
 
         output_dict = {
@@ -426,17 +426,17 @@ def create_analysis_settings(model, model_settings, oed_fields=None):
                 default_outputs = supported_outputs & set(default_summaries.keys())
                 default_dict[p] = [output for output in default_outputs if default_summaries[output]]
 
-
-        for p in perspectives:
-            p_summaries = OutputFragment(params={'perspective': p, 'default': default_dict.get(p, [])}).display()
-            summaries[f'{p}_summaries'][0] |= p_summaries
-
         p_tabs = st.tabs([p.upper() for p in perspectives])
         for p, tab in zip(perspectives, p_tabs):
             with tab:
                 st.write(f'### {p.upper()} ORD Output Settings')
                 ord_output = ORDOutputFragment(params={'perspective': p}).display()
-                st.write(ord_output)
+                summaries[f'{p}_summaries'][0] |= {'ord_output' : ord_output}
+
+                if st.checkbox("Enable legacy outputs", key=f'{p}_enable_legacy_check'):
+                    p_summaries = OutputFragment(params={'perspective': p, 'default': default_dict.get(p, [])}).display()
+                    summaries[f'{p}_summaries'][0] |= p_summaries
+
 
         with st.popover('OED Fields', use_container_width=True):
             for p in perspectives:
@@ -461,6 +461,5 @@ def create_analysis_settings(model, model_settings, oed_fields=None):
                 selected_settings[settings_name] = summaries[settings_name]
             else:
                 selected_settings[settings_name] = merge_summaries(default_summaries, summaries[settings_name])
-
         settings = merge_settings(analysis_settings, selected_settings)
         return settings
