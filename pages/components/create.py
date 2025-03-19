@@ -429,7 +429,7 @@ def create_analysis_settings(model, model_settings, oed_fields=None):
         p_tabs = st.tabs([p.upper() for p in perspectives])
         for p, tab in zip(perspectives, p_tabs):
             with tab:
-                st.write(f'### {p.upper()} ORD Output Settings')
+                st.write(f'### {p.upper()} Output Settings')
                 ord_output = ORDOutputFragment(params={'perspective': p}).display()
                 summaries[f'{p}_summaries'][0] |= {'ord_output' : ord_output}
 
@@ -438,8 +438,6 @@ def create_analysis_settings(model, model_settings, oed_fields=None):
                     summaries[f'{p}_summaries'][0] |= p_summaries
 
 
-        with st.popover('OED Fields', use_container_width=True):
-            for p in perspectives:
                 if isinstance(oed_fields, dict):
                     if oed_fields.get(p, None):
                         p_summaries = OEDGroupFragment(params={'perspective': p,
