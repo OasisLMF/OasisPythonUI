@@ -87,9 +87,15 @@ def summarise_output_settings(analysis_settings):
         if ord_output:
             curr_summary['ord_outputs'] = []
 
-            valid_options = AnalysisSettingSchema().schema['definitions']['output_summaries']['items']['properties']['ord_output']['properties']
-            invalid_options = ['parquet_format', 'return_period_file']
-            valid_options = [str(k) for k in valid_options.keys() if k not in invalid_options]
+            valid_options = [
+                'elt_sample', 'elt_quantile', 'elt_moment', 'plt_sample',
+                'plt_quantile', 'plt_moment', 'alt_period', 'alt_meanonly',
+                'alct_convergence',
+                'ept_full_uncertainty_aep', 'ept_full_uncertainty_oep',
+                'ept_mean_sample_aep', 'ept_mean_sample_oep',
+                'ept_per_sample_mean_aep', 'ept_per_sample_mean_oep',
+                'psept_aep', 'psept_oep'
+            ]
 
             for opt in valid_options:
                 if ord_output.get(opt, False):
