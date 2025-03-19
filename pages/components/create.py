@@ -269,6 +269,56 @@ class OutputFragment(FormFragment):
 
         return output_dict
 
+class ORDOutputFragment(FormFragment):
+    def display(self):
+        ord_options = {}
+        perspective = self.params.get('perspective', 'gul')
+
+        def output_type_multiselect(label, options, prefix, key=None):
+            selected_options = st.multiselect(label, options=options, key=key)
+
+            output_dict = {}
+            for opt in options:
+                output_dict[f'{prefix}_{opt}'] = opt in selected_options
+            return output_dict
+
+        elt_plt_options = ['sample', 'quantile', 'moment']
+
+        ord_options |= output_type_multiselect(label='Event Loss Table (ELT) Output', prefix='elt',
+                                               options=elt_plt_options,
+                                               key=f'{perspective}_elt_multiselect')
+
+        ord_options |= output_type_multiselect(label='Period Loss Table (ELT) Output', prefix='plt',
+                                               options=elt_plt_options,
+                                               key=f'{perspective}_plt_multiselect')
+
+        ord_options |= output_type_multiselect(label='Average Loss Table (ALT) Output', prefix='alt',
+                                               options=['period', 'meanonly'])
+
+        alct_enabled = ord_options.get('alt_period', False)
+        with st.expander('Average Loss Convergence Table (ALCT) Options'):
+            if alct_enabled:
+                ord_options['alct_convergence'] = st.checkbox('Generate Convergence Table')
+                ord_options['alct_confidence'] = st.number_input('Confidence Level', value=0.95, min_value=0.0, max_value=1.0)
+            else:
+                st.caption('Requires ALT `period` option.')
+
+        ept_output_options = [
+            'full_uncertainty_aep',
+            'full_uncertainty_oep',
+            'mean_sample_aep',
+            'mean_sample_oep',
+            'per_sample_mean_aep',
+            'per_sample_mean_oep'
+        ]
+        ord_options |= output_type_multiselect(label='Exceedance Probability Table (EPT) Output: ', prefix='ept',
+                                               options=ept_output_options)
+
+        ord_options |= output_type_multiselect(label='Per Sample Exceedance Probability Table (PS EPT) Output:', prefix='psept',
+                                               options=['aep', 'oep'])
+
+        return ord_options
+
 
 def merge_settings(settings1, settings2):
     from copy import copy
@@ -342,7 +392,8 @@ def create_analysis_settings(model, model_settings, oed_fields=None):
 
     perspectives = ['gul', 'il', 'ri']
 
-    with st.form("create_analysis_settings_form", enter_to_submit=False, clear_on_submit=True):
+    form_container = st.container(border=True)
+    with form_container:
         selected_settings = {}
 
         selected_settings |= ModelSettingsFragment(params={'model_settings': model_settings}).display()
@@ -386,7 +437,7 @@ def create_analysis_settings(model, model_settings, oed_fields=None):
 
                 summaries[f'{p}_summaries'][0] |= p_summaries
 
-        submitted = st.form_submit_button('Submit')
+        submitted = st.button('Submit')
 
     if submitted:
         # Merge summaries settings
@@ -400,5 +451,3 @@ def create_analysis_settings(model, model_settings, oed_fields=None):
 
         settings = merge_settings(analysis_settings, selected_settings)
         return settings
-    else:
-        return None
