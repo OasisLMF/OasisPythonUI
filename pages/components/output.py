@@ -261,8 +261,33 @@ def model_summary(model, model_settings, detail_level="full"):
 
     show_settings(settings_list)
 
+def elt_group_fields(df, group_fields, agg_dict=None, categorical_cols=[]):
+    if agg_dict is None:
+        agg_dict = {}
 
-def eltcalc_table(perspective, vis_interface, oed_fields = []):
+    if categorical_cols is None:
+        categorical_cols = []
+
+    ungrouped_cols = df.columns.difference(group_fields)
+    numeric_cols = df.select_dtypes(include='number').columns
+    numeric_cols = numeric_cols.difference(categorical_cols)
+    numeric_cols = numeric_cols.intersection(ungrouped_cols)
+    non_numeric_cols = ungrouped_cols.difference(numeric_cols)
+
+    for c in numeric_cols:
+        if agg_dict.get(c, None) is None:
+            agg_dict[c] = 'sum'
+    for c in non_numeric_cols:
+        if agg_dict.get(c, None) is None:
+            agg_dict[c] = 'unique'
+
+    @st.cache_data(show_spinner=False, max_entries=1000)
+    def eltcalc_transform(df, group_fields, agg_dict):
+        return df.groupby(group_fields, as_index=False).agg(agg_dict)
+
+    return eltcalc_transform(df, group_fields, agg_dict)
+
+def eltcalc_table(eltcalc_result, perspective, oed_fields=None):
     if oed_fields:
         group_fields = st.pills("Group Columns",
                                 oed_fields,
@@ -271,70 +296,63 @@ def eltcalc_table(perspective, vis_interface, oed_fields = []):
     else:
         group_fields = []
 
+    if oed_fields is None:
+        oed_fields = []
+
     group_fields = ['type'] + group_fields
-    try:
-        eltcalc_df = vis_interface.get(summary_level=1,
-                                       perspective=perspective,
-                                       output_type='eltcalc',
-                                       group_fields=group_fields,
-                                       categorical_cols=oed_fields)
-    except OasisException:
-        return None
+
+    table_df = eltcalc_result[['type', 'mean'] + oed_fields]
+    table_df = elt_group_fields(table_df, group_fields, categorical_cols=oed_fields)
 
     # Sort by loss
-    eltcalc_df = eltcalc_df.sort_values('mean', ascending=False)
+    table_df = table_df.sort_values('mean', ascending=False)
 
-    df_memory = eltcalc_df.memory_usage().sum() / 1e6
+    df_memory = table_df.memory_usage().sum() / 1e6
 
     if df_memory > 200:
         st.error('Output too large, try grouping')
         logger.error(f'eltcalc view df size: {df_memory}')
     else:
-        eltcalc_df = DataframeView(eltcalc_df)
-        eltcalc_df.column_config['mean'] = st.column_config.NumberColumn('Mean', format='%.2f')
+        table_view = DataframeView(table_df)
+        table_view.column_config['mean'] = st.column_config.NumberColumn('Mean', format='%.2f')
         for c in oed_fields:
-            eltcalc_df.column_config[c] = st.column_config.ListColumn(c)
+            table_view.column_config[c] = st.column_config.ListColumn(c)
         # fix type column heading
-        eltcalc_df.column_config['type'] = st.column_config.ListColumn('Type')
+        table_view.column_config['type'] = st.column_config.ListColumn('Type')
 
-        eltcalc_df.display()
+        table_view.display()
 
-def eltcalc_map(perspective, vis_interface, locations, oed_fields = [], map_type = None):
+def eltcalc_map(eltcalc_result, perspective, locations, oed_fields=[], map_type=None):
     '''
     Generate MapView of output of eltcalc. Either `heatmap` or `choropleth` depending on portfolio.
     '''
+    map_df = eltcalc_result[['type', 'mean'] + oed_fields]
+    map_df = map_df[map_df['type'] == 'Sample']
 
     if map_type == 'choropleth':
-        group_fields = ['CountryCode']
-        eltcalc_df = vis_interface.get(summary_level=1,
-                                       perspective=perspective,
-                                       output_type='eltcalc',
-                                       group_fields=group_fields,
-                                       categorical_cols = oed_fields,
-                                       filter_type = 2) # Only output sample
+        group_fields = ['type', 'CountryCode']
+        map_df = elt_group_fields(map_df, group_fields, categorical_cols=oed_fields)
 
-        mv = MapView(eltcalc_df, weight="mean", map_type="choropleth")
+        mv = MapView(map_df, weight="mean", map_type="choropleth")
         mv.display()
         return
 
     if map_type == 'heatmap':
-        group_fields = ['LocNumber']
-        eltcalc_df = vis_interface.get(summary_level=1,
-                                       perspective=perspective,
-                                       output_type='eltcalc',
-                                       group_fields=group_fields,
-                                       categorical_cols = oed_fields,
-                                       filter_type = 2) # Only output sample data
-        loc_reduced = locations[['LocNumber', 'Longitude', 'Latitude']]
-        heatmap_data = eltcalc_df.merge(loc_reduced, how="left", on="LocNumber")
-        heatmap_data = heatmap_data[['Longitude', 'Latitude', 'mean']]
+        group_fields = ['type', 'LocNumber']
+        map_df = elt_group_fields(map_df, group_fields, categorical_cols=oed_fields)
+        map_df = map_df[['type', 'mean'] + oed_fields]
 
-        mv = MapView(heatmap_data, longitude='Longitude', latitude='Latitude',
+        loc_reduced = locations[['LocNumber', 'Longitude', 'Latitude']]
+        map_df = map_df.merge(loc_reduced, how="left", on="LocNumber")
+        map_df = map_df[['Longitude', 'Latitude', 'mean']]
+
+        mv = MapView(map_df, longitude='Longitude', latitude='Latitude',
                      map_type='heatmap', weight='mean')
         mv.display()
         return
 
     st.info("No map to display")
+
 
 @st.fragment
 def generate_eltcalc_fragment(perspective, vis_interface,
@@ -358,6 +376,7 @@ def generate_eltcalc_fragment(perspective, vis_interface,
 
     '''
     oed_fields = vis_interface.oed_fields.get(perspective, [])
+    eltcalc_result = vis_interface.get(1, perspective, 'eltcalc')
 
     tab_names = []
     if table:
@@ -391,16 +410,16 @@ def generate_eltcalc_fragment(perspective, vis_interface,
             assert locations is not None, "Locations required for map view."
             map_type = None
 
-            if 'LocNumber' in vis_interface.oed_fields.get(perspective, []) and valid_locations(locations):
+            if 'LocNumber' in oed_fields and valid_locations(locations):
                 map_type = 'heatmap'
-            elif 'CountryCode' in vis_interface.oed_fields.get(perspective, []):
+            elif 'CountryCode' in oed_fields:
                 map_type = 'choropleth'
 
             with tab:
-                eltcalc_map(perspective, vis_interface, locations, oed_fields, map_type)
+                eltcalc_map(eltcalc_result, perspective, locations, oed_fields, map_type)
         elif name == 'table':
             with tab:
-                eltcalc_table(perspective, vis_interface, oed_fields)
+                eltcalc_table(eltcalc_result, perspective, oed_fields)
 
 @st.fragment
 def generate_aalcalc_fragment(p, vis):

@@ -108,47 +108,9 @@ class OutputInterface:
         return results.join(summary_info, on='SummaryId', rsuffix='_')
 
     @staticmethod
-    def generate_eltcalc(results, categorical_cols=[], **kwargs):
-        '''
-        Create graphs from eltcalc results.
-        '''
-        cols = kwargs.get('columns', ['type'])
-        cols += kwargs.get('oed_fields', [])
-        cols += ['mean']
-
-        filter_type = kwargs.get('filter_type', None)
-
-        if filter_type:
-            assert filter_type in TYPE_MAP.keys(), 'filter_type is not valid.'
-            results = results[results['type'] == filter_type]
-
-        group_fields = kwargs.get('group_fields', [])
-        if group_fields:
-            if 'type' not in group_fields:
-                group_fields = ['type'] + group_fields
-
-            ungrouped_cols = results.columns.difference(group_fields)
-            numeric_cols = results.select_dtypes(include='number').columns
-            numeric_cols = numeric_cols.difference(categorical_cols)
-            numeric_cols = numeric_cols.intersection(ungrouped_cols)
-            non_numeric_cols = ungrouped_cols.difference(numeric_cols)
-
-            agg_dict = {}
-            for c in numeric_cols:
-                agg_dict[c] = 'sum'
-            for c in non_numeric_cols:
-                agg_dict[c] = 'unique'
-
-            @st.cache_data(show_spinner=False, max_entries=1000)
-            def eltcalc_transform(results, group_fields, agg_dict):
-                return results.groupby(group_fields, as_index=False).agg(agg_dict)
-
-            results = eltcalc_transform(results, group_fields, agg_dict)
-
-        vis = results[cols]
-        vis.loc[:, 'type'] = vis['type'].replace(TYPE_MAP)
-
-        return vis
+    def generate_eltcalc(results, **kwargs):
+        results['type'] = results['type'].replace(TYPE_MAP)
+        return results
 
     @staticmethod
     def generate_aalcalc(results, **kwargs):
