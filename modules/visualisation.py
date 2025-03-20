@@ -39,11 +39,13 @@ class OutputInterface:
                       - `ri` : losses net of reinsurance
         output_type : str
                       Output type requested in the analysis settings.
-                      Currently supported output types:
+                      Currently supported legacy output types:
                       - `eltcalc`
                       - `aalcalc`
                       - `leccalc`
                       - `pltcalc`
+                      Currently supported ORD output types:
+                      - elt_sample, elt_quantile, elt_moment
         **kwargs : Additional options `output_type`.
                    For `leccalc`the following keys and options are expected:
                        `analysis_type`: `full_uncertainty`, `sample_mean`, `wheatsheaf`, `wheatsheaf_mean`
@@ -56,7 +58,9 @@ class OutputInterface:
         -------
         plotly.Figure
         '''
-        assert output_type in ['eltcalc', 'aalcalc', 'leccalc', 'pltcalc'], 'Output type not supported'
+        supported_outputs = ['eltcalc', 'aalcalc', 'leccalc', 'pltcalc',
+                             'elt_sample', 'elt_moment', 'elt_quantile']
+        assert output_type in supported_outputs, 'Output type not supported'
         assert perspective in ['gul', 'il', 'ri'], 'Perspective not valid'
 
         if output_type == "leccalc":
@@ -81,6 +85,9 @@ class OutputInterface:
 
     @staticmethod
     def _request_to_fname(summary_level, perspective, output_type, **kwargs):
+        if output_type[:4] == 'elt_':
+            output_type = output_type[4] + 'elt'
+
         fname = f'{perspective}_S{summary_level}_{output_type}'
         if output_type == 'leccalc':
             fname += f'_{kwargs.get("analysis_type")}_{kwargs.get("loss_type")}'
@@ -95,7 +102,10 @@ class OutputInterface:
     def add_oed_fields(results, summary_info, oed_fields):
         summary_info = summary_info.set_index('summary_id')
         summary_info = summary_info[oed_fields]
-        return results.join(summary_info, on='summary_id', rsuffix='_')
+        if 'summary_id' in results.columns:
+            return results.join(summary_info, on='summary_id', rsuffix='_')
+
+        return results.join(summary_info, on='SummaryId', rsuffix='_')
 
     @staticmethod
     def generate_eltcalc(results, categorical_cols=[], **kwargs):
@@ -154,4 +164,8 @@ class OutputInterface:
     @staticmethod
     def generate_pltcalc(results, **kwargs):
         results['type'] = results['type'].replace(TYPE_MAP)
+        return results
+
+    @staticmethod
+    def generate_elt_moment(results, **kwargs):
         return results
