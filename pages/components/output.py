@@ -348,7 +348,7 @@ def generate_eltcalc_fragment(perspective, vis_interface,
     ----------
     perspective : str
                   Chosen perspective `gul`, `il` or `ri`.
-    vis_interface : OutputVisualisationInterface
+    vis_interface : OutputInterface
     table : bool
             If `True` displays table view.
     map : bool

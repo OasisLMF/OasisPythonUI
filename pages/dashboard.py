@@ -5,7 +5,7 @@ import pandas as pd
 import altair as alt
 
 from pages.components.output import generate_eltcalc_fragment, generate_leccalc_fragment, generate_pltcalc_fragment, summarise_inputs, generate_aalcalc_fragment
-from modules.visualisation import OutputVisualisationInterface
+from modules.visualisation import OutputInterface
 
 st.set_page_config(
     page_title = "Dashboard",
@@ -55,7 +55,7 @@ with st.spinner("Loading data..."):
     outputs = get_analysis_outputs(analysis_id)
 
 # Set up visualisation interface
-vis = OutputVisualisationInterface(outputs)
+vis = OutputInterface(outputs)
 perspectives = ['gul', 'il', 'ri']
 for p in perspectives:
     p_oed_fields = settings.get(f'{p}_summaries', [{}])[0].get('oed_fields', None)

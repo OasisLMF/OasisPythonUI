@@ -10,7 +10,7 @@ TYPE_MAP = {
     2: 'Sample'
 }
 
-class OutputVisualisationInterface:
+class OutputInterface:
     def __init__(self, output_file_dict):
         '''
         Parameters

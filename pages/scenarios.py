@@ -11,7 +11,7 @@ from modules.settings import get_analyses_settings
 from pages.components.display import DataframeView, MapView
 from pages.components.create import create_analysis_form
 from modules.validation import KeyInValuesValidation, NotNoneValidation, ValidationGroup, IsNoneValidation
-from modules.visualisation import OutputVisualisationInterface
+from modules.visualisation import OutputInterface
 import time
 from json import JSONDecodeError
 import json
@@ -263,7 +263,7 @@ with run_container:
                 return ci.analyses.get_file(analysis_id, 'output_file', df=True)
 
             results_dict = get_output_file(analysis_id)
-            vis_interface = OutputVisualisationInterface(results_dict)
+            vis_interface = OutputInterface(results_dict)
 
             def generate_perspective_visualisation(perspective, summaries_settings):
                 if summaries_settings[0].get('eltcalc', False):
