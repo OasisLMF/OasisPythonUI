@@ -3,6 +3,7 @@ import streamlit as st
 import pandas as pd
 import logging
 from oasis_data_manager.errors import OasisException
+from ods_tools.oed import AnalysisSettingSchema
 import plotly.express as px
 import plotly.graph_objects as go
 from math import log10
@@ -80,6 +81,26 @@ def summarise_output_settings(analysis_settings):
             }
             curr_summary['outputs'] += [f'leccalc-{v}' for k, v in lec_opts.items() if lec_dict.get(k, False)]
 
+        # ord ouput settings
+        ord_output = p_summaries.get('ord_output', None)
+
+        if ord_output:
+            curr_summary['ord_outputs'] = []
+
+            valid_options = [
+                'elt_sample', 'elt_quantile', 'elt_moment', 'plt_sample',
+                'plt_quantile', 'plt_moment', 'alt_period', 'alt_meanonly',
+                'alct_convergence',
+                'ept_full_uncertainty_aep', 'ept_full_uncertainty_oep',
+                'ept_mean_sample_aep', 'ept_mean_sample_oep',
+                'ept_per_sample_mean_aep', 'ept_per_sample_mean_oep',
+                'psept_aep', 'psept_oep'
+            ]
+
+            for opt in valid_options:
+                if ord_output.get(opt, False):
+                    curr_summary['ord_outputs'].append(opt)
+
         oed_fields = p_summaries.get('oed_fields', None)
         if oed_fields:
             curr_summary['oed_fields'] = oed_fields
@@ -115,6 +136,7 @@ def summarise_inputs(locations=None, analysis_settings=None, title_prefix='##'):
         output_settings_summary = summarise_output_settings(analysis_settings)
         output_settings_summary = DataframeView(output_settings_summary, hide_index=False)
         output_settings_summary.column_config['oed_fields'] = st.column_config.ListColumn('OED Fields')
+        output_settings_summary.column_config['ord_outputs'] = st.column_config.ListColumn('ORD Outputs')
         output_settings_summary.column_config['outputs'] = st.column_config.ListColumn('Outputs')
         output_settings_summary.display()
 

@@ -235,7 +235,7 @@ class OutputFragment(FormFragment):
         ]
 
         selected = st.multiselect(f"{perspective.upper()} Outputs",
-                                 options, key=f'{id}_{perspective}_output',
+                                 options, key=f'{perspective}_legacy_output_select',
                                  default=default)
 
         output_dict = {
@@ -268,6 +268,62 @@ class OutputFragment(FormFragment):
                 output_dict[output_option] = True
 
         return output_dict
+
+class ORDOutputFragment(FormFragment):
+    def display(self):
+        ord_options = {}
+        perspective = self.params.get('perspective', 'gul')
+
+        def output_type_multiselect(label, options, prefix, key=None):
+            selected_options = st.multiselect(label, options=options, key=key)
+
+            output_dict = {}
+            for opt in options:
+                output_dict[f'{prefix}_{opt}'] = opt in selected_options
+            return output_dict
+
+        elt_plt_options = ['sample', 'quantile', 'moment']
+
+        ord_options |= output_type_multiselect(label='Event Loss Table (ELT) Output', prefix='elt',
+                                               options=elt_plt_options,
+                                               key=f'{perspective}_elt_multiselect')
+
+        ord_options |= output_type_multiselect(label='Period Loss Table (ELT) Output', prefix='plt',
+                                               options=elt_plt_options,
+                                               key=f'{perspective}_plt_multiselect')
+
+        ord_options |= output_type_multiselect(label='Average Loss Table (ALT) Output', prefix='alt',
+                                               options=['period', 'meanonly'],
+                                               key=f'{perspective}_alt_multiselect')
+
+        alct_enabled = ord_options.get('alt_period', False)
+        with st.expander('Average Loss Convergence Table (ALCT) Options'):
+            if alct_enabled:
+                ord_options['alct_convergence'] = st.checkbox('Generate Convergence Table',
+                                                              key=f'{perspective}_alct_conv_check')
+                ord_options['alct_confidence'] = st.number_input('Confidence Level',
+                                                                 value=0.95, min_value=0.0, max_value=1.0,
+                                                                 key=f'{perspective}_alct_conf_numeric')
+            else:
+                st.caption('Requires ALT `period` option.')
+
+        ept_output_options = [
+            'full_uncertainty_aep',
+            'full_uncertainty_oep',
+            'mean_sample_aep',
+            'mean_sample_oep',
+            'per_sample_mean_aep',
+            'per_sample_mean_oep'
+        ]
+        ord_options |= output_type_multiselect(label='Exceedance Probability Table (EPT) Output: ', prefix='ept',
+                                               options=ept_output_options,
+                                               key=f'{perspective}_ept_multiselect')
+
+        ord_options |= output_type_multiselect(label='Per Sample Exceedance Probability Table (PS EPT) Output:', prefix='psept',
+                                               options=['aep', 'oep'],
+                                               key=f'{perspective}_psept_multiselect')
+
+        return ord_options
 
 
 def merge_settings(settings1, settings2):
@@ -342,7 +398,8 @@ def create_analysis_settings(model, model_settings, oed_fields=None):
 
     perspectives = ['gul', 'il', 'ri']
 
-    with st.form("create_analysis_settings_form", enter_to_submit=False, clear_on_submit=True):
+    form_container = st.container(border=True)
+    with form_container:
         selected_settings = {}
 
         selected_settings |= ModelSettingsFragment(params={'model_settings': model_settings}).display()
@@ -369,13 +426,18 @@ def create_analysis_settings(model, model_settings, oed_fields=None):
                 default_outputs = supported_outputs & set(default_summaries.keys())
                 default_dict[p] = [output for output in default_outputs if default_summaries[output]]
 
+        p_tabs = st.tabs([p.upper() for p in perspectives])
+        for p, tab in zip(perspectives, p_tabs):
+            with tab:
+                st.write(f'### {p.upper()} Output Settings')
+                ord_output = ORDOutputFragment(params={'perspective': p}).display()
+                summaries[f'{p}_summaries'][0] |= {'ord_output' : ord_output}
 
-        for p in perspectives:
-            p_summaries = OutputFragment(params={'perspective': p, 'default': default_dict.get(p, [])}).display()
-            summaries[f'{p}_summaries'][0] |= p_summaries
+                if st.checkbox("Enable legacy outputs", key=f'{p}_enable_legacy_check'):
+                    p_summaries = OutputFragment(params={'perspective': p, 'default': default_dict.get(p, [])}).display()
+                    summaries[f'{p}_summaries'][0] |= p_summaries
 
-        with st.popover('OED Fields', use_container_width=True):
-            for p in perspectives:
+
                 if isinstance(oed_fields, dict):
                     if oed_fields.get(p, None):
                         p_summaries = OEDGroupFragment(params={'perspective': p,
@@ -386,7 +448,7 @@ def create_analysis_settings(model, model_settings, oed_fields=None):
 
                 summaries[f'{p}_summaries'][0] |= p_summaries
 
-        submitted = st.form_submit_button('Submit')
+        submitted = st.button('Submit')
 
     if submitted:
         # Merge summaries settings
@@ -397,8 +459,5 @@ def create_analysis_settings(model, model_settings, oed_fields=None):
                 selected_settings[settings_name] = summaries[settings_name]
             else:
                 selected_settings[settings_name] = merge_summaries(default_summaries, summaries[settings_name])
-
         settings = merge_settings(analysis_settings, selected_settings)
         return settings
-    else:
-        return None
