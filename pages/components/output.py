@@ -301,7 +301,8 @@ def eltcalc_table(eltcalc_result, perspective, oed_fields=None):
 
     group_fields = ['type'] + group_fields
 
-    table_df = eltcalc_result[['type', 'mean'] + oed_fields]
+    cols = ['type'] + oed_fields + ['mean']
+    table_df = eltcalc_result[cols]
     table_df = elt_group_fields(table_df, group_fields, categorical_cols=oed_fields)
 
     # Sort by loss
@@ -313,11 +314,10 @@ def eltcalc_table(eltcalc_result, perspective, oed_fields=None):
         st.error('Output too large, try grouping')
         logger.error(f'eltcalc view df size: {df_memory}')
     else:
-        table_view = DataframeView(table_df)
+        table_view = DataframeView(table_df, display_cols = cols)
         table_view.column_config['mean'] = st.column_config.NumberColumn('Mean', format='%.2f')
         for c in oed_fields:
             table_view.column_config[c] = st.column_config.ListColumn(c)
-        # fix type column heading
         table_view.column_config['type'] = st.column_config.ListColumn('Type')
 
         table_view.display()
@@ -326,11 +326,11 @@ def eltcalc_map(eltcalc_result, perspective, locations, oed_fields=[], map_type=
     '''
     Generate MapView of output of eltcalc. Either `heatmap` or `choropleth` depending on portfolio.
     '''
-    map_df = eltcalc_result[['type', 'mean'] + oed_fields]
-    map_df = map_df[map_df['type'] == 'Sample']
+    map_df = eltcalc_result[eltcalc_result['type'] == 'Sample']
+    map_df = map_df[['mean'] + oed_fields]
 
     if map_type == 'choropleth':
-        group_fields = ['type', 'CountryCode']
+        group_fields = ['CountryCode']
         map_df = elt_group_fields(map_df, group_fields, categorical_cols=oed_fields)
 
         mv = MapView(map_df, weight="mean", map_type="choropleth")
@@ -338,9 +338,9 @@ def eltcalc_map(eltcalc_result, perspective, locations, oed_fields=[], map_type=
         return
 
     if map_type == 'heatmap':
-        group_fields = ['type', 'LocNumber']
+        group_fields = ['LocNumber']
         map_df = elt_group_fields(map_df, group_fields, categorical_cols=oed_fields)
-        map_df = map_df[['type', 'mean'] + oed_fields]
+        map_df = map_df[['mean'] + oed_fields]
 
         loc_reduced = locations[['LocNumber', 'Longitude', 'Latitude']]
         map_df = map_df.merge(loc_reduced, how="left", on="LocNumber")
