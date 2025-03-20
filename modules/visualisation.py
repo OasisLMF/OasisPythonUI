@@ -168,4 +168,13 @@ class OutputInterface:
 
     @staticmethod
     def generate_elt_moment(results, **kwargs):
+        results['SampleType'] = results['SampleType'].replace(TYPE_MAP)
+        return results
+
+    @staticmethod
+    def generate_elt_quantile(results, **kwargs):
+        return results
+
+    @staticmethod
+    def generate_elt_sample(results, **kwargs):
         return results
