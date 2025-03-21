@@ -301,4 +301,13 @@ class MapView(View):
                                 range_color=range_color,
                                 labels={self.weight: format_weight})
 
+        fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+        fig.update_layout(coloraxis_colorbar=dict(
+            orientation='h',
+            yanchor='top',
+            y=0,
+            lenmode='pixels',
+            len=500
+        ))
+
         st.plotly_chart(fig)
