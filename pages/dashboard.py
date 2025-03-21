@@ -95,3 +95,12 @@ with st.spinner("Loading visualisations..."):
             plt_expander = st.expander("PLT Output")
             with plt_expander:
                 generate_pltcalc_fragment(p, vis)
+
+        # Handle ORD outputs
+
+        ord_settings = summaries_settings.get("ord_output", {})
+
+        if ord_settings.get("elt_moment", False):
+            expander = st.expander("MELT Output")
+            with expander:
+                generate_melt_fragment(p, vis)

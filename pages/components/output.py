@@ -287,26 +287,54 @@ def elt_group_fields(df, group_fields, agg_dict=None, categorical_cols=[]):
 
     return eltcalc_transform(df, group_fields, agg_dict)
 
-def eltcalc_table(eltcalc_result, perspective, oed_fields=None):
+def eltcalc_group_oed(eltcalc_result, oed_fields, key_prefix=None,
+                      type_col=None):
+    if type_col is None:
+        type_col = []
+    if key_prefix is None:
+        key_prefix = ''
+
     if oed_fields:
         group_fields = st.pills("Group Columns",
                                 oed_fields,
-                                key=f'{perspective}_group_pill',
+                                key=f'{key_prefix}_elt_group_pill',
                                 selection_mode='multi')
     else:
         group_fields = []
 
+    group_fields =  type_col + group_fields
+
+    return elt_group_fields(eltcalc_result, group_fields, categorical_cols=oed_fields)
+
+
+def eltcalc_table(eltcalc_result, perspective, oed_fields=None, show_cols=None,
+                  key_prefix=None):
+    if key_prefix is None:
+        key_prefix = ''
+
     if oed_fields is None:
         oed_fields = []
 
-    group_fields = ['type'] + group_fields
+    if show_cols is None:
+        show_cols = ['mean'] if 'mean' in eltcalc_result.columns else []
 
-    cols = ['type'] + oed_fields + ['mean']
-    table_df = eltcalc_result[cols]
-    table_df = elt_group_fields(table_df, group_fields, categorical_cols=oed_fields)
+    if 'SampleType' in eltcalc_result.columns:
+        type_col = ['SampleType']
+    elif 'type' in eltcalc_result.columns:
+        type_col = ['type']
+    else:
+        type_col = []
+
+    table_df = eltcalc_group_oed(eltcalc_result, oed_fields,
+                                 key_prefix=f'{key_prefix}_{perspective}',
+                                 type_col=type_col)
+
+
+    cols = type_col + oed_fields + show_cols
+    table_df = table_df[cols]
 
     # Sort by loss
-    table_df = table_df.sort_values('mean', ascending=False)
+    table_df = table_df.sort_values(show_cols, ascending=False)
 
     df_memory = table_df.memory_usage().sum() / 1e6
 
@@ -315,10 +343,13 @@ def eltcalc_table(eltcalc_result, perspective, oed_fields=None):
         logger.error(f'eltcalc view df size: {df_memory}')
     else:
         table_view = DataframeView(table_df, display_cols = cols)
-        table_view.column_config['mean'] = st.column_config.NumberColumn('Mean', format='%.2f')
+        for col in show_cols:
+            table_view.column_config[col] = st.column_config.NumberColumn(col, format='%.2f')
         for c in oed_fields:
             table_view.column_config[c] = st.column_config.ListColumn(c)
-        table_view.column_config['type'] = st.column_config.ListColumn('Type')
+        if type_col:
+            formatted_type = 'Type' if type_col[0] == 'type' else type_col[0]
+            table_view.column_config[type_col[0]] = st.column_config.ListColumn(formatted_type)
 
         table_view.display()
 
@@ -420,6 +451,17 @@ def generate_eltcalc_fragment(perspective, vis_interface,
         elif name == 'table':
             with tab:
                 eltcalc_table(eltcalc_result, perspective, oed_fields)
+
+@st.fragment
+def generate_melt_fragment(p, vis):
+    result = vis.get(1, 'gul', 'elt_moment')
+
+    oed_fields = vis.oed_fields.get(p)
+
+    eltcalc_table(result, perspective=p, oed_fields=oed_fields,
+                  show_cols=['MeanLoss', 'MeanImpactedExposure', 'MaxImpactedExposure'],
+                  key_prefix='melt')
+
 
 @st.fragment
 def generate_aalcalc_fragment(p, vis):
