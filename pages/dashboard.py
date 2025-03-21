@@ -4,7 +4,7 @@ from modules.nav import SidebarNav
 import pandas as pd
 import altair as alt
 
-from pages.components.output import generate_eltcalc_fragment, generate_leccalc_fragment, generate_melt_fragment, generate_pltcalc_fragment, summarise_inputs, generate_aalcalc_fragment
+from pages.components.output import generate_eltcalc_fragment, generate_leccalc_fragment, generate_melt_fragment, generate_pltcalc_fragment, generate_qelt_fragment, summarise_inputs, generate_aalcalc_fragment
 from modules.visualisation import OutputInterface
 
 st.set_page_config(
@@ -107,3 +107,8 @@ with st.spinner("Loading visualisations..."):
                 if inputs:
                     locations = inputs.get('location.csv')
                 generate_melt_fragment(p, vis, locations=locations)
+
+        if ord_settings.get('elt_quantile', False):
+            expander = st.expander("QELT Output")
+            with expander:
+                generate_qelt_fragment(p, vis)

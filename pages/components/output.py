@@ -5,6 +5,7 @@ import logging
 from oasis_data_manager.errors import OasisException
 from ods_tools.oed import AnalysisSettingSchema
 import plotly.express as px
+from plotly.colors import sample_colorscale
 import plotly.graph_objects as go
 from math import log10
 from datetime import date, datetime
@@ -287,24 +288,17 @@ def elt_group_fields(df, group_fields, agg_dict=None, categorical_cols=[]):
 
     return eltcalc_transform(df, group_fields, agg_dict)
 
-def eltcalc_group_oed(eltcalc_result, oed_fields, key_prefix=None,
-                      type_col=None):
-    if type_col is None:
-        type_col = []
+
+def oed_fields_group(oed_fields, key_prefix=None, selection_mode='multi'):
     if key_prefix is None:
         key_prefix = ''
 
-    if oed_fields:
-        group_fields = st.pills("Group Columns",
-                                oed_fields,
-                                key=f'{key_prefix}_elt_group_pill',
-                                selection_mode='multi')
-    else:
-        group_fields = []
+    group_fields = st.pills("Group Columns",
+                            oed_fields,
+                            key=f'{key_prefix}_elt_group_pill',
+                            selection_mode=selection_mode)
 
-    group_fields =  type_col + group_fields
-
-    return elt_group_fields(eltcalc_result, group_fields, categorical_cols=oed_fields)
+    return group_fields
 
 
 def eltcalc_table(eltcalc_result, perspective, oed_fields=None, show_cols=None,
@@ -325,9 +319,10 @@ def eltcalc_table(eltcalc_result, perspective, oed_fields=None, show_cols=None,
     else:
         type_col = []
 
-    table_df = eltcalc_group_oed(eltcalc_result, oed_fields,
-                                 key_prefix=f'{key_prefix}_{perspective}',
-                                 type_col=type_col)
+    group_fields = oed_fields_group(oed_fields,
+                                    key_prefix=f'{key_prefix}_{perspective}')
+    group_fields = type_col + group_fields
+    table_df = elt_group_fields(eltcalc_result, group_fields, categorical_cols=oed_fields)
 
 
     cols = type_col + oed_fields + show_cols
@@ -455,7 +450,7 @@ def generate_eltcalc_fragment(perspective, vis_interface,
 
 @st.fragment
 def generate_melt_fragment(p, vis, locations=None):
-    result = vis.get(1, 'gul', 'elt_moment')
+    result = vis.get(1, p, 'elt_moment')
 
     oed_fields = vis.oed_fields.get(p)
 
@@ -489,6 +484,57 @@ def generate_melt_fragment(p, vis, locations=None):
                 eltcalc_table(result, perspective=p, oed_fields=oed_fields,
                               show_cols=['MeanLoss', 'MeanImpactedExposure', 'MaxImpactedExposure'],
                               key_prefix='melt')
+
+@st.fragment
+def generate_qelt_fragment(p, vis):
+    result = vis.get(1, p, 'elt_quantile')
+    oed_fields = vis.oed_fields.get(p)
+    group_field = oed_fields_group(oed_fields,
+                                    key_prefix=f'qelt_{p}',
+                                    selection_mode='single')
+
+    group_fields = ['Quantile']
+    if group_field:
+        group_fields.append(group_field)
+
+    cols = ['Quantile'] + oed_fields + ['Loss']
+    result = result[cols]
+    df = elt_group_fields(result, group_fields, categorical_cols=oed_fields)
+
+    quantiles = df['Quantile'].unique().tolist()
+    quantiles = [str(q) for q in sorted(quantiles, reverse=True)]
+
+    df['Quantile'] = df['Quantile'].astype(str)
+
+    # Prep colours
+    sample_points = [i/(len(quantiles) - 1) for i in range(0, len(quantiles))]
+    colors = sample_colorscale('RdBu', sample_points)
+    colors = {q:c for q, c in zip(quantiles, colors)}
+
+    if group_field:
+        unique_grouped = df[group_field].unique()
+        if len(unique_grouped) > 1:
+            value = min(20, len(unique_grouped))
+            max_value = min(50, len(unique_grouped))
+            n_show = st.slider("Number of Fields: ", step=1, value=value, max_value=max_value, min_value=1)
+            df = df.sort_values("Loss", ascending=False)
+            if len(unique_grouped) > n_show:
+                st.info(f"Showing top {n_show} fields.")
+                df = df[df[group_field].isin(unique_grouped[:n_show])]
+        fig = px.bar(df, x=group_field, y='Loss', color='Quantile', barmode='overlay',
+                     color_discrete_sequence=px.colors.sequential.RdBu,
+                     color_discrete_map=colors,
+                     category_orders={'Quantile': quantiles},
+                     opacity=1)
+        fig.update_xaxes(type='category')
+    else:
+        quantiles = reversed(quantiles)
+        fig = px.bar(df, x = 'Quantile', y='Loss', color='Quantile',
+                     color_discrete_map=colors,
+                     category_orders={'Quantile': quantiles})
+        fig.update_xaxes(type='category')
+        fig.update_layout(showlegend=False)
+    st.plotly_chart(fig)
 
 
 @st.fragment
