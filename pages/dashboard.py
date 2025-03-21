@@ -103,4 +103,7 @@ with st.spinner("Loading visualisations..."):
         if ord_settings.get("elt_moment", False):
             expander = st.expander("MELT Output")
             with expander:
-                generate_melt_fragment(p, vis)
+                locations = None
+                if inputs:
+                    locations = inputs.get('location.csv')
+                generate_melt_fragment(p, vis, locations=locations)

@@ -353,36 +353,52 @@ def eltcalc_table(eltcalc_result, perspective, oed_fields=None, show_cols=None,
 
         table_view.display()
 
-def eltcalc_map(eltcalc_result, perspective, locations, oed_fields=[], map_type=None):
+def eltcalc_map(map_df, locations, oed_fields=[], map_type=None,
+                intensity_col='mean'):
     '''
     Generate MapView of output of eltcalc. Either `heatmap` or `choropleth` depending on portfolio.
     '''
-    map_df = eltcalc_result[eltcalc_result['type'] == 'Sample']
-    map_df = map_df[['mean'] + oed_fields]
+    map_df = map_df[[intensity_col] + oed_fields]
 
     if map_type == 'choropleth':
         group_fields = ['CountryCode']
         map_df = elt_group_fields(map_df, group_fields, categorical_cols=oed_fields)
 
-        mv = MapView(map_df, weight="mean", map_type="choropleth")
+        mv = MapView(map_df, weight=intensity_col, map_type="choropleth")
         mv.display()
         return
 
     if map_type == 'heatmap':
         group_fields = ['LocNumber']
         map_df = elt_group_fields(map_df, group_fields, categorical_cols=oed_fields)
-        map_df = map_df[['mean'] + oed_fields]
+        map_df = map_df[[intensity_col] + oed_fields]
 
         loc_reduced = locations[['LocNumber', 'Longitude', 'Latitude']]
         map_df = map_df.merge(loc_reduced, how="left", on="LocNumber")
-        map_df = map_df[['Longitude', 'Latitude', 'mean']]
+        map_df = map_df[['Longitude', 'Latitude', intensity_col]]
 
         mv = MapView(map_df, longitude='Longitude', latitude='Latitude',
-                     map_type='heatmap', weight='mean')
+                     map_type='heatmap', weight=intensity_col)
         mv.display()
         return
 
     st.info("No map to display")
+
+def valid_locations(loc_df):
+    '''
+    Check if `Latitude` and `Longitude` columns are present
+    and if they are unique between locations.
+    '''
+    if loc_df is None:
+        return False
+    if not set(['Latitude', 'Longitude']).issubset(loc_df.columns):
+        return False
+
+    lat_long = loc_df[['Latitude', 'Longitude']]
+    if (lat_long == lat_long.iloc[0]).all(axis=None):
+        return False
+
+    return True
 
 
 @st.fragment
@@ -420,22 +436,6 @@ def generate_eltcalc_fragment(perspective, vis_interface,
 
     tabs = st.tabs([t.title() for t in tab_names])
 
-    def valid_locations(loc_df):
-        '''
-        Check if `Latitude` and `Longitude` columns are present
-        and if they are unique between locations.
-        '''
-        if loc_df is None:
-            return False
-        if not set(['Latitude', 'Longitude']).issubset(loc_df.columns):
-            return False
-
-        lat_long = loc_df[['Latitude', 'Longitude']]
-        if (lat_long == lat_long.iloc[0]).all(axis=None):
-            return False
-
-        return True
-
     for name, tab in zip(tab_names, tabs):
         if name == 'map':
             assert locations is not None, "Locations required for map view."
@@ -447,20 +447,46 @@ def generate_eltcalc_fragment(perspective, vis_interface,
                 map_type = 'choropleth'
 
             with tab:
-                eltcalc_map(eltcalc_result, perspective, locations, oed_fields, map_type)
+                map_df = eltcalc_result[eltcalc_result['type'] == 'Sample']
+                eltcalc_map(map_df, locations, oed_fields, map_type)
         elif name == 'table':
             with tab:
                 eltcalc_table(eltcalc_result, perspective, oed_fields)
 
 @st.fragment
-def generate_melt_fragment(p, vis):
+def generate_melt_fragment(p, vis, locations=None):
     result = vis.get(1, 'gul', 'elt_moment')
 
     oed_fields = vis.oed_fields.get(p)
 
-    eltcalc_table(result, perspective=p, oed_fields=oed_fields,
-                  show_cols=['MeanLoss', 'MeanImpactedExposure', 'MaxImpactedExposure'],
-                  key_prefix='melt')
+    tab_names = ['table', 'map']
+
+    tabs = st.tabs([t.title() for t in tab_names])
+
+    for name, tab in zip(tab_names, tabs):
+        if name == 'map':
+            if locations is None:
+                with tab:
+                    st.error("Map view unavailable.")
+                logger.error("Locations required for Map view")
+                continue
+
+            map_type = None
+
+            if 'LocNumber' in oed_fields and valid_locations(locations):
+                map_type = 'heatmap'
+            elif 'CountryCode' in oed_fields:
+                map_type = 'choropleth'
+
+            with tab:
+                map_df = result[result['SampleType'] == 'Sample']
+                eltcalc_map(map_df, locations, oed_fields, map_type,
+                            intensity_col='MeanLoss')
+        elif name == 'table':
+            with tab:
+                eltcalc_table(result, perspective=p, oed_fields=oed_fields,
+                              show_cols=['MeanLoss', 'MeanImpactedExposure', 'MaxImpactedExposure'],
+                              key_prefix='melt')
 
 
 @st.fragment
