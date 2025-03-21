@@ -480,8 +480,10 @@ def generate_melt_fragment(p, vis, locations=None):
 
             with tab:
                 map_df = result[result['SampleType'] == 'Sample']
+                loss_col = st.radio('Intensity Column:', ['MeanLoss', 'MeanImpactedExposure', 'MaxImpactedExposure'],
+                                    index=0, horizontal=True)
                 eltcalc_map(map_df, locations, oed_fields, map_type,
-                            intensity_col='MeanLoss')
+                            intensity_col=loss_col)
         elif name == 'table':
             with tab:
                 eltcalc_table(result, perspective=p, oed_fields=oed_fields,

@@ -255,6 +255,14 @@ class MapView(View):
                              opacity=0.75,
                              zoom = zoom,
                              labels={self.weight: format_weight})
+        fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+        fig.update_layout(coloraxis_colorbar=dict(
+            orientation='h',
+            yanchor='top',
+            y=0,
+            lenmode='pixels',
+            len=500
+        ))
 
         st.plotly_chart(fig, use_container_width=True)
 
