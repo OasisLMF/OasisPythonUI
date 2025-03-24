@@ -646,7 +646,8 @@ def generate_leccalc_fragment(p, vis, lec_outputs):
         st.plotly_chart(fig)
 
 @st.cache_data(show_spinner='Creating pltcalc bar')
-def pltcalc_bar(result, selected_group=None, number_shown=10, date_id = False):
+def pltcalc_bar(result, selected_group=None, number_shown=10, date_id = False,
+                year='Year', month='Month', day='Day', loss='MeanLoss'):
     '''
     Bar plot of pltcalc output ranked by loss in descending order by year.
 
@@ -664,36 +665,40 @@ def pltcalc_bar(result, selected_group=None, number_shown=10, date_id = False):
               in `result`.
     '''
     if not date_id:
-        date_cols = ["occ_year", "occ_month", "occ_day"]
-        result[date_cols] = result[date_cols].astype(str)
-        result["occ_year"] = result["occ_year"].str.zfill(result["occ_year"].str.len().max())
-        result["occ_month"] = result["occ_month"].str.zfill(2)
-        result["occ_day"] = result["occ_day"].str.zfill(2)
-        result['date_id'] = result[date_cols].agg('-'.join, axis=1)
+        result[[year, month, day]] = result[[year, month, day]].astype(str)
+        result[year] = result[year].str.zfill(result[year].str.len().max())
+        result[month] = result[month].str.zfill(2)
+        result[day] = result[day].str.zfill(2)
+        result['date_id'] = result[[year, month, day]].agg('-'.join, axis=1)
 
     if selected_group:
-        result_df = result[[selected_group, 'date_id', 'mean']]
+        result_df = result[[selected_group, 'date_id', loss]]
     else:
-        result_df = result[['date_id', 'mean']]
+        result_df = result[['date_id', loss]]
 
-    ranked_dates = result_df.groupby('date_id', as_index=False).agg({'mean': 'sum'}).sort_values(by='mean', ascending=False)
+    ranked_dates = result_df.groupby('date_id', as_index=False).agg({loss: 'sum'}).sort_values(by=loss, ascending=False)
 
     ranked_dates = ranked_dates.iloc[:number_shown]
-    ranked_dates = ranked_dates.rename(columns={'mean': 'total_mean'})
+    ranked_dates = ranked_dates.rename(columns={loss: f'total_{loss}'})
 
     result_df = result_df[result_df['date_id'].isin(ranked_dates['date_id'])]
     result_df = pd.merge(result_df, ranked_dates, how='left', on='date_id')
 
     if selected_group:
-        result_df = result_df.groupby([selected_group, 'date_id'], as_index=False).agg({'mean': 'sum', 'total_mean': 'first'})
+        result_df = result_df.groupby([selected_group, 'date_id'], as_index=False).agg({loss: 'sum', f'total_{loss}': 'first'})
     else:
-        result_df = result_df.groupby(['date_id'], as_index=False).agg({'mean': 'sum', 'total_mean': 'first'})
+        result_df = result_df.groupby(['date_id'], as_index=False).agg({loss: 'sum', f'total_{loss}': 'first'})
 
-    fig = px.bar(result_df, x='date_id', y='mean', color=selected_group,
+    if len(loss) > 1:
+        loss_formatted = loss[0].upper() + loss[1:]
+    else:
+        loss_formatted = loss
+
+    fig = px.bar(result_df, x='date_id', y=loss, color=selected_group,
                  hover_data={
-                     'total_mean': ':s'
+                     f'total_{loss}': ':s'
                  },
-                 labels={'date_id': 'Date', 'total_mean': 'Total Mean', 'mean': 'Mean'})
+                 labels={'date_id': 'Date', f'total_{loss}': f'Total {loss_formatted}', loss: loss_formatted})
     fig.update_xaxes(type='category', categoryorder='array',
                      categoryarray=ranked_dates['date_id'])
 
@@ -706,7 +711,7 @@ def generate_pltcalc_fragment(p, vis):
 
     selected_group = None
     if oed_fields and len(oed_fields) > 0 :
-        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key='leccalc_group_field_pills')
+        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key='pltcalc_group_field_pills')
 
     selected_group_invalid = False
     if selected_group and result[selected_group].nunique() > 100:
@@ -720,11 +725,89 @@ def generate_pltcalc_fragment(p, vis):
 
     result = result[result['type'] == selected_type]
 
+    date_cols = {
+        'year': 'occ_year',
+        'month': 'occ_month',
+        'day': 'occ_day'
+    }
+
     with st.spinner('Generating pltcalc...'):
-        if set(['occ_year', 'occ_month', 'occ_day']).issubset(result.columns):
-            fig = pltcalc_bar(result, selected_group, date_id=False)
+        if set(date_cols.values()).issubset(result.columns):
+            fig = pltcalc_bar(result, selected_group, date_id=False, loss='mean',  **date_cols)
         else:
-            fig = pltcalc_bar(result, selected_group, date_id=True)
+            fig = pltcalc_bar(result, selected_group, date_id=True, loss='mean')
     st.plotly_chart(fig)
     if selected_group_invalid:
-        st.error(f"Too many values in group field.")
+        st.error("Too many values in group field.")
+
+@st.fragment
+def generate_mplt_fragment(p, vis):
+    result = vis.get(1, 'gul', 'plt_moment')
+    oed_fields = vis.oed_fields.get(p)
+
+    selected_group = None
+    if oed_fields and len(oed_fields) > 0 :
+        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key=f'mplt_{p}_group_field_pills')
+
+    selected_group_invalid = False
+    if selected_group and result[selected_group].nunique() > 100:
+        selected_group_invalid = True
+        selected_group = None
+    elif selected_group:
+        result[selected_group] = result[selected_group].astype(str)
+
+    types = result['SampleType'].unique()
+    selected_type = st.radio('Type filter: ', options=types, index=0, horizontal=True)
+
+    result = result[result['SampleType'] == selected_type]
+
+    date_cols = {
+        'year': 'Year',
+        'month': 'Month',
+        'day': 'Day'
+    }
+
+    loss_col = st.radio('Loss Filter: ', options=['MeanLoss', 'MaxLoss',
+                                                  'MeanImpactedExposure',
+                                                  'MaxImpactedExposure'], horizontal=True)
+
+    with st.spinner('Generating pltcalc...'):
+        fig = pltcalc_bar(result, selected_group, date_id=False, loss=loss_col, **date_cols)
+
+    if selected_group_invalid:
+        st.error("Too many values in group field.")
+    st.plotly_chart(fig)
+
+@st.fragment
+def generate_qplt_fragment(p, vis):
+    result = vis.get(1, 'gul', 'plt_quantile')
+    oed_fields = vis.oed_fields.get(p)
+
+    selected_group = None
+    if oed_fields and len(oed_fields) > 0 :
+        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key=f'qplt_{p}_group_field_pills')
+
+    selected_group_invalid = False
+    if selected_group and result[selected_group].nunique() > 100:
+        selected_group_invalid = True
+        selected_group = None
+    elif selected_group:
+        result[selected_group] = result[selected_group].astype(str)
+
+    quantiles = result['Quantile'].unique()
+    quantile_filter = st.radio('Quantile Filter: ', options=quantiles,
+                               horizontal=True,
+                               format_func=lambda x: '{:.2f}'.format(x))
+    date_cols = {
+        'year': 'Year',
+        'month': 'Month',
+        'day': 'Day'
+    }
+
+    result = result[result['Quantile'] == quantile_filter]
+    with st.spinner('Generating pltcalc...'):
+        fig = pltcalc_bar(result, selected_group, date_id=False, loss="Loss", **date_cols)
+
+    if selected_group_invalid:
+        st.error("Too many values in group field.")
+    st.plotly_chart(fig)

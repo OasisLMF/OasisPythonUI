@@ -4,7 +4,10 @@ from modules.nav import SidebarNav
 import pandas as pd
 import altair as alt
 
-from pages.components.output import generate_eltcalc_fragment, generate_leccalc_fragment, generate_melt_fragment, generate_pltcalc_fragment, generate_qelt_fragment, summarise_inputs, generate_aalcalc_fragment
+from pages.components.output import generate_eltcalc_fragment, generate_qplt_fragment
+from pages.components.output import generate_leccalc_fragment, generate_melt_fragment, generate_mplt_fragment
+from pages.components.output import generate_pltcalc_fragment, generate_qelt_fragment, summarise_inputs
+from pages.components.output import generate_aalcalc_fragment
 from modules.visualisation import OutputInterface
 
 st.set_page_config(
@@ -112,3 +115,13 @@ with st.spinner("Loading visualisations..."):
             expander = st.expander("QELT Output")
             with expander:
                 generate_qelt_fragment(p, vis)
+
+        if ord_settings.get("plt_moment", False):
+            expander = st.expander("MPLT Output")
+            with expander:
+                generate_mplt_fragment(p, vis)
+
+        if ord_settings.get("plt_quantile", False):
+            expander = st.expander("QPLT Output")
+            with expander:
+                generate_qplt_fragment(p, vis)
