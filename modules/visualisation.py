@@ -61,7 +61,7 @@ class OutputInterface:
         supported_outputs = ['eltcalc', 'aalcalc', 'leccalc', 'pltcalc',
                              'elt_sample', 'elt_moment', 'elt_quantile',
                              'plt_sample', 'plt_moment', 'plt_quantile',
-                             'alt_meanonly', 'alt_period'
+                             'alt_meanonly', 'alt_period', 'alct_convergence',
                              ]
         assert output_type in supported_outputs, 'Output type not supported'
         assert perspective in ['gul', 'il', 'ri'], 'Perspective not valid'
@@ -98,6 +98,9 @@ class OutputInterface:
 
         if output_type[:4] == 'alt_':
             output_type = alt_map[output_type]
+
+        if output_type[:4] == 'alct':
+            output_type = 'alct'
 
         fname = f'{perspective}_S{summary_level}_{output_type}'
         if output_type == 'leccalc':
