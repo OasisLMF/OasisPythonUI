@@ -2,7 +2,12 @@ import pandas as pd
 from oasislmf.platform_api.client import APIClient
 import tempfile
 import os
+from requests import HTTPError
 import streamlit as st
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class EndpointInterface:
     def __init__(self, client, endpoint_name='portfolios'):
@@ -28,6 +33,33 @@ class EndpointInterface:
         else:
             data = data.get(ID)
         return data
+
+class AnalysesEndpointInterface(EndpointInterface):
+    def __init__(self, client):
+        super().__init__(client, endpoint_name='analyses')
+
+    def get_traceback(self, ID, error_type='input_generation'):
+        '''
+        Get the contents of the traceback file if it exists
+
+        Parameters
+        ----------
+        ID : int
+             Analysis id.
+        error_type : str
+                     `input_generation` or `run`.
+
+        Returns
+        -------
+        `str` contents of traceback file or `None` if the file does not exist.
+        '''
+        traceback_endpoint = error_type + '_traceback_file'
+
+        try:
+            return getattr(self.endpoint, traceback_endpoint).get(ID).text
+        except HTTPError as e:
+            logger.error(e)
+            return None
 
 
 class PortfoliosEndpointInterface(EndpointInterface):
@@ -91,7 +123,7 @@ class ClientInterface:
 
         self.client = client
         self.portfolios = PortfoliosEndpointInterface(client)
-        self.analyses = EndpointInterface(client, "analyses")
+        self.analyses = AnalysesEndpointInterface(client)
         self.models = EndpointInterface(client, "models")
 
 
