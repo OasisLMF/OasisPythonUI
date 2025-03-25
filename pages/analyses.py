@@ -12,6 +12,7 @@ from pages.components.create import create_analysis_form, create_portfolio_form,
 from pages.components.display import DataframeView
 import logging
 
+from pages.components.logs import display_traceback_file
 from pages.components.process import enrich_analyses
 from pages.components.output import summarise_inputs
 
@@ -330,6 +331,35 @@ def run_analysis(re_handler):
         except HTTPError as e:
             st.error("Deletion failed.")
             logger.error(e)
+
+    validations = ValidationGroup()
+    validations.add_validation(NotNoneValidation('Analysis'), selected)
+
+    run_enabled = validations.is_valid()
+    msg = None
+    if not run_enabled:
+        msg = validations.message
+
+    if middle.button("Logs", use_container_width=True, disabled=not run_enabled, help=msg):
+        @st.dialog("Log", width='large')
+        def error_log_dialog(analysis_id):
+            input_gen_traceback = client_interface.analyses.get_traceback(analysis_id, 'input_generation')
+            run_traceback = client_interface.analyses.get_traceback(analysis_id, 'run')
+
+            if input_gen_traceback is not None:
+                display_traceback_file(input_gen_traceback, trace_type='input_generation')
+
+            if input_gen_traceback and run_traceback:
+                st.write('---')
+
+            if run_traceback is not None:
+                display_traceback_file(run_traceback, trace_type='run')
+
+            if input_gen_traceback is None and run_traceback is None:
+                st.info('No traceback logs to show.')
+
+        error_log_dialog(selected['id'])
+
 
     if selected is not None and selected['status'] in ['READY', 'RUN_COMPLETED']:
         analysis_summary_expander(selected)
