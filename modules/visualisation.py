@@ -62,6 +62,12 @@ class OutputInterface:
                              'elt_sample', 'elt_moment', 'elt_quantile',
                              'plt_sample', 'plt_moment', 'plt_quantile',
                              'alt_meanonly', 'alt_period', 'alct_convergence',
+                             'ept_full_uncertainty_aep',
+                             'ept_full_uncertainty_oep',
+                             'ept_mean_sample_aep',
+                             'ept_mean_sample_oep',
+                             'ept_per_sample_mean_aep',
+                             'ept_per_sample_mean_oep'
                              ]
         assert output_type in supported_outputs, 'Output type not supported'
         assert perspective in ['gul', 'il', 'ri'], 'Perspective not valid'
@@ -83,8 +89,11 @@ class OutputInterface:
             results = self.add_oed_fields(results, summary_info, oed_fields)
             kwargs['oed_fields'] = oed_fields
 
-        fig = getattr(self, f'generate_{output_type}')(results, **kwargs)
-        return fig
+        if output_type[:3] == 'ept':
+            output_type = 'ept'
+
+        result = getattr(self, f'generate_{output_type}')(results, **kwargs)
+        return result
 
     @staticmethod
     def _request_to_fname(summary_level, perspective, output_type, **kwargs):
@@ -180,4 +189,8 @@ class OutputInterface:
 
     @staticmethod
     def generate_alct_convergence(results, **kwargs):
+        return results
+
+    @staticmethod
+    def generate_ept(results, **kwargs):
         return results
