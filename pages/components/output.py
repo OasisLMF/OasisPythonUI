@@ -569,6 +569,43 @@ def generate_aalcalc_fragment(p, vis):
 
     st.plotly_chart(graph, use_container_width=True)
 
+@st.fragment
+def generate_alt_fragment(p, vis, output_type='alt_meanonly'):
+    result = vis.get(1, 'gul', output_type)
+    type_field = 'SampleType'
+    mean_field = 'MeanLoss'
+
+    oed_fields = vis.oed_fields.get(p)
+    breakdown_field = None
+    if oed_fields and len(oed_fields) > 0:
+        breakdown_field = st.pills('Breakdown OED Field: ', options=oed_fields,
+                                   key=f'{output_type}_oed_filter')
+
+    breakdown_field_invalid = False
+    if breakdown_field and result[breakdown_field].nunique() > 100:
+        breakdown_field_invalid = True
+        breakdown_field = None
+
+    group_field = [type_field]
+
+    if breakdown_field:
+        result[breakdown_field] = result[breakdown_field].astype(str)
+        group_field += [breakdown_field]
+
+    result = result.loc[:, group_field + [mean_field]]
+    result = result.groupby(group_field, as_index=False).agg({mean_field: 'sum'})
+
+    type_formatted = type_field[0] + type_field[1:]
+    mean_formatted = mean_field[0] + mean_field[1:]
+    graph = px.bar(result, x=type_field, y=mean_field, color=breakdown_field,
+                   labels = {type_field: type_formatted, mean_field: mean_formatted},
+                   color_discrete_sequence= px.colors.sequential.RdBu)
+
+    if breakdown_field_invalid:
+        st.error("Too many values in group field.")
+
+    st.plotly_chart(graph, use_container_width=True, key=f'{output_type}_graph')
+
 def generate_leccalc_fragment(p, vis, lec_outputs):
     lec_options = [option for option in lec_outputs.keys() if lec_outputs[option]]
     option = st.pills('Select Output:', options=lec_options)

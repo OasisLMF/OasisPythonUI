@@ -4,7 +4,7 @@ from modules.nav import SidebarNav
 import pandas as pd
 import altair as alt
 
-from pages.components.output import generate_eltcalc_fragment, generate_qplt_fragment
+from pages.components.output import generate_alt_fragment, generate_eltcalc_fragment, generate_qplt_fragment
 from pages.components.output import generate_leccalc_fragment, generate_melt_fragment, generate_mplt_fragment
 from pages.components.output import generate_pltcalc_fragment, generate_qelt_fragment, summarise_inputs
 from pages.components.output import generate_aalcalc_fragment
@@ -125,3 +125,13 @@ with st.spinner("Loading visualisations..."):
             expander = st.expander("QPLT Output")
             with expander:
                 generate_qplt_fragment(p, vis)
+
+        if ord_settings.get("alt_meanonly", False):
+            expander = st.expander("ALT MeanOnly")
+            with expander:
+                generate_alt_fragment(p, vis, 'alt_meanonly')
+
+        if ord_settings.get("alt_period", False):
+            expander = st.expander("PALT")
+            with expander:
+                generate_alt_fragment(p, vis, 'alt_period')
