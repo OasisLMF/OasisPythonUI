@@ -61,6 +61,7 @@ class OutputInterface:
         supported_outputs = ['eltcalc', 'aalcalc', 'leccalc', 'pltcalc',
                              'elt_sample', 'elt_moment', 'elt_quantile',
                              'plt_sample', 'plt_moment', 'plt_quantile',
+                             'alt_meanonly', 'alt_period'
                              ]
         assert output_type in supported_outputs, 'Output type not supported'
         assert perspective in ['gul', 'il', 'ri'], 'Perspective not valid'
@@ -89,6 +90,14 @@ class OutputInterface:
     def _request_to_fname(summary_level, perspective, output_type, **kwargs):
         if output_type[:4] in ['elt_', 'plt_']:
             output_type = output_type[4] + output_type[:3]
+
+        alt_map = {
+            'alt_meanonly': 'altmeanonly',
+            'alt_period': 'palt'
+        }
+
+        if output_type[:4] == 'alt_':
+            output_type = alt_map[output_type]
 
         fname = f'{perspective}_S{summary_level}_{output_type}'
         if output_type == 'leccalc':
@@ -154,4 +163,18 @@ class OutputInterface:
 
     @staticmethod
     def generate_plt_quantile(results, **kwargs):
+        return results
+
+    @staticmethod
+    def generate_alt_meanonly(results, **kwargs):
+        results['SampleType'] = results['SampleType'].replace(TYPE_MAP)
+        return results
+
+    @staticmethod
+    def generate_alt_period(results, **kwargs):
+        results['SampleType'] = results['SampleType'].replace(TYPE_MAP)
+        return results
+
+    @staticmethod
+    def generate_alct_convergence(results, **kwargs):
         return results
