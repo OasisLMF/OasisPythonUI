@@ -539,7 +539,7 @@ def generate_qelt_fragment(p, vis):
 
 @st.fragment
 def generate_aalcalc_fragment(p, vis):
-    result = vis.get(1, 'gul', 'aalcalc')
+    result = vis.get(1, p, 'aalcalc')
 
     oed_fields = vis.oed_fields.get(p)
     breakdown_field = None
@@ -571,7 +571,7 @@ def generate_aalcalc_fragment(p, vis):
 
 @st.fragment
 def generate_alt_fragment(p, vis, output_type='alt_meanonly'):
-    result = vis.get(1, 'gul', output_type)
+    result = vis.get(1, p, output_type)
     type_field = 'SampleType'
     mean_field = 'MeanLoss'
 
@@ -743,7 +743,7 @@ def pltcalc_bar(result, selected_group=None, number_shown=10, date_id = False,
 
 @st.fragment
 def generate_pltcalc_fragment(p, vis):
-    result = vis.get(1, 'gul', 'pltcalc')
+    result = vis.get(1, p, 'pltcalc')
     oed_fields = vis.oed_fields.get(p)
 
     selected_group = None
@@ -779,7 +779,7 @@ def generate_pltcalc_fragment(p, vis):
 
 @st.fragment
 def generate_mplt_fragment(p, vis):
-    result = vis.get(1, 'gul', 'plt_moment')
+    result = vis.get(1, p, 'plt_moment')
     oed_fields = vis.oed_fields.get(p)
 
     selected_group = None
@@ -817,7 +817,7 @@ def generate_mplt_fragment(p, vis):
 
 @st.fragment
 def generate_qplt_fragment(p, vis):
-    result = vis.get(1, 'gul', 'plt_quantile')
+    result = vis.get(1, p, 'plt_quantile')
     oed_fields = vis.oed_fields.get(p)
 
     selected_group = None
@@ -847,4 +847,66 @@ def generate_qplt_fragment(p, vis):
 
     if selected_group_invalid:
         st.error("Too many values in group field.")
+    st.plotly_chart(fig)
+
+@st.fragment
+def generate_ept_fragment(p, vis):
+    result = vis.get(1, p, 'ept')
+
+    ep_type_map = {
+        1 : 'OEP',
+        2 : 'OEP TVAR',
+        3 : 'AEP',
+        4 : 'AEP TVAR'
+    }
+
+    ep_calc_map = {
+        1 : 'MeanDR',
+        2 :  'Full',
+        3 :  'PerSampleMean',
+        4 :  'MeanSample'
+    }
+
+    type_options = result['EPType'].unique()
+    calc_options = result['EPCalc'].unique()
+
+    if len(type_options) > 1:
+        selected_type = st.radio('EP Curve Type: ', options=type_options, horizontal=True,
+                                 format_func= lambda x: ep_type_map.get(x, x))
+
+        result = result[result['EPType'] == selected_type]
+
+    selected_calc = None
+    if len(calc_options) > 1:
+        selected_calc = st.radio("Calculation Method:", options=calc_options, horizontal=True,
+                                 format_func=lambda x: ep_calc_map.get(x, x))
+        result = result[result['EPCalc'] == selected_calc]
+
+    oed_fields = vis.oed_fields.get(p)
+
+    selected_group = None
+    if oed_fields and len(oed_fields) > 0 :
+        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key=f'qplt_{p}_group_field_pills')
+
+    if selected_group is None:
+        selected_group = 'SummaryId'
+
+    result = result[[selected_group, 'ReturnPeriod', 'Loss']]
+    result = result.groupby([selected_group, 'ReturnPeriod'],
+                            as_index=False).agg({'Loss': 'sum'})
+    result = result.sort_values(by=['ReturnPeriod', 'Loss'], ascending=[True, False])
+
+    log_x = log10(result['ReturnPeriod'].max()) - log10(result['ReturnPeriod'].min()) > 2
+    unique_group = result[selected_group].unique().tolist()
+
+    if len(unique_group) > 5:
+        filter_group = st.multiselect(f'Filtered {selected_group} Values:',
+                                      options = unique_group,
+                                      default = unique_group[:5])
+        result = result[result[selected_group].isin(filter_group)]
+
+    fig = px.line(result, x='ReturnPeriod', y='Loss',
+                  color=selected_group, markers=False,
+                  labels = {'ReturnPeriod': 'Return Period'},
+                  log_x=log_x)
     st.plotly_chart(fig)

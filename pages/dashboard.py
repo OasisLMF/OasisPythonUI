@@ -7,7 +7,7 @@ import altair as alt
 from pages.components.output import generate_alt_fragment, generate_eltcalc_fragment, generate_qplt_fragment
 from pages.components.output import generate_leccalc_fragment, generate_melt_fragment, generate_mplt_fragment
 from pages.components.output import generate_pltcalc_fragment, generate_qelt_fragment, summarise_inputs
-from pages.components.output import generate_aalcalc_fragment
+from pages.components.output import generate_aalcalc_fragment, generate_ept_fragment
 from modules.visualisation import OutputInterface
 
 st.set_page_config(
@@ -135,3 +135,19 @@ with st.spinner("Loading visualisations..."):
             expander = st.expander("PALT")
             with expander:
                 generate_alt_fragment(p, vis, 'alt_period')
+
+        ept_settings = [
+            'ept_full_uncertainty_aep',
+            'ept_full_uncertainty_oep',
+            'ept_mean_sample_aep',
+            'ept_mean_sample_oep',
+            'ept_per_sample_mean_aep',
+            'ept_per_sample_mean_oep'
+        ]
+
+        ept_outputs = [e for e in ept_settings if ord_settings.get(e, False)]
+
+        if any([ord_settings.get(e, False) for e in ept_settings]):
+            expander = st.expander("EPT Output")
+            with expander:
+                generate_ept_fragment(p, vis)

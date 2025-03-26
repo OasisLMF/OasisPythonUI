@@ -46,6 +46,8 @@ class OutputInterface:
                       - `pltcalc`
                       Currently supported ORD output types:
                       - elt_sample, elt_quantile, elt_moment
+                      - alt_meanonly, alt_period, alct_convergence
+                      - ept (all ept outputs)
         **kwargs : Additional options `output_type`.
                    For `leccalc`the following keys and options are expected:
                        `analysis_type`: `full_uncertainty`, `sample_mean`, `wheatsheaf`, `wheatsheaf_mean`
@@ -62,12 +64,7 @@ class OutputInterface:
                              'elt_sample', 'elt_moment', 'elt_quantile',
                              'plt_sample', 'plt_moment', 'plt_quantile',
                              'alt_meanonly', 'alt_period', 'alct_convergence',
-                             'ept_full_uncertainty_aep',
-                             'ept_full_uncertainty_oep',
-                             'ept_mean_sample_aep',
-                             'ept_mean_sample_oep',
-                             'ept_per_sample_mean_aep',
-                             'ept_per_sample_mean_oep'
+                             'ept'
                              ]
         assert output_type in supported_outputs, 'Output type not supported'
         assert perspective in ['gul', 'il', 'ri'], 'Perspective not valid'
@@ -88,9 +85,6 @@ class OutputInterface:
             summary_info = self.output_file_dict.get(self._request_to_summary_info_fname(summary_level, perspective))
             results = self.add_oed_fields(results, summary_info, oed_fields)
             kwargs['oed_fields'] = oed_fields
-
-        if output_type[:3] == 'ept':
-            output_type = 'ept'
 
         result = getattr(self, f'generate_{output_type}')(results, **kwargs)
         return result
