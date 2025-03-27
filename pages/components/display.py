@@ -87,6 +87,9 @@ class DataframeView(View):
             args['selection_mode']="single-row"
             args['on_select']="rerun"
 
+            if self.selectable == 'multi':
+                args['selection_mode'] = "multi-row"
+
         # Add styling
         data_styled = self.data
         n_rows = data_styled.shape[0]
@@ -141,7 +144,7 @@ class DataframeView(View):
         selected = selected["selection"]["rows"]
 
         if len(selected) > 0:
-            return self.data.iloc[selected[0]]
+            return self.data.iloc[selected]
         return None
 
 

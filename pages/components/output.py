@@ -3,7 +3,6 @@ import streamlit as st
 import pandas as pd
 import logging
 import plotly.express as px
-from plotly.colors import sample_colorscale
 import plotly.graph_objects as go
 from math import log10
 
@@ -298,7 +297,7 @@ def oed_fields_group(oed_fields, key_prefix=None, selection_mode='multi'):
     return group_fields
 
 def elt_ord_table(result, perspective, oed_fields = None, key_prefix=None,
-                  order_cols=None, data_cols=None):
+                  order_cols=None, data_cols=None, selectable=False):
     table_df = result
     if key_prefix is None:
         key_prefix = ''
@@ -312,8 +311,11 @@ def elt_ord_table(result, perspective, oed_fields = None, key_prefix=None,
     # Ordering
 
     if order_cols:
-        order_col = st.radio('Sort By: ', options=order_cols, index=0, horizontal=True,
-                             key=f'{key_prefix}_elt_ord_order_col')
+        if len(order_cols) > 1:
+            order_col = st.radio('Sort By: ', options=order_cols, index=0, horizontal=True,
+                                 key=f'{key_prefix}_elt_ord_order_col')
+        else:
+            order_col = order_cols[0]
 
         table_df = table_df.sort_values(by=order_col, ascending=False)
 
@@ -328,7 +330,7 @@ def elt_ord_table(result, perspective, oed_fields = None, key_prefix=None,
                 table_df = table_df[table_df[oed_field].isin(oed_filter)]
 
     cols = ['EventId'] + oed_fields + data_cols
-    table_view = DataframeView(table_df, display_cols=cols)
+    table_view = DataframeView(table_df, display_cols=cols, selectable=selectable)
 
     for col in data_cols:
         table_view.column_config[col] = st.column_config.NumberColumn(col, format='%.2f')
@@ -336,8 +338,10 @@ def elt_ord_table(result, perspective, oed_fields = None, key_prefix=None,
         table_view.column_config[c] = st.column_config.ListColumn(c)
     table_view.column_config['EventId'] = st.column_config.ListColumn('EventId')
 
-    table_view.display()
+    selected = table_view.display()
 
+    if selectable:
+        return table_df, selected
     return table_df
 
 def eltcalc_table(eltcalc_result, perspective, oed_fields=None, show_cols=None,
@@ -549,55 +553,64 @@ def generate_melt_fragment(p, vis, locations=None):
 
 
 @st.fragment
-def generate_qelt_fragment(p, vis):
-    result = vis.get(1, p, 'elt_quantile')
+def generate_qelt_fragment(p, vis, locations=None):
+    data_df = vis.get(1, p, 'elt_quantile')
     oed_fields = vis.oed_fields.get(p)
-    group_field = oed_fields_group(oed_fields,
-                                    key_prefix=f'qelt_{p}',
-                                    selection_mode='single')
 
-    group_fields = ['Quantile']
-    if group_field:
-        group_fields.append(group_field)
+    if 'qelt_event_ids' not in st.session_state:
+        st.session_state['qelt_event_ids'] = []
 
-    cols = ['Quantile'] + oed_fields + ['Loss']
-    result = result[cols]
-    df = elt_group_fields(result, group_fields, categorical_cols=oed_fields)
+    options = data_df['Quantile'].unique()
+    quantile_filter = st.radio("Quantile Filter", options,
+                               horizontal=True, index=len(options) - 1)
 
-    quantiles = df['Quantile'].unique().tolist()
-    quantiles = [str(q) for q in sorted(quantiles, reverse=True)]
+    data_df = data_df[data_df['Quantile'] == quantile_filter]
 
-    df['Quantile'] = df['Quantile'].astype(str)
+    map_event_container = st.container()
 
-    # Prep colours
-    sample_points = [i/(len(quantiles) - 1) for i in range(0, len(quantiles))]
-    colors = sample_colorscale('RdBu', sample_points)
-    colors = {q:c for q, c in zip(quantiles, colors)}
+    tab_names = ['table', 'map']
+    with st.container(border=True):
+        tabs = st.tabs([t.title() for t in tab_names])
 
-    if group_field:
-        unique_grouped = df[group_field].unique()
-        if len(unique_grouped) > 1:
-            value = min(20, len(unique_grouped))
-            max_value = min(50, len(unique_grouped))
-            n_show = st.slider("Number of Fields: ", step=1, value=value, max_value=max_value, min_value=1)
-            df = df.sort_values("Loss", ascending=False)
-            if len(unique_grouped) > n_show:
-                st.info(f"Showing top {n_show} fields.")
-                df = df[df[group_field].isin(unique_grouped[:n_show])]
-        fig = px.bar(df, x=group_field, y='Loss', color='Quantile', barmode='overlay',
-                     color_discrete_sequence=px.colors.sequential.RdBu,
-                     color_discrete_map=colors,
-                     category_orders={'Quantile': quantiles},
-                     opacity=1)
-        fig.update_xaxes(type='category')
-    else:
-        quantiles = reversed(quantiles)
-        fig = px.bar(df, x = 'Quantile', y='Loss', color='Quantile',
-                     color_discrete_map=colors,
-                     category_orders={'Quantile': quantiles})
-        fig.update_xaxes(type='category')
-        fig.update_layout(showlegend=False)
-    st.plotly_chart(fig)
+    with tabs[0]:
+        table_df, selected = elt_ord_table(data_df, perspective=p,
+                                 oed_fields=oed_fields, key_prefix='qelt',
+                                 order_cols=['Loss'], data_cols=['Loss'],
+                                 selectable="multi")
+
+    selected_events = []
+    if selected is not None and not selected.empty:
+        selected_events = selected['EventId'].tolist()
+
+
+    if locations is None:
+        with tabs[1]:
+            st.error("Map view unavailable.")
+        logger.error("Locations required for Map view")
+        return
+
+    map_type = None
+
+    if 'LocNumber' in oed_fields and valid_locations(locations):
+        map_type = 'heatmap'
+    elif 'CountryCode' in oed_fields:
+        map_type = 'choropleth'
+
+    map_df = data_df
+    if selected_events:
+        map_df = data_df[data_df['EventId'].isin(selected_events)]
+
+    with tabs[1]:
+        if len(selected_events) > 0:
+            data = pd.DataFrame(
+                {'EventId':[selected_events] }
+            )
+            st.dataframe(data,
+                         column_config= {'EventId' : st.column_config.ListColumn('Mapped EventIds')},
+                         hide_index=True)
+        eltcalc_map(map_df, locations, oed_fields, map_type,
+                    intensity_col='Loss')
+    return
 
 
 @st.fragment

@@ -114,7 +114,7 @@ with st.spinner("Loading visualisations..."):
         if ord_settings.get('elt_quantile', False):
             expander = st.expander("QELT Output")
             with expander:
-                generate_qelt_fragment(p, vis)
+                generate_qelt_fragment(p, vis, locations=locations)
 
         if ord_settings.get("plt_moment", False):
             expander = st.expander("MPLT Output")
