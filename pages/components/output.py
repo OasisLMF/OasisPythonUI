@@ -970,10 +970,16 @@ def generate_ept_fragment(p, vis):
     result = result[[selected_group, 'ReturnPeriod', 'Loss']]
     result = result.groupby([selected_group, 'ReturnPeriod'],
                             as_index=False).agg({'Loss': 'sum'})
-    result = result.sort_values(by=['ReturnPeriod', 'Loss'], ascending=[True, False])
 
+    max_return_period = result['ReturnPeriod'].max()
+    unique_group = result[result['ReturnPeriod'] == max_return_period].sort_values(by='Loss', ascending=False)
+    unique_group = unique_group[selected_group].tolist()
+
+    result = result.sort_values(by=['ReturnPeriod', 'Loss'], ascending=[True, False])
     log_x = log10(result['ReturnPeriod'].max()) - log10(result['ReturnPeriod'].min()) > 2
-    unique_group = result[selected_group].unique().tolist()
+
+    all_selected = result[selected_group].unique().tolist()
+    unique_group += [e for e in all_selected if e not in unique_group]
 
     if len(unique_group) > 5:
         filter_group = st.multiselect(f'Filtered {selected_group} Values:',
