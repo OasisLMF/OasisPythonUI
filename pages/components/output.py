@@ -297,6 +297,48 @@ def oed_fields_group(oed_fields, key_prefix=None, selection_mode='multi'):
 
     return group_fields
 
+def elt_ord_table(result, perspective, oed_fields = None, key_prefix=None,
+                  order_cols=None, data_cols=None):
+    table_df = result
+    if key_prefix is None:
+        key_prefix = ''
+
+    if oed_fields is None:
+        oed_fields = []
+
+    if data_cols is None:
+        data_cols = []
+
+    # Ordering
+
+    if order_cols:
+        order_col = st.radio('Sort By: ', options=order_cols, index=0, horizontal=True,
+                             key=f'{key_prefix}_elt_ord_order_col')
+
+        table_df = table_df.sort_values(by=order_col, ascending=False)
+
+    # OED Filters
+    with st.popover("OED Filters", use_container_width=True):
+        for oed_field in oed_fields:
+            options = table_df[oed_field].unique()
+            oed_filter = st.multiselect(f"{oed_field} Filter:",  options,
+                                         key=f'{key_prefix}_{oed_field}_elt_filter')
+
+            if oed_filter:
+                table_df = table_df[table_df[oed_field].isin(oed_filter)]
+
+    cols = ['EventId'] + oed_fields + data_cols
+    table_view = DataframeView(table_df, display_cols=cols)
+
+    for col in data_cols:
+        table_view.column_config[col] = st.column_config.NumberColumn(col, format='%.2f')
+    for c in oed_fields:
+        table_view.column_config[c] = st.column_config.ListColumn(c)
+    table_view.column_config['EventId'] = st.column_config.ListColumn('EventId')
+
+    table_view.display()
+
+    return table_df
 
 def eltcalc_table(eltcalc_result, perspective, oed_fields=None, show_cols=None,
                   key_prefix=None):
@@ -447,40 +489,64 @@ def generate_eltcalc_fragment(perspective, vis_interface,
 
 @st.fragment
 def generate_melt_fragment(p, vis, locations=None):
-    result = vis.get(1, p, 'elt_moment')
+    data_df = vis.get(1, p, 'elt_moment')
 
     oed_fields = vis.oed_fields.get(p)
 
+    # Type filter
+    if 'type' in data_df.columns:
+        type_col = 'type'
+    elif 'SampleType' in data_df.columns:
+        type_col = 'SampleType'
+    else:
+        type_col = None
+
+    if type_col:
+        types = data_df[type_col].unique()
+        selected_type = st.radio('Type Filter:', options=types, index=0, horizontal=True,
+                                 key=f'melt_elt_ord_type_filter')
+        data_df = data_df[data_df[type_col] == selected_type]
+
+    map_event_container = st.container()
+
     tab_names = ['table', 'map']
+    with st.container(border=True):
+        tabs = st.tabs([t.title() for t in tab_names])
 
-    tabs = st.tabs([t.title() for t in tab_names])
+    with tabs[0]:
+        data_df = elt_ord_table(data_df, perspective=p, oed_fields=oed_fields,
+                                 order_cols=['MeanLoss','MeanImpactedExposure',
+                                             'MaxImpactedExposure'],
+                                 data_cols=['MeanLoss','MeanImpactedExposure',
+                                            'MaxImpactedExposure'],
+                                 key_prefix='melt')
 
-    for name, tab in zip(tab_names, tabs):
-        if name == 'map':
-            if locations is None:
-                with tab:
-                    st.error("Map view unavailable.")
-                logger.error("Locations required for Map view")
-                continue
 
-            map_type = None
+    if locations is None:
+        with tabs[1]:
+            st.error("Map view unavailable.")
+        logger.error("Locations required for Map view")
+        return
 
-            if 'LocNumber' in oed_fields and valid_locations(locations):
-                map_type = 'heatmap'
-            elif 'CountryCode' in oed_fields:
-                map_type = 'choropleth'
+    map_type = None
 
-            with tab:
-                map_df = result[result['SampleType'] == 'Sample']
-                loss_col = st.radio('Intensity Column:', ['MeanLoss', 'MeanImpactedExposure', 'MaxImpactedExposure'],
-                                    index=0, horizontal=True)
-                eltcalc_map(map_df, locations, oed_fields, map_type,
-                            intensity_col=loss_col)
-        elif name == 'table':
-            with tab:
-                eltcalc_table(result, perspective=p, oed_fields=oed_fields,
-                              show_cols=['MeanLoss', 'MeanImpactedExposure', 'MaxImpactedExposure'],
-                              key_prefix='melt')
+    if 'LocNumber' in oed_fields and valid_locations(locations):
+        map_type = 'heatmap'
+    elif 'CountryCode' in oed_fields:
+        map_type = 'choropleth'
+
+    with map_event_container:
+        selected_events = st.multiselect("Map Events", data_df['EventId'])
+
+    if selected_events:
+        data_df = data_df[data_df['EventId'].isin(selected_events)]
+
+    with tabs[1]:
+        loss_col = st.radio('Intensity Column:', ['MeanLoss', 'MeanImpactedExposure', 'MaxImpactedExposure'],
+                            index=0, horizontal=True)
+        eltcalc_map(data_df, locations, oed_fields, map_type,
+                    intensity_col=loss_col)
+
 
 @st.fragment
 def generate_qelt_fragment(p, vis):
