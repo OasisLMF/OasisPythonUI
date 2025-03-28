@@ -494,7 +494,6 @@ def generate_eltcalc_fragment(perspective, vis_interface,
 @st.fragment
 def generate_melt_fragment(p, vis, locations=None):
     data_df = vis.get(1, p, 'elt_moment')
-
     oed_fields = vis.oed_fields.get(p)
 
     # Type filter
@@ -518,13 +517,17 @@ def generate_melt_fragment(p, vis, locations=None):
         tabs = st.tabs([t.title() for t in tab_names])
 
     with tabs[0]:
-        data_df = elt_ord_table(data_df, perspective=p, oed_fields=oed_fields,
+        data_df, selected = elt_ord_table(data_df, perspective=p, oed_fields=oed_fields,
                                  order_cols=['MeanLoss','MeanImpactedExposure',
                                              'MaxImpactedExposure'],
                                  data_cols=['MeanLoss','MeanImpactedExposure',
                                             'MaxImpactedExposure'],
-                                 key_prefix='melt')
+                                 key_prefix='melt',
+                                 selectable='multi')
 
+    selected_events = []
+    if selected is not None and not selected.empty:
+        selected_events = selected['EventId'].tolist()
 
     if locations is None:
         with tabs[1]:
@@ -539,13 +542,17 @@ def generate_melt_fragment(p, vis, locations=None):
     elif 'CountryCode' in oed_fields:
         map_type = 'choropleth'
 
-    with map_event_container:
-        selected_events = st.multiselect("Map Events", data_df['EventId'])
-
     if selected_events:
         data_df = data_df[data_df['EventId'].isin(selected_events)]
 
     with tabs[1]:
+        if len(selected_events) > 0:
+            data = pd.DataFrame(
+                {'EventId':[selected_events] }
+            )
+            st.dataframe(data,
+                         column_config= {'EventId' : st.column_config.ListColumn('Mapped EventIds')},
+                         hide_index=True)
         loss_col = st.radio('Intensity Column:', ['MeanLoss', 'MeanImpactedExposure', 'MaxImpactedExposure'],
                             index=0, horizontal=True)
         eltcalc_map(data_df, locations, oed_fields, map_type,
@@ -556,9 +563,6 @@ def generate_melt_fragment(p, vis, locations=None):
 def generate_qelt_fragment(p, vis, locations=None):
     data_df = vis.get(1, p, 'elt_quantile')
     oed_fields = vis.oed_fields.get(p)
-
-    if 'qelt_event_ids' not in st.session_state:
-        st.session_state['qelt_event_ids'] = []
 
     options = data_df['Quantile'].unique()
     quantile_filter = st.radio("Quantile Filter", options,
