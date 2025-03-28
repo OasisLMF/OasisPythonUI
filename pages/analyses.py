@@ -195,7 +195,7 @@ def run_analysis(re_handler):
 
     display_cols = ['name', 'portfolio_name', 'model_id', 'model_supplier', 'status']
 
-    analyses_view = DataframeView(analyses, selectable=True, display_cols=display_cols)
+    analyses_view = DataframeView(analyses, selectable='single', display_cols=display_cols)
     selected = analyses_view.display()
 
     # Analysis run buttons

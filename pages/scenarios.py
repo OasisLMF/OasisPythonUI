@@ -67,7 +67,7 @@ with create_container:
     models = client_interface.models.get(df=True)
     display_cols = [ 'model_id', 'supplier_id' ]
 
-    model_view = DataframeView(models, selectable=True, display_cols=display_cols)
+    model_view = DataframeView(models, selectable='single', display_cols=display_cols)
     selected_model = model_view.display()
 
     '#### Portfolio Selection'
@@ -97,7 +97,7 @@ with create_container:
 
         display_cols = ['name', 'number_locations']
 
-        portfolio_view = DataframeView(portfolios, display_cols=display_cols, selectable=True)
+        portfolio_view = DataframeView(portfolios, display_cols=display_cols, selectable='single')
         selected_portfolio = portfolio_view.display()
     else:
         st.info("Please select a model.")
@@ -187,7 +187,7 @@ with run_container:
 
         display_cols = ['name', 'portfolio_name', 'model_id', 'model_supplier', 'status']
 
-        analyses_view = DataframeView(analyses, display_cols=display_cols, selectable=True)
+        analyses_view = DataframeView(analyses, display_cols=display_cols, selectable='single')
         selected = analyses_view.display()
 
         oed_group = st.pills("Group output by:",

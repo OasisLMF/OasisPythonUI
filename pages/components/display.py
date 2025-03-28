@@ -41,8 +41,8 @@ class DataframeView(View):
     ----------
     data : pd.DataFrame
            Pandas DataFrame representing the data to visualise.
-    selectable : bool (default `False`)
-                 If `True` then rows are selectable.
+    selectable : str (default `False`)
+                 If `single` then single row is selectable. If `multi` then multiple rows selctable.
     display_cols : list[str]
                    The names of the columns to display. By default displays all the columns.
     '''
@@ -144,7 +144,11 @@ class DataframeView(View):
         selected = selected["selection"]["rows"]
 
         if len(selected) > 0:
-            return self.data.iloc[selected]
+            selected = self.data.iloc[selected]
+            if self.selectable == 'single':
+                selected = selected.iloc[0]
+            return selected
+
         return None
 
 
