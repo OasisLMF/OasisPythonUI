@@ -87,6 +87,9 @@ class DataframeView(View):
             args['selection_mode']="single-row"
             args['on_select']="rerun"
 
+            if self.selectable == 'multi':
+                args['selection_mode'] = "multi-row"
+
         # Add styling
         data_styled = self.data
         n_rows = data_styled.shape[0]
@@ -141,7 +144,7 @@ class DataframeView(View):
         selected = selected["selection"]["rows"]
 
         if len(selected) > 0:
-            return self.data.iloc[selected[0]]
+            return self.data.iloc[selected]
         return None
 
 
@@ -242,6 +245,11 @@ class MapView(View):
 
         zoom = find_zoom_level(lon_range)
 
+        format_weight = self.weight
+        if len(format_weight) > 1:
+            format_weight = format_weight[0].upper() + format_weight[1:]
+
+
         fig = px.density_map(locations,
                              lat = self.latitude,
                              lon = self.longitude,
@@ -249,7 +257,15 @@ class MapView(View):
                              color_continuous_scale="YlOrRd",
                              opacity=0.75,
                              zoom = zoom,
-                             labels={self.weight: self.weight.title()})
+                             labels={self.weight: format_weight})
+        fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+        fig.update_layout(coloraxis_colorbar=dict(
+            orientation='h',
+            yanchor='top',
+            y=0,
+            lenmode='pixels',
+            len=500
+        ))
 
         st.plotly_chart(fig, use_container_width=True)
 
@@ -273,6 +289,10 @@ class MapView(View):
             offset = 0.1*(locations[self.weight].max() - locations[self.weight].min())
             range_color = [locations[self.weight].min() - offset, locations[self.weight].max() + 2*offset]
 
+        format_weight = self.weight
+        if len(format_weight) > 1:
+            format_weight = format_weight[0].upper() + format_weight[1:]
+
         fig = px.choropleth_map(locations, geojson=countries,
                                 color=self.weight,
                                 locations=self.country,
@@ -282,6 +302,15 @@ class MapView(View):
                                 zoom=3,
                                 opacity=0.75,
                                 range_color=range_color,
-                                labels={self.weight: self.weight.title()})
+                                labels={self.weight: format_weight})
+
+        fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+        fig.update_layout(coloraxis_colorbar=dict(
+            orientation='h',
+            yanchor='top',
+            y=0,
+            lenmode='pixels',
+            len=500
+        ))
 
         st.plotly_chart(fig)

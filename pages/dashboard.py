@@ -4,8 +4,11 @@ from modules.nav import SidebarNav
 import pandas as pd
 import altair as alt
 
-from pages.components.output import generate_eltcalc_fragment, generate_leccalc_fragment, generate_pltcalc_fragment, summarise_inputs, generate_aalcalc_fragment
-from modules.visualisation import OutputVisualisationInterface
+from pages.components.output import generate_alt_fragment, generate_eltcalc_fragment, generate_qplt_fragment
+from pages.components.output import generate_leccalc_fragment, generate_melt_fragment, generate_mplt_fragment
+from pages.components.output import generate_pltcalc_fragment, generate_qelt_fragment, summarise_inputs
+from pages.components.output import generate_aalcalc_fragment, generate_ept_fragment
+from modules.visualisation import OutputInterface
 
 st.set_page_config(
     page_title = "Dashboard",
@@ -55,7 +58,7 @@ with st.spinner("Loading data..."):
     outputs = get_analysis_outputs(analysis_id)
 
 # Set up visualisation interface
-vis = OutputVisualisationInterface(outputs)
+vis = OutputInterface(outputs)
 perspectives = ['gul', 'il', 'ri']
 for p in perspectives:
     p_oed_fields = settings.get(f'{p}_summaries', [{}])[0].get('oed_fields', None)
@@ -95,3 +98,56 @@ with st.spinner("Loading visualisations..."):
             plt_expander = st.expander("PLT Output")
             with plt_expander:
                 generate_pltcalc_fragment(p, vis)
+
+        # Handle ORD outputs
+
+        ord_settings = summaries_settings.get("ord_output", {})
+
+        if ord_settings.get("elt_moment", False):
+            expander = st.expander("MELT Output")
+            with expander:
+                locations = None
+                if inputs:
+                    locations = inputs.get('location.csv')
+                generate_melt_fragment(p, vis, locations=locations)
+
+        if ord_settings.get('elt_quantile', False):
+            expander = st.expander("QELT Output")
+            with expander:
+                generate_qelt_fragment(p, vis, locations=locations)
+
+        if ord_settings.get("plt_moment", False):
+            expander = st.expander("MPLT Output")
+            with expander:
+                generate_mplt_fragment(p, vis)
+
+        if ord_settings.get("plt_quantile", False):
+            expander = st.expander("QPLT Output")
+            with expander:
+                generate_qplt_fragment(p, vis)
+
+        if ord_settings.get("alt_meanonly", False):
+            expander = st.expander("ALT MeanOnly")
+            with expander:
+                generate_alt_fragment(p, vis, 'alt_meanonly')
+
+        if ord_settings.get("alt_period", False):
+            expander = st.expander("PALT")
+            with expander:
+                generate_alt_fragment(p, vis, 'alt_period')
+
+        ept_settings = [
+            'ept_full_uncertainty_aep',
+            'ept_full_uncertainty_oep',
+            'ept_mean_sample_aep',
+            'ept_mean_sample_oep',
+            'ept_per_sample_mean_aep',
+            'ept_per_sample_mean_oep'
+        ]
+
+        ept_outputs = [e for e in ept_settings if ord_settings.get(e, False)]
+
+        if any([ord_settings.get(e, False) for e in ept_settings]):
+            expander = st.expander("EPT Output")
+            with expander:
+                generate_ept_fragment(p, vis)

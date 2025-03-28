@@ -2,12 +2,9 @@
 import streamlit as st
 import pandas as pd
 import logging
-from oasis_data_manager.errors import OasisException
-from ods_tools.oed import AnalysisSettingSchema
 import plotly.express as px
 import plotly.graph_objects as go
 from math import log10
-from datetime import date, datetime
 
 from pages.components.display import DataframeView, MapView
 
@@ -261,80 +258,186 @@ def model_summary(model, model_settings, detail_level="full"):
 
     show_settings(settings_list)
 
+def elt_group_fields(df, group_fields, agg_dict=None, categorical_cols=[]):
+    if agg_dict is None:
+        agg_dict = {}
 
-def eltcalc_table(perspective, vis_interface, oed_fields = []):
-    if oed_fields:
-        group_fields = st.pills("Group Columns",
-                                oed_fields,
-                                key=f'{perspective}_group_pill',
-                                selection_mode='multi')
+    if categorical_cols is None:
+        categorical_cols = []
+
+    ungrouped_cols = df.columns.difference(group_fields)
+    numeric_cols = df.select_dtypes(include='number').columns
+    numeric_cols = numeric_cols.difference(categorical_cols)
+    numeric_cols = numeric_cols.intersection(ungrouped_cols)
+    non_numeric_cols = ungrouped_cols.difference(numeric_cols)
+
+    for c in numeric_cols:
+        if agg_dict.get(c, None) is None:
+            agg_dict[c] = 'sum'
+    for c in non_numeric_cols:
+        if agg_dict.get(c, None) is None:
+            agg_dict[c] = 'unique'
+
+    @st.cache_data(show_spinner=False, max_entries=1000)
+    def eltcalc_transform(df, group_fields, agg_dict):
+        return df.groupby(group_fields, as_index=False).agg(agg_dict)
+
+    return eltcalc_transform(df, group_fields, agg_dict)
+
+
+def oed_fields_group(oed_fields, key_prefix=None, selection_mode='multi'):
+    if key_prefix is None:
+        key_prefix = ''
+
+    group_fields = st.pills("Group Columns",
+                            oed_fields,
+                            key=f'{key_prefix}_elt_group_pill',
+                            selection_mode=selection_mode)
+
+    return group_fields
+
+def elt_ord_table(result, perspective, oed_fields = None, key_prefix=None,
+                  order_cols=None, data_cols=None, selectable=False):
+    table_df = result
+    if key_prefix is None:
+        key_prefix = ''
+
+    if oed_fields is None:
+        oed_fields = []
+
+    if data_cols is None:
+        data_cols = []
+
+    # Ordering
+
+    if order_cols:
+        if len(order_cols) > 1:
+            order_col = st.radio('Sort By: ', options=order_cols, index=0, horizontal=True,
+                                 key=f'{key_prefix}_elt_ord_order_col')
+        else:
+            order_col = order_cols[0]
+
+        table_df = table_df.sort_values(by=order_col, ascending=False)
+
+    # OED Filters
+    with st.popover("OED Filters", use_container_width=True):
+        for oed_field in oed_fields:
+            options = table_df[oed_field].unique()
+            oed_filter = st.multiselect(f"{oed_field} Filter:",  options,
+                                         key=f'{key_prefix}_{oed_field}_elt_filter')
+
+            if oed_filter:
+                table_df = table_df[table_df[oed_field].isin(oed_filter)]
+
+    cols = ['EventId'] + oed_fields + data_cols
+    table_view = DataframeView(table_df, display_cols=cols, selectable=selectable)
+
+    for col in data_cols:
+        table_view.column_config[col] = st.column_config.NumberColumn(col, format='%.2f')
+    for c in oed_fields:
+        table_view.column_config[c] = st.column_config.ListColumn(c)
+    table_view.column_config['EventId'] = st.column_config.ListColumn('EventId')
+
+    selected = table_view.display()
+
+    if selectable:
+        return table_df, selected
+    return table_df
+
+def eltcalc_table(eltcalc_result, perspective, oed_fields=None, show_cols=None,
+                  key_prefix=None):
+    if key_prefix is None:
+        key_prefix = ''
+
+    if oed_fields is None:
+        oed_fields = []
+
+    if show_cols is None:
+        show_cols = ['mean'] if 'mean' in eltcalc_result.columns else []
+
+    if 'SampleType' in eltcalc_result.columns:
+        type_col = ['SampleType']
+    elif 'type' in eltcalc_result.columns:
+        type_col = ['type']
     else:
-        group_fields = []
+        type_col = []
 
-    group_fields = ['type'] + group_fields
-    try:
-        eltcalc_df = vis_interface.get(summary_level=1,
-                                       perspective=perspective,
-                                       output_type='eltcalc',
-                                       group_fields=group_fields,
-                                       categorical_cols=oed_fields)
-    except OasisException:
-        return None
+    group_fields = oed_fields_group(oed_fields,
+                                    key_prefix=f'{key_prefix}_{perspective}')
+    group_fields = type_col + group_fields
+    table_df = elt_group_fields(eltcalc_result, group_fields, categorical_cols=oed_fields)
+
+
+    cols = type_col + oed_fields + show_cols
+    table_df = table_df[cols]
 
     # Sort by loss
-    eltcalc_df = eltcalc_df.sort_values('mean', ascending=False)
+    table_df = table_df.sort_values(show_cols, ascending=False)
 
-    df_memory = eltcalc_df.memory_usage().sum() / 1e6
+    df_memory = table_df.memory_usage().sum() / 1e6
 
     if df_memory > 200:
         st.error('Output too large, try grouping')
         logger.error(f'eltcalc view df size: {df_memory}')
     else:
-        eltcalc_df = DataframeView(eltcalc_df)
-        eltcalc_df.column_config['mean'] = st.column_config.NumberColumn('Mean', format='%.2f')
+        table_view = DataframeView(table_df, display_cols = cols)
+        for col in show_cols:
+            table_view.column_config[col] = st.column_config.NumberColumn(col, format='%.2f')
         for c in oed_fields:
-            eltcalc_df.column_config[c] = st.column_config.ListColumn(c)
-        # fix type column heading
-        eltcalc_df.column_config['type'] = st.column_config.ListColumn('Type')
+            table_view.column_config[c] = st.column_config.ListColumn(c)
+        if type_col:
+            formatted_type = 'Type' if type_col[0] == 'type' else type_col[0]
+            table_view.column_config[type_col[0]] = st.column_config.ListColumn(formatted_type)
 
-        eltcalc_df.display()
+        table_view.display()
 
-def eltcalc_map(perspective, vis_interface, locations, oed_fields = [], map_type = None):
+def eltcalc_map(map_df, locations, oed_fields=[], map_type=None,
+                intensity_col='mean'):
     '''
     Generate MapView of output of eltcalc. Either `heatmap` or `choropleth` depending on portfolio.
     '''
+    map_df = map_df[[intensity_col] + oed_fields]
 
     if map_type == 'choropleth':
         group_fields = ['CountryCode']
-        eltcalc_df = vis_interface.get(summary_level=1,
-                                       perspective=perspective,
-                                       output_type='eltcalc',
-                                       group_fields=group_fields,
-                                       categorical_cols = oed_fields,
-                                       filter_type = 2) # Only output sample
+        map_df = elt_group_fields(map_df, group_fields, categorical_cols=oed_fields)
 
-        mv = MapView(eltcalc_df, weight="mean", map_type="choropleth")
+        mv = MapView(map_df, weight=intensity_col, map_type="choropleth")
         mv.display()
         return
 
     if map_type == 'heatmap':
         group_fields = ['LocNumber']
-        eltcalc_df = vis_interface.get(summary_level=1,
-                                       perspective=perspective,
-                                       output_type='eltcalc',
-                                       group_fields=group_fields,
-                                       categorical_cols = oed_fields,
-                                       filter_type = 2) # Only output sample data
-        loc_reduced = locations[['LocNumber', 'Longitude', 'Latitude']]
-        heatmap_data = eltcalc_df.merge(loc_reduced, how="left", on="LocNumber")
-        heatmap_data = heatmap_data[['Longitude', 'Latitude', 'mean']]
+        map_df = elt_group_fields(map_df, group_fields, categorical_cols=oed_fields)
+        map_df = map_df[[intensity_col] + oed_fields]
 
-        mv = MapView(heatmap_data, longitude='Longitude', latitude='Latitude',
-                     map_type='heatmap', weight='mean')
+        loc_reduced = locations[['LocNumber', 'Longitude', 'Latitude']]
+        map_df = map_df.merge(loc_reduced, how="left", on="LocNumber")
+        map_df = map_df[['Longitude', 'Latitude', intensity_col]]
+
+        mv = MapView(map_df, longitude='Longitude', latitude='Latitude',
+                     map_type='heatmap', weight=intensity_col)
         mv.display()
         return
 
     st.info("No map to display")
+
+def valid_locations(loc_df):
+    '''
+    Check if `Latitude` and `Longitude` columns are present
+    and if they are unique between locations.
+    '''
+    if loc_df is None:
+        return False
+    if not set(['Latitude', 'Longitude']).issubset(loc_df.columns):
+        return False
+
+    lat_long = loc_df[['Latitude', 'Longitude']]
+    if (lat_long == lat_long.iloc[0]).all(axis=None):
+        return False
+
+    return True
+
 
 @st.fragment
 def generate_eltcalc_fragment(perspective, vis_interface,
@@ -348,7 +451,7 @@ def generate_eltcalc_fragment(perspective, vis_interface,
     ----------
     perspective : str
                   Chosen perspective `gul`, `il` or `ri`.
-    vis_interface : OutputVisualisationInterface
+    vis_interface : OutputInterface
     table : bool
             If `True` displays table view.
     map : bool
@@ -358,6 +461,7 @@ def generate_eltcalc_fragment(perspective, vis_interface,
 
     '''
     oed_fields = vis_interface.oed_fields.get(perspective, [])
+    eltcalc_result = vis_interface.get(1, perspective, 'eltcalc')
 
     tab_names = []
     if table:
@@ -370,41 +474,152 @@ def generate_eltcalc_fragment(perspective, vis_interface,
 
     tabs = st.tabs([t.title() for t in tab_names])
 
-    def valid_locations(loc_df):
-        '''
-        Check if `Latitude` and `Longitude` columns are present
-        and if they are unique between locations.
-        '''
-        if loc_df is None:
-            return False
-        if not set(['Latitude', 'Longitude']).issubset(loc_df.columns):
-            return False
-
-        lat_long = loc_df[['Latitude', 'Longitude']]
-        if (lat_long == lat_long.iloc[0]).all(axis=None):
-            return False
-
-        return True
-
     for name, tab in zip(tab_names, tabs):
         if name == 'map':
             assert locations is not None, "Locations required for map view."
             map_type = None
 
-            if 'LocNumber' in vis_interface.oed_fields.get(perspective, []) and valid_locations(locations):
+            if 'LocNumber' in oed_fields and valid_locations(locations):
                 map_type = 'heatmap'
-            elif 'CountryCode' in vis_interface.oed_fields.get(perspective, []):
+            elif 'CountryCode' in oed_fields:
                 map_type = 'choropleth'
 
             with tab:
-                eltcalc_map(perspective, vis_interface, locations, oed_fields, map_type)
+                map_df = eltcalc_result[eltcalc_result['type'] == 'Sample']
+                eltcalc_map(map_df, locations, oed_fields, map_type)
         elif name == 'table':
             with tab:
-                eltcalc_table(perspective, vis_interface, oed_fields)
+                eltcalc_table(eltcalc_result, perspective, oed_fields)
+
+@st.fragment
+def generate_melt_fragment(p, vis, locations=None):
+    data_df = vis.get(1, p, 'elt_moment')
+    oed_fields = vis.oed_fields.get(p)
+
+    # Type filter
+    if 'type' in data_df.columns:
+        type_col = 'type'
+    elif 'SampleType' in data_df.columns:
+        type_col = 'SampleType'
+    else:
+        type_col = None
+
+    if type_col:
+        types = data_df[type_col].unique()
+        selected_type = st.radio('Type Filter:', options=types, index=0, horizontal=True,
+                                 key=f'melt_elt_ord_type_filter')
+        data_df = data_df[data_df[type_col] == selected_type]
+
+    map_event_container = st.container()
+
+    tab_names = ['table', 'map']
+    with st.container(border=True):
+        tabs = st.tabs([t.title() for t in tab_names])
+
+    with tabs[0]:
+        data_df, selected = elt_ord_table(data_df, perspective=p, oed_fields=oed_fields,
+                                 order_cols=['MeanLoss','MeanImpactedExposure',
+                                             'MaxImpactedExposure'],
+                                 data_cols=['MeanLoss','MeanImpactedExposure',
+                                            'MaxImpactedExposure'],
+                                 key_prefix='melt',
+                                 selectable='multi')
+
+    selected_events = []
+    if selected is not None and not selected.empty:
+        selected_events = selected['EventId'].tolist()
+
+    if locations is None:
+        with tabs[1]:
+            st.error("Map view unavailable.")
+        logger.error("Locations required for Map view")
+        return
+
+    map_type = None
+
+    if 'LocNumber' in oed_fields and valid_locations(locations):
+        map_type = 'heatmap'
+    elif 'CountryCode' in oed_fields:
+        map_type = 'choropleth'
+
+    if selected_events:
+        data_df = data_df[data_df['EventId'].isin(selected_events)]
+
+    with tabs[1]:
+        if len(selected_events) > 0:
+            data = pd.DataFrame(
+                {'EventId':[selected_events] }
+            )
+            st.dataframe(data,
+                         column_config= {'EventId' : st.column_config.ListColumn('Mapped EventIds')},
+                         hide_index=True)
+        loss_col = st.radio('Intensity Column:', ['MeanLoss', 'MeanImpactedExposure', 'MaxImpactedExposure'],
+                            index=0, horizontal=True)
+        eltcalc_map(data_df, locations, oed_fields, map_type,
+                    intensity_col=loss_col)
+
+
+@st.fragment
+def generate_qelt_fragment(p, vis, locations=None):
+    data_df = vis.get(1, p, 'elt_quantile')
+    oed_fields = vis.oed_fields.get(p)
+
+    options = data_df['Quantile'].unique()
+    quantile_filter = st.radio("Quantile Filter", options,
+                               horizontal=True, index=len(options) - 1)
+
+    data_df = data_df[data_df['Quantile'] == quantile_filter]
+
+    map_event_container = st.container()
+
+    tab_names = ['table', 'map']
+    with st.container(border=True):
+        tabs = st.tabs([t.title() for t in tab_names])
+
+    with tabs[0]:
+        table_df, selected = elt_ord_table(data_df, perspective=p,
+                                 oed_fields=oed_fields, key_prefix='qelt',
+                                 order_cols=['Loss'], data_cols=['Loss'],
+                                 selectable="multi")
+
+    selected_events = []
+    if selected is not None and not selected.empty:
+        selected_events = selected['EventId'].tolist()
+
+
+    if locations is None:
+        with tabs[1]:
+            st.error("Map view unavailable.")
+        logger.error("Locations required for Map view")
+        return
+
+    map_type = None
+
+    if 'LocNumber' in oed_fields and valid_locations(locations):
+        map_type = 'heatmap'
+    elif 'CountryCode' in oed_fields:
+        map_type = 'choropleth'
+
+    map_df = data_df
+    if selected_events:
+        map_df = data_df[data_df['EventId'].isin(selected_events)]
+
+    with tabs[1]:
+        if len(selected_events) > 0:
+            data = pd.DataFrame(
+                {'EventId':[selected_events] }
+            )
+            st.dataframe(data,
+                         column_config= {'EventId' : st.column_config.ListColumn('Mapped EventIds')},
+                         hide_index=True)
+        eltcalc_map(map_df, locations, oed_fields, map_type,
+                    intensity_col='Loss')
+    return
+
 
 @st.fragment
 def generate_aalcalc_fragment(p, vis):
-    result = vis.get(1, 'gul', 'aalcalc')
+    result = vis.get(1, p, 'aalcalc')
 
     oed_fields = vis.oed_fields.get(p)
     breakdown_field = None
@@ -433,6 +648,43 @@ def generate_aalcalc_fragment(p, vis):
         st.error("Too many values in group field.")
 
     st.plotly_chart(graph, use_container_width=True)
+
+@st.fragment
+def generate_alt_fragment(p, vis, output_type='alt_meanonly'):
+    result = vis.get(1, p, output_type)
+    type_field = 'SampleType'
+    mean_field = 'MeanLoss'
+
+    oed_fields = vis.oed_fields.get(p)
+    breakdown_field = None
+    if oed_fields and len(oed_fields) > 0:
+        breakdown_field = st.pills('Breakdown OED Field: ', options=oed_fields,
+                                   key=f'{output_type}_oed_filter')
+
+    breakdown_field_invalid = False
+    if breakdown_field and result[breakdown_field].nunique() > 100:
+        breakdown_field_invalid = True
+        breakdown_field = None
+
+    group_field = [type_field]
+
+    if breakdown_field:
+        result[breakdown_field] = result[breakdown_field].astype(str)
+        group_field += [breakdown_field]
+
+    result = result.loc[:, group_field + [mean_field]]
+    result = result.groupby(group_field, as_index=False).agg({mean_field: 'sum'})
+
+    type_formatted = type_field[0] + type_field[1:]
+    mean_formatted = mean_field[0] + mean_field[1:]
+    graph = px.bar(result, x=type_field, y=mean_field, color=breakdown_field,
+                   labels = {type_field: type_formatted, mean_field: mean_formatted},
+                   color_discrete_sequence= px.colors.sequential.RdBu)
+
+    if breakdown_field_invalid:
+        st.error("Too many values in group field.")
+
+    st.plotly_chart(graph, use_container_width=True, key=f'{output_type}_graph')
 
 def generate_leccalc_fragment(p, vis, lec_outputs):
     lec_options = [option for option in lec_outputs.keys() if lec_outputs[option]]
@@ -511,7 +763,8 @@ def generate_leccalc_fragment(p, vis, lec_outputs):
         st.plotly_chart(fig)
 
 @st.cache_data(show_spinner='Creating pltcalc bar')
-def pltcalc_bar(result, selected_group=None, number_shown=10, date_id = False):
+def pltcalc_bar(result, selected_group=None, number_shown=10, date_id = False,
+                year='Year', month='Month', day='Day', loss='MeanLoss'):
     '''
     Bar plot of pltcalc output ranked by loss in descending order by year.
 
@@ -529,36 +782,40 @@ def pltcalc_bar(result, selected_group=None, number_shown=10, date_id = False):
               in `result`.
     '''
     if not date_id:
-        date_cols = ["occ_year", "occ_month", "occ_day"]
-        result[date_cols] = result[date_cols].astype(str)
-        result["occ_year"] = result["occ_year"].str.zfill(result["occ_year"].str.len().max())
-        result["occ_month"] = result["occ_month"].str.zfill(2)
-        result["occ_day"] = result["occ_day"].str.zfill(2)
-        result['date_id'] = result[date_cols].agg('-'.join, axis=1)
+        result[[year, month, day]] = result[[year, month, day]].astype(str)
+        result[year] = result[year].str.zfill(result[year].str.len().max())
+        result[month] = result[month].str.zfill(2)
+        result[day] = result[day].str.zfill(2)
+        result['date_id'] = result[[year, month, day]].agg('-'.join, axis=1)
 
     if selected_group:
-        result_df = result[[selected_group, 'date_id', 'mean']]
+        result_df = result[[selected_group, 'date_id', loss]]
     else:
-        result_df = result[['date_id', 'mean']]
+        result_df = result[['date_id', loss]]
 
-    ranked_dates = result_df.groupby('date_id', as_index=False).agg({'mean': 'sum'}).sort_values(by='mean', ascending=False)
+    ranked_dates = result_df.groupby('date_id', as_index=False).agg({loss: 'sum'}).sort_values(by=loss, ascending=False)
 
     ranked_dates = ranked_dates.iloc[:number_shown]
-    ranked_dates = ranked_dates.rename(columns={'mean': 'total_mean'})
+    ranked_dates = ranked_dates.rename(columns={loss: f'total_{loss}'})
 
     result_df = result_df[result_df['date_id'].isin(ranked_dates['date_id'])]
     result_df = pd.merge(result_df, ranked_dates, how='left', on='date_id')
 
     if selected_group:
-        result_df = result_df.groupby([selected_group, 'date_id'], as_index=False).agg({'mean': 'sum', 'total_mean': 'first'})
+        result_df = result_df.groupby([selected_group, 'date_id'], as_index=False).agg({loss: 'sum', f'total_{loss}': 'first'})
     else:
-        result_df = result_df.groupby(['date_id'], as_index=False).agg({'mean': 'sum', 'total_mean': 'first'})
+        result_df = result_df.groupby(['date_id'], as_index=False).agg({loss: 'sum', f'total_{loss}': 'first'})
 
-    fig = px.bar(result_df, x='date_id', y='mean', color=selected_group,
+    if len(loss) > 1:
+        loss_formatted = loss[0].upper() + loss[1:]
+    else:
+        loss_formatted = loss
+
+    fig = px.bar(result_df, x='date_id', y=loss, color=selected_group,
                  hover_data={
-                     'total_mean': ':s'
+                     f'total_{loss}': ':s'
                  },
-                 labels={'date_id': 'Date', 'total_mean': 'Total Mean', 'mean': 'Mean'})
+                 labels={'date_id': 'Date', f'total_{loss}': f'Total {loss_formatted}', loss: loss_formatted})
     fig.update_xaxes(type='category', categoryorder='array',
                      categoryarray=ranked_dates['date_id'])
 
@@ -566,12 +823,12 @@ def pltcalc_bar(result, selected_group=None, number_shown=10, date_id = False):
 
 @st.fragment
 def generate_pltcalc_fragment(p, vis):
-    result = vis.get(1, 'gul', 'pltcalc')
+    result = vis.get(1, p, 'pltcalc')
     oed_fields = vis.oed_fields.get(p)
 
     selected_group = None
     if oed_fields and len(oed_fields) > 0 :
-        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key='leccalc_group_field_pills')
+        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key='pltcalc_group_field_pills')
 
     selected_group_invalid = False
     if selected_group and result[selected_group].nunique() > 100:
@@ -585,11 +842,157 @@ def generate_pltcalc_fragment(p, vis):
 
     result = result[result['type'] == selected_type]
 
+    date_cols = {
+        'year': 'occ_year',
+        'month': 'occ_month',
+        'day': 'occ_day'
+    }
+
     with st.spinner('Generating pltcalc...'):
-        if set(['occ_year', 'occ_month', 'occ_day']).issubset(result.columns):
-            fig = pltcalc_bar(result, selected_group, date_id=False)
+        if set(date_cols.values()).issubset(result.columns):
+            fig = pltcalc_bar(result, selected_group, date_id=False, loss='mean',  **date_cols)
         else:
-            fig = pltcalc_bar(result, selected_group, date_id=True)
+            fig = pltcalc_bar(result, selected_group, date_id=True, loss='mean')
     st.plotly_chart(fig)
     if selected_group_invalid:
-        st.error(f"Too many values in group field.")
+        st.error("Too many values in group field.")
+
+@st.fragment
+def generate_mplt_fragment(p, vis):
+    result = vis.get(1, p, 'plt_moment')
+    oed_fields = vis.oed_fields.get(p)
+
+    selected_group = None
+    if oed_fields and len(oed_fields) > 0 :
+        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key=f'mplt_{p}_group_field_pills')
+
+    selected_group_invalid = False
+    if selected_group and result[selected_group].nunique() > 100:
+        selected_group_invalid = True
+        selected_group = None
+    elif selected_group:
+        result[selected_group] = result[selected_group].astype(str)
+
+    types = result['SampleType'].unique()
+    selected_type = st.radio('Type filter: ', options=types, index=0, horizontal=True)
+
+    result = result[result['SampleType'] == selected_type]
+
+    date_cols = {
+        'year': 'Year',
+        'month': 'Month',
+        'day': 'Day'
+    }
+
+    loss_col = st.radio('Loss Filter: ', options=['MeanLoss', 'MaxLoss',
+                                                  'MeanImpactedExposure',
+                                                  'MaxImpactedExposure'], horizontal=True)
+
+    with st.spinner('Generating pltcalc...'):
+        fig = pltcalc_bar(result, selected_group, date_id=False, loss=loss_col, **date_cols)
+
+    if selected_group_invalid:
+        st.error("Too many values in group field.")
+    st.plotly_chart(fig)
+
+@st.fragment
+def generate_qplt_fragment(p, vis):
+    result = vis.get(1, p, 'plt_quantile')
+    oed_fields = vis.oed_fields.get(p)
+
+    selected_group = None
+    if oed_fields and len(oed_fields) > 0 :
+        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key=f'qplt_{p}_group_field_pills')
+
+    selected_group_invalid = False
+    if selected_group and result[selected_group].nunique() > 100:
+        selected_group_invalid = True
+        selected_group = None
+    elif selected_group:
+        result[selected_group] = result[selected_group].astype(str)
+
+    quantiles = result['Quantile'].unique()
+    quantile_filter = st.radio('Quantile Filter: ', options=quantiles,
+                               horizontal=True,
+                               format_func=lambda x: '{:.2f}'.format(x))
+    date_cols = {
+        'year': 'Year',
+        'month': 'Month',
+        'day': 'Day'
+    }
+
+    result = result[result['Quantile'] == quantile_filter]
+    with st.spinner('Generating pltcalc...'):
+        fig = pltcalc_bar(result, selected_group, date_id=False, loss="Loss", **date_cols)
+
+    if selected_group_invalid:
+        st.error("Too many values in group field.")
+    st.plotly_chart(fig)
+
+@st.fragment
+def generate_ept_fragment(p, vis):
+    result = vis.get(1, p, 'ept')
+
+    ep_type_map = {
+        1 : 'OEP',
+        2 : 'OEP TVAR',
+        3 : 'AEP',
+        4 : 'AEP TVAR'
+    }
+
+    ep_calc_map = {
+        1 : 'MeanDR',
+        2 :  'Full',
+        3 :  'PerSampleMean',
+        4 :  'MeanSample'
+    }
+
+    type_options = result['EPType'].unique()
+    calc_options = result['EPCalc'].unique()
+
+    if len(type_options) > 1:
+        selected_type = st.radio('EP Curve Type: ', options=type_options, horizontal=True,
+                                 format_func= lambda x: ep_type_map.get(x, x))
+
+        result = result[result['EPType'] == selected_type]
+
+    selected_calc = None
+    if len(calc_options) > 1:
+        selected_calc = st.radio("Calculation Method:", options=calc_options, horizontal=True,
+                                 format_func=lambda x: ep_calc_map.get(x, x))
+        result = result[result['EPCalc'] == selected_calc]
+
+    oed_fields = vis.oed_fields.get(p)
+
+    selected_group = None
+    if oed_fields and len(oed_fields) > 0 :
+        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key=f'qplt_{p}_group_field_pills')
+
+    if selected_group is None:
+        selected_group = 'SummaryId'
+
+    result = result[[selected_group, 'ReturnPeriod', 'Loss']]
+    result = result.groupby([selected_group, 'ReturnPeriod'],
+                            as_index=False).agg({'Loss': 'sum'})
+
+    max_return_period = result['ReturnPeriod'].max()
+    unique_group = result[result['ReturnPeriod'] == max_return_period].sort_values(by='Loss', ascending=False)
+    unique_group = unique_group[selected_group].tolist()
+
+    result = result.sort_values(by=['ReturnPeriod', 'Loss'], ascending=[True, False])
+    log_x = log10(result['ReturnPeriod'].max()) - log10(result['ReturnPeriod'].min()) > 2
+
+    all_selected = result[selected_group].unique().tolist()
+    unique_group += [e for e in all_selected if e not in unique_group]
+
+    if len(unique_group) > 5:
+        filter_group = st.multiselect(f'Filtered {selected_group} Values:',
+                                      options = unique_group,
+                                      default = unique_group[:5])
+        result = result[result[selected_group].isin(filter_group)]
+
+    fig = px.line(result, x='ReturnPeriod', y='Loss',
+                  color=selected_group, markers=False,
+                  labels = {'ReturnPeriod': 'Return Period'},
+                  log_x=log_x)
+    st.plotly_chart(fig)
