@@ -1,9 +1,12 @@
+from modules.visualisation import OutputInterface
+from pages.dashboard import get_analysis_outputs
 import streamlit as st
 import pandas as pd
 from modules.nav import SidebarNav
 from modules.client import ClientInterface
 from modules.validation import LenValidation, NotNoneValidation, ValidationGroup
 from pages.components.display import DataframeView
+from pages.components.output import generate_aalcalc_comparison_fragment
 
 st.set_page_config(
     page_title = "Comparison",
@@ -60,3 +63,36 @@ if not validations.is_valid():
     st.info(validations.message)
     st.stop()
 
+settings1 = client.analyses.settings.get(selected['analysis_id'][0]).json()
+settings2 = client.analyses.settings.get(selected['analysis_id'][1]).json()
+
+perspectives = ['gul', 'il', 'ri']
+
+for p in perspectives:
+    if not settings1.get(f'{p}_output', False) and not settings2.get(f'{p}_output', False):
+        st.write(f'No {p} output')
+        continue
+
+    summaries1 = settings1.get(f'{p}_summaries', [{}])
+    summaries2 = settings2.get(f'{p}_summaries', [{}])
+
+    with st.spinner("Loading data..."):
+        output_1 = get_analysis_outputs(selected['analysis_id'][0])
+        output_2 = get_analysis_outputs(selected['analysis_id'][1])
+
+    output_1 = OutputInterface(output_1)
+    output_2 = OutputInterface(output_2)
+
+
+    oed_field_1 = summaries1[0].get('oed_fields', None)
+    if oed_field_1:
+        output_1.set_oed_fields(p, oed_field_1)
+
+    oed_field_2 = summaries2[0].get('oed_fields', None)
+    if oed_field_2:
+        output_2.set_oed_fields(p, oed_field_2)
+
+    if summaries1[0].get('aalcalc', False) and summaries2[0].get('aalcalc', False):
+        generate_aalcalc_comparison_fragment(p, output_1, output_2,
+                                             name_1=selected['name'][0],
+                                             name_2=selected['name'][1])

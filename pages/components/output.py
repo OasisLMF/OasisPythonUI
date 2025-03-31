@@ -996,3 +996,55 @@ def generate_ept_fragment(p, vis):
                   labels = {'ReturnPeriod': 'Return Period'},
                   log_x=log_x)
     st.plotly_chart(fig)
+
+def generate_aalcalc_comparison_fragment(p, output_1, output_2,
+                                         name_1 = None, name_2 = None):
+    result_1 = output_1.get(1, p, 'aalcalc')
+    result_2 = output_2.get(1, p, 'aalcalc')
+
+    oed_fields = output_1.oed_fields.get(p)
+    oed_fields = set(oed_fields) & set(output_2.oed_fields.get(p))
+    breakdown_field = None
+    if oed_fields and len(oed_fields) > 0:
+        breakdown_field = st.pills('Breakdown OED Field: ', options=oed_fields)
+
+    breakdown_field_invalid = False
+    if breakdown_field and (result_1[breakdown_field].nunique() > 100 or result_2[breakdown_field].nunique()>100):
+        breakdown_field_invalid = True
+        breakdown_field = None
+
+    types = result_1['type'].unique()
+    selected_type = st.radio('Type filter: ', options=types, index=0, horizontal=True)
+
+    result_1 = result_1[result_1['type'] == selected_type]
+    result_2 = result_2[result_2['type'] == selected_type]
+
+    group_field = []
+    if breakdown_field:
+        result_1[breakdown_field] = result_1[breakdown_field].astype(str)
+        result_2[breakdown_field] = result_2[breakdown_field].astype(str)
+        group_field += [breakdown_field]
+
+    result_1 = result_1.loc[:, group_field + ['mean']]
+    result_2 = result_2.loc[:, group_field + ['mean']]
+    if len(group_field) > 0:
+        result_1 = result_1.groupby(group_field, as_index=False).agg({'mean': 'sum'})
+        result_2 = result_2.groupby(group_field, as_index=False).agg({'mean': 'sum'})
+
+    if name_1 is None:
+        result_1['name'] = 'Analysis 1'
+    else:
+        result_1['name'] = name_1
+    if name_2 is None:
+        result_2['name'] = 'Analysis 2'
+    else:
+        result_2['name'] = name_2
+
+    result = pd.concat([result_1, result_2])
+    graph = px.bar(result, x='name', y='mean', color=breakdown_field,
+                   labels = {'mean': 'Mean', 'name': 'Analysis Name'},
+                   color_discrete_sequence= px.colors.sequential.RdBu)
+    st.plotly_chart(graph, use_container_width=True)
+
+    if breakdown_field_invalid:
+        st.error("Too many values in group field.")
