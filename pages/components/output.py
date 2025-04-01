@@ -297,7 +297,8 @@ def oed_fields_group(oed_fields, key_prefix=None, selection_mode='multi'):
     return group_fields
 
 def elt_ord_table(result, perspective, oed_fields = None, key_prefix=None,
-                  order_cols=None, data_cols=None, selectable=False):
+                  order_cols=None, data_cols=None, name_map = {},
+                  event_id='EventId', additional_cols=None, selectable=False):
     table_df = result
     if key_prefix is None:
         key_prefix = ''
@@ -308,11 +309,14 @@ def elt_ord_table(result, perspective, oed_fields = None, key_prefix=None,
     if data_cols is None:
         data_cols = []
 
-    # Ordering
+    if additional_cols is None:
+        additional_cols = []
 
+    # Ordering
     if order_cols:
         if len(order_cols) > 1:
             order_col = st.radio('Sort By: ', options=order_cols, index=0, horizontal=True,
+                                 format_func = lambda x: name_map.get(x, x),
                                  key=f'{key_prefix}_elt_ord_order_col')
         else:
             order_col = order_cols[0]
@@ -329,14 +333,17 @@ def elt_ord_table(result, perspective, oed_fields = None, key_prefix=None,
             if oed_filter:
                 table_df = table_df[table_df[oed_field].isin(oed_filter)]
 
-    cols = ['EventId'] + oed_fields + data_cols
+    cols = [event_id] + additional_cols + oed_fields + data_cols
     table_view = DataframeView(table_df, display_cols=cols, selectable=selectable)
 
-    for col in data_cols:
-        table_view.column_config[col] = st.column_config.NumberColumn(col, format='%.2f')
+    for c in data_cols:
+        table_view.column_config[c] = st.column_config.NumberColumn(name_map.get(c, c),
+                                                                      format='%.2f')
     for c in oed_fields:
-        table_view.column_config[c] = st.column_config.ListColumn(c)
-    table_view.column_config['EventId'] = st.column_config.ListColumn('EventId')
+        table_view.column_config[c] = st.column_config.ListColumn(name_map.get(c, c))
+    for c in additional_cols:
+        table_view.column_config[c] = st.column_config.ListColumn(name_map.get(c, c))
+    table_view.column_config[event_id] = st.column_config.ListColumn('Event ID')
 
     selected = table_view.display()
 
@@ -440,7 +447,7 @@ def valid_locations(loc_df):
 
 
 @st.fragment
-def generate_eltcalc_fragment(perspective, vis_interface,
+def generate_eltcalc_fragment(perspective, output,
                               table = True, map = False, locations = None):
     '''
     Generate an `eltcalc` visualisation. Currently supports the `table`
@@ -460,8 +467,8 @@ def generate_eltcalc_fragment(perspective, vis_interface,
                 DataFrame representing `locations.csv` file. Required for `map` view.
 
     '''
-    oed_fields = vis_interface.oed_fields.get(perspective, [])
-    eltcalc_result = vis_interface.get(1, perspective, 'eltcalc')
+    oed_fields = output.oed_fields.get(perspective, [])
+    eltcalc_result = output.get(1, perspective, 'eltcalc')
 
     tab_names = []
     if table:
@@ -997,13 +1004,16 @@ def generate_ept_fragment(p, vis):
                   log_x=log_x)
     st.plotly_chart(fig)
 
+def shared_oed_fields(p, output_1, output_2):
+    oed_fields = output_1.oed_fields.get(p)
+    return list(set(oed_fields) & set(output_2.oed_fields.get(p)))
+
 def generate_aalcalc_comparison_fragment(p, output_1, output_2,
                                          name_1 = None, name_2 = None):
     result_1 = output_1.get(1, p, 'aalcalc')
     result_2 = output_2.get(1, p, 'aalcalc')
 
-    oed_fields = output_1.oed_fields.get(p)
-    oed_fields = set(oed_fields) & set(output_2.oed_fields.get(p))
+    oed_fields = shared_oed_fields(p, output_1, output_2)
     breakdown_field = None
     if oed_fields and len(oed_fields) > 0:
         breakdown_field = st.pills('Breakdown OED Field: ', options=oed_fields)
@@ -1041,6 +1051,9 @@ def generate_aalcalc_comparison_fragment(p, output_1, output_2,
         result_2['name'] = name_2
 
     result = pd.concat([result_1, result_2])
+    if breakdown_field is None:
+        result = result.groupby('name', as_index=False).agg({'mean': 'sum'})
+
     graph = px.bar(result, x='name', y='mean', color=breakdown_field,
                    labels = {'mean': 'Mean', 'name': 'Analysis Name'},
                    color_discrete_sequence= px.colors.sequential.RdBu)
@@ -1048,3 +1061,44 @@ def generate_aalcalc_comparison_fragment(p, output_1, output_2,
 
     if breakdown_field_invalid:
         st.error("Too many values in group field.")
+
+def generate_eltcalc_comparison_fragment(perspective, output_1, output_2,
+                                         name_1 = None, name_2 = None):
+
+    outputs = [output_1, output_2]
+    names = [name_1, name_2]
+
+    results = [o.get(1, perspective, 'eltcalc') for o in outputs]
+    oed_fields = shared_oed_fields(perspective, *outputs)
+
+    types = results[0]['type'].unique()
+
+    selected_type = st.radio('Type Filter:', options=types, index=0, horizontal=True,
+                             key=f'{perspective}_elt_comparison_type_filter')
+
+    for i, res in enumerate(results):
+        results[i] = results[i][results[i]['type'] == selected_type]
+        results[i]['name'] = names[i] if names[i] else f'Analysis {i+1}'
+
+
+    name_map = {i: names[i] for i in range(2)}
+    selected_analysis = st.pills('Analysis Filter:', options=name_map.keys(),
+                         format_func = lambda x: name_map[x],
+                         key=f'{perspective}_elt_name_filter')
+
+    if selected_analysis is not None:
+        result = results[selected_analysis]
+    else:
+        result = pd.concat(results)
+
+    _, selected = elt_ord_table(result, perspective=perspective, oed_fields=oed_fields,
+                             order_cols=['mean','exposure_value'],
+                             data_cols = ['mean', 'exposure_value'],
+                             key_prefix='elt', event_id='event_id',
+                             additional_cols=['name'],
+                             name_map = {
+                                    'mean': 'Mean',
+                                    'exposure_value': 'Exposure Value',
+                                    'name': 'Analysis Name'
+                                },
+                             selectable='multi')

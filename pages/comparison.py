@@ -7,6 +7,7 @@ from modules.client import ClientInterface
 from modules.validation import LenValidation, NotNoneValidation, ValidationGroup
 from pages.components.display import DataframeView
 from pages.components.output import generate_aalcalc_comparison_fragment
+from pages.components.output import generate_eltcalc_comparison_fragment
 
 st.set_page_config(
     page_title = "Comparison",
@@ -70,9 +71,9 @@ perspectives = ['gul', 'il', 'ri']
 
 for p in perspectives:
     if not settings1.get(f'{p}_output', False) and not settings2.get(f'{p}_output', False):
-        st.write(f'No {p} output')
         continue
 
+    st.write(f"## {p.upper()} Output")
     summaries1 = settings1.get(f'{p}_summaries', [{}])
     summaries2 = settings2.get(f'{p}_summaries', [{}])
 
@@ -93,6 +94,15 @@ for p in perspectives:
         output_2.set_oed_fields(p, oed_field_2)
 
     if summaries1[0].get('aalcalc', False) and summaries2[0].get('aalcalc', False):
-        generate_aalcalc_comparison_fragment(p, output_1, output_2,
-                                             name_1=selected['name'][0],
-                                             name_2=selected['name'][1])
+        expander = st.expander("AAL Output")
+        with expander:
+            generate_aalcalc_comparison_fragment(p, output_1, output_2,
+                                                 name_1=selected['name'][0],
+                                                 name_2=selected['name'][1])
+
+    if summaries1[0].get('eltcalc', False) and summaries2[0].get('eltcalc', False):
+        expander = st.expander("ELT Output")
+        with expander:
+            generate_eltcalc_comparison_fragment(p, output_1, output_2,
+                                                 name_1=selected['name'][0],
+                                                 name_2=selected['name'][1])
