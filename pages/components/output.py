@@ -416,7 +416,6 @@ def eltcalc_map(map_df, locations, oed_fields=[], map_type=None,
     if map_type == 'heatmap':
         group_fields = ['LocNumber']
         map_df = elt_group_fields(map_df, group_fields, categorical_cols=oed_fields)
-        map_df = map_df[[intensity_col] + oed_fields]
 
         loc_reduced = locations[['LocNumber', 'Longitude', 'Latitude']]
         map_df = map_df.merge(loc_reduced, how="left", on="LocNumber")
@@ -1063,8 +1062,8 @@ def generate_aalcalc_comparison_fragment(p, output_1, output_2,
         st.error("Too many values in group field.")
 
 def generate_eltcalc_comparison_fragment(perspective, output_1, output_2,
-                                         name_1 = None, name_2 = None):
-
+                                         locations=None, name_1 = None,
+                                         name_2 = None):
     outputs = [output_1, output_2]
     names = [name_1, name_2]
 
@@ -1082,9 +1081,11 @@ def generate_eltcalc_comparison_fragment(perspective, output_1, output_2,
 
 
     name_map = {i: names[i] for i in range(2)}
-    selected_analysis = st.pills('Analysis Filter:', options=name_map.keys(),
-                         format_func = lambda x: name_map[x],
-                         key=f'{perspective}_elt_name_filter')
+    selected_analysis = st.segmented_control('Analysis Filter:',
+                                             options=name_map.keys(),
+                                             format_func = lambda x:
+                                             name_map[x],
+                                             key=f'{perspective}_elt_name_filter')
 
     if selected_analysis is not None:
         result = results[selected_analysis]
@@ -1102,3 +1103,13 @@ def generate_eltcalc_comparison_fragment(perspective, output_1, output_2,
                                     'name': 'Analysis Name'
                                 },
                              selectable='multi')
+
+    # if selected is not None:
+    #     st.write(selected[['event_id', 'name']])
+
+    if locations is None:
+        st.info('Locations files not found.')
+        return
+
+    eltcalc_map(result, locations, oed_fields, map_type='heatmap',
+                intensity_col='mean')

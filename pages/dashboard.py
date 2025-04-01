@@ -40,7 +40,7 @@ analysis_id = selected_analysis['id']
 
 @st.cache_data
 def get_analysis_inputs(ID):
-    return client_interface.analyses.get_file(analysis_id, 'input_file', df=True)
+    return client_interface.analyses.get_file(ID, 'input_file', df=True)
 
 with st.spinner("Loading data..."):
     inputs = get_analysis_inputs(analysis_id)

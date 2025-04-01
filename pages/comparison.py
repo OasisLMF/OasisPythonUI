@@ -52,6 +52,7 @@ analyses_view = DataframeView(analyses, selectable='multi',
                               display_cols=['name', 'portfolio_name', 'model_id', 'supplier_id'])
 selected = analyses_view.display()
 
+
 validations = ValidationGroup()
 none_validation = NotNoneValidation()
 none_validation.message = 'Select 2 analyses.'
@@ -64,8 +65,32 @@ if not validations.is_valid():
     st.info(validations.message)
     st.stop()
 
-settings1 = client.analyses.settings.get(selected['analysis_id'][0]).json()
-settings2 = client.analyses.settings.get(selected['analysis_id'][1]).json()
+analysis_id_1 = selected['analysis_id'][0]
+analysis_id_2 = selected['analysis_id'][1]
+
+settings1 = client.analyses.settings.get(analysis_id_1).json()
+settings2 = client.analyses.settings.get(analysis_id_2).json()
+
+@st.cache_data
+def get_locations_file(ID):
+    inputs = client_interface.analyses.get_file(ID, 'input_file', df=True)
+    if inputs:
+        return inputs.get('location.csv')
+    return None
+
+@st.cache_data
+def merge_locations(locations_1, locations_2):
+    if locations_1 is None or locations_2 is None:
+        return None
+    locations_1 = locations_1[['LocNumber', 'Longitude', 'Latitude']]
+    locations_2 = locations_2[['LocNumber', 'Longitude', 'Latitude']]
+
+    locations = pd.merge(left=locations_1, right=locations_2, how='outer',
+                         on='LocNumber', suffixes=('_left', '_right'))
+    locations['Latitude'] = locations[['Latitude_left', 'Latitude_right']].mean(axis=1)
+    locations['Longitude'] = locations[['Longitude_left', 'Longitude_right']].mean(axis=1)
+    locations = locations[['LocNumber', 'Latitude', 'Longitude']]
+    return locations
 
 perspectives = ['gul', 'il', 'ri']
 
@@ -78,12 +103,11 @@ for p in perspectives:
     summaries2 = settings2.get(f'{p}_summaries', [{}])
 
     with st.spinner("Loading data..."):
-        output_1 = get_analysis_outputs(selected['analysis_id'][0])
-        output_2 = get_analysis_outputs(selected['analysis_id'][1])
+        output_1 = get_analysis_outputs(analysis_id_1)
+        output_2 = get_analysis_outputs(analysis_id_2)
 
     output_1 = OutputInterface(output_1)
     output_2 = OutputInterface(output_2)
-
 
     oed_field_1 = summaries1[0].get('oed_fields', None)
     if oed_field_1:
@@ -103,6 +127,12 @@ for p in perspectives:
     if summaries1[0].get('eltcalc', False) and summaries2[0].get('eltcalc', False):
         expander = st.expander("ELT Output")
         with expander:
+            locations_1 = get_locations_file(analysis_id_1)
+            locations_2 = get_locations_file(analysis_id_2)
+
+            locations = merge_locations(locations_1, locations_2)
+
             generate_eltcalc_comparison_fragment(p, output_1, output_2,
                                                  name_1=selected['name'][0],
-                                                 name_2=selected['name'][1])
+                                                 name_2=selected['name'][1],
+                                                 locations=locations)
