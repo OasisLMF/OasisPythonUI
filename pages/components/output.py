@@ -426,7 +426,7 @@ def eltcalc_map(map_df, locations, oed_fields=[], map_type=None,
         mv.display()
         return
 
-    st.info("No map to display")
+    st.info("No map to display.")
 
 def valid_locations(loc_df):
     '''
@@ -1075,7 +1075,7 @@ def generate_eltcalc_comparison_fragment(perspective, output_1, output_2,
     selected_type = st.radio('Type Filter:', options=types, index=0, horizontal=True,
                              key=f'{perspective}_elt_comparison_type_filter')
 
-    for i, res in enumerate(results):
+    for i in range(len(results)):
         results[i] = results[i][results[i]['type'] == selected_type]
         results[i]['name'] = names[i] if names[i] else f'Analysis {i+1}'
 
@@ -1083,8 +1083,7 @@ def generate_eltcalc_comparison_fragment(perspective, output_1, output_2,
     name_map = {i: names[i] for i in range(2)}
     selected_analysis = st.segmented_control('Analysis Filter:',
                                              options=name_map.keys(),
-                                             format_func = lambda x:
-                                             name_map[x],
+                                             format_func = lambda x: name_map.get(x, x),
                                              key=f'{perspective}_elt_name_filter')
 
     if selected_analysis is not None:
@@ -1092,24 +1091,63 @@ def generate_eltcalc_comparison_fragment(perspective, output_1, output_2,
     else:
         result = pd.concat(results)
 
-    _, selected = elt_ord_table(result, perspective=perspective, oed_fields=oed_fields,
-                             order_cols=['mean','exposure_value'],
-                             data_cols = ['mean', 'exposure_value'],
-                             key_prefix='elt', event_id='event_id',
-                             additional_cols=['name'],
-                             name_map = {
-                                    'mean': 'Mean',
-                                    'exposure_value': 'Exposure Value',
-                                    'name': 'Analysis Name'
-                                },
-                             selectable='multi')
+    table_tab, map_tab = st.tabs(['Table', 'Map'])
 
-    # if selected is not None:
-    #     st.write(selected[['event_id', 'name']])
+    with table_tab:
+        result, selected = elt_ord_table(result, perspective=perspective, oed_fields=oed_fields,
+                                 order_cols=['mean','exposure_value'],
+                                 data_cols = ['mean', 'exposure_value'],
+                                 key_prefix='elt', event_id='event_id',
+                                 additional_cols=['name'],
+                                 name_map = {
+                                        'mean': 'Mean',
+                                        'exposure_value': 'Exposure Value',
+                                        'name': 'Analysis Name'
+                                    },
+                                 selectable='multi')
 
-    if locations is None:
-        st.info('Locations files not found.')
-        return
+    cols = st.columns(2)
+    mapped_events = {}
+    for i in range(2):
+        with cols[i]:
+            analysis_name = results[i]['name'].loc[0]
+            default_session_variable = f'elt_default_events_analysis_{i}'
 
-    eltcalc_map(result, locations, oed_fields, map_type='heatmap',
-                intensity_col='mean')
+            if default_session_variable not in st.session_state:
+                st.session_state[default_session_variable] = []
+                curr_default = []
+            else:
+                curr_default = st.session_state[default_session_variable]
+
+            if selected is not None:
+                curr_default += selected[selected['name'] == analysis_name]['event_id'].unique().tolist()
+                curr_default = list(set(curr_default))
+            curr_event_ids = result[result['name'] == analysis_name]['event_id'].unique()
+            curr_default = [d for d in curr_default if d in curr_event_ids]
+            curr_events = st.multiselect(f'{analysis_name} Mapped Events:', options=curr_event_ids,
+                                         default=curr_default,
+                                         key=f'elt_{perspective}_selectbox_events_{i}')
+
+            if len(curr_event_ids) > 0:
+                st.session_state[default_session_variable] = curr_events
+            mapped_events[analysis_name] = curr_events
+
+    with map_tab:
+        if locations is None:
+            st.info('Locations files not found.')
+            return
+        if selected is not None:
+            selected = selected.groupby('name', as_index=False).agg({'event_id': 'unique'})
+            selected_view = DataframeView(selected, display_cols=['name', 'event_id'])
+            selected_view.column_config['event_id'] = st.column_config.ListColumn('Event ID')
+            selected_view.column_config['name'] = 'Analysis Name'
+            selected_view.display()
+        map_type = None
+
+        if 'LocNumber' in oed_fields and valid_locations(locations):
+            map_type = 'heatmap'
+        elif 'CountryCode' in oed_fields:
+            map_type = 'choropleth'
+
+        eltcalc_map(result, locations, oed_fields, map_type=map_type,
+                    intensity_col='mean')
