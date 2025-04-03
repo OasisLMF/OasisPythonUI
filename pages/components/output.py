@@ -1136,18 +1136,22 @@ def generate_eltcalc_comparison_fragment(perspective, output_1, output_2,
         if locations is None:
             st.info('Locations files not found.')
             return
-        if selected is not None:
-            selected = selected.groupby('name', as_index=False).agg({'event_id': 'unique'})
-            selected_view = DataframeView(selected, display_cols=['name', 'event_id'])
-            selected_view.column_config['event_id'] = st.column_config.ListColumn('Event ID')
-            selected_view.column_config['name'] = 'Analysis Name'
-            selected_view.display()
+
         map_type = None
 
         if 'LocNumber' in oed_fields and valid_locations(locations):
             map_type = 'heatmap'
         elif 'CountryCode' in oed_fields:
             map_type = 'choropleth'
+
+        if all([len(v) > 0 for v in mapped_events.values()]):
+            results = []
+
+            for k, v in mapped_events.items():
+                curr_result = result[result['name'] == k]
+                curr_result = curr_result[curr_result['event_id'].isin(v)]
+                results.append(curr_result)
+            result = pd.concat(results)
 
         eltcalc_map(result, locations, oed_fields, map_type=map_type,
                     intensity_col='mean')
