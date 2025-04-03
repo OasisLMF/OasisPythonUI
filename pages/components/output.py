@@ -768,6 +768,92 @@ def generate_leccalc_fragment(p, vis, lec_outputs):
                           log_x=log_x)
         st.plotly_chart(fig)
 
+def generate_leccalc_comparison_fragment(perspective, outputs, lec_outputs, names=[]):
+    '''
+    Compare outputs from leccalc. Note that 'per_sample' or 'wheatsheaf' plots are not supported.
+    '''
+    lec_options = [option for option in lec_outputs.keys() if lec_outputs[option]]
+    lec_options = [opt for opt in lec_options if opt not in ['wheatsheaf_aep', 'wheatsheaf_oep']]
+    def format_lec_options(opt):
+        analysis_type = '_'.join(opt.split('_')[:-1])
+        loss_type = opt.split('_')[-1]
+
+        analysis_type = analysis_type.replace('wheatsheaf', 'per_sample')
+        return f'{analysis_type}_{loss_type}'
+
+    option = st.pills('Select Output:', options=lec_options,
+                      format_func=format_lec_options)
+
+    diff_names = len(outputs) - len(names)
+    offset = len(names)
+    if diff_names > 0:
+        for i in range(diff_names):
+            names.append(f'Analysis {i + offset + 1}')
+
+    assert len(outputs) <= 2, 'Maximum 2 outputs for comparison'
+
+    if option is None:
+        st.info('Output option not selected.')
+        return
+
+    analysis_type = '_'.join(option.split('_')[:-1])
+    loss_type = option.split('_')[-1]
+
+    results = [o.get(1, perspective, 'leccalc', analysis_type = analysis_type, loss_type = loss_type) for o in outputs]
+
+    types = set()
+    for r in results:
+        types.update(r['type'].unique().tolist())
+    selected_type = st.radio('Type Filter:', options=types, index=0, horizontal=True,
+                             key=f'{perspective}_lec_comparison_type_filter')
+    for i in range(len(results)):
+        results[i] = results[i][results[i]['type'] == selected_type]
+
+    oed_fields = shared_oed_fields(perspective, *outputs)
+
+    selected_group = None
+    if oed_fields and len(oed_fields) > 0:
+        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key='leccalc_group_field_pills')
+
+    if selected_group is None:
+        selected_group = 'summary_id'
+
+    results_plot = []
+    for result in results:
+        result_plot = result[[selected_group, 'return_period', 'loss']]
+        result_plot = result_plot.groupby([selected_group, 'return_period'],
+                                          as_index=False).agg({'loss': 'sum'})
+        result_plot = result_plot.sort_values(by=['return_period', 'loss'], ascending=[True, False])
+        results_plot.append(result_plot)
+
+    log_x = [log10(result_plot['return_period'].max()) - log10(result_plot['return_period'].min()) > 2 for result_plot in results_plot]
+    log_x = any(log_x)
+
+    unique_group = []
+    for result_plot in results_plot:
+        unique_group += result_plot[selected_group].unique().tolist()
+    unique_group = list(set(unique_group))
+
+    if len(unique_group) > 5:
+        filter_group = st.multiselect(f'Filtered {selected_group} Values:',
+                                      options = unique_group,
+                                      default = unique_group[:5])
+        for i in range(len(results_plot)):
+            results_plot[i] = results_plot[i][results_plot[i][selected_group].isin(filter_group)]
+
+    for i in range(len(results_plot)):
+        results_plot[i]['name'] = names[i]
+    results_plot = pd.concat(results_plot)
+
+    fig = px.line(results_plot, x='return_period', y='loss',
+                  color=selected_group, line_dash='name', markers=False,
+                  labels = {'return_period': 'Return Period', 'loss':
+                            'Loss',
+                            selected_group: selected_group},
+                  line_group='name',
+                  log_x=log_x)
+    st.plotly_chart(fig)
+
 @st.cache_data(show_spinner='Creating pltcalc bar')
 def pltcalc_bar(result, selected_group=None, number_shown=10, date_id = False,
                 year='Year', month='Month', day='Day', loss='MeanLoss'):

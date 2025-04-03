@@ -6,7 +6,7 @@ from modules.nav import SidebarNav
 from modules.client import ClientInterface
 from modules.validation import LenValidation, NotNoneValidation, ValidationGroup
 from pages.components.display import DataframeView
-from pages.components.output import generate_aalcalc_comparison_fragment
+from pages.components.output import generate_aalcalc_comparison_fragment, generate_leccalc_comparison_fragment
 from pages.components.output import generate_eltcalc_comparison_fragment
 
 st.set_page_config(
@@ -136,3 +136,15 @@ for p in perspectives:
                                                  name_1=selected['name'][0],
                                                  name_2=selected['name'][1],
                                                  locations=locations)
+
+    if summaries1[0].get('lec_output', False) and summaries2[0].get('lec_output', False):
+        expander = st.expander("LEC Output")
+        with expander:
+            lec_outputs_1 = summaries1[0].get('leccalc', {})
+            lec_outputs_2 = summaries2[0].get('leccalc', {})
+            lec_outputs = {}
+            for k, v in lec_outputs_1.items():
+                if v and lec_outputs_2.get(k, False):
+                    lec_outputs[k] = v
+            generate_leccalc_comparison_fragment(p, [output_1, output_2], lec_outputs,
+                                                 names=selected['name'].tolist())
