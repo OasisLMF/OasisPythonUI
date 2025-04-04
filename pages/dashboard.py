@@ -65,7 +65,7 @@ for p in perspectives:
     if p_oed_fields:
         vis.set_oed_fields(p, p_oed_fields)
 
-st.write("# Output Visualisation")
+st.write("# Output")
 with st.spinner("Loading visualisations..."):
     for p in perspectives:
         if not settings.get(f'{p}_output', False):

@@ -7,7 +7,7 @@ from modules.client import ClientInterface
 from modules.validation import LenValidation, NotNoneValidation, ValidationGroup
 from pages.components.display import DataframeView
 from pages.components.output import generate_aalcalc_comparison_fragment, generate_leccalc_comparison_fragment
-from pages.components.output import generate_eltcalc_comparison_fragment
+from pages.components.output import generate_eltcalc_comparison_fragment, summarise_inputs
 
 st.set_page_config(
     page_title = "Comparison",
@@ -45,6 +45,7 @@ with cols[1]:
     if selected_analysis:
         selected.append(selected_analysis)
 
+
 validations = ValidationGroup()
 none_validation = NotNoneValidation()
 none_validation.message = 'Select 2 analyses.'
@@ -62,8 +63,31 @@ selected = pd.DataFrame(selected)
 analysis_id_1 = selected['id'][0]
 analysis_id_2 = selected['id'][1]
 
-settings1 = client.analyses.settings.get(analysis_id_1).json()
-settings2 = client.analyses.settings.get(analysis_id_2).json()
+st.write("# Analysis Summary")
+expander = st.expander('Analysis Summary')
+with expander:
+    cols = st.columns(2)
+@st.cache_data
+def get_analysis_inputs(ID):
+    return client_interface.analyses.get_file(ID, 'input_file', df=True)
+
+with cols[0]:
+    st.write(f"## {selected['name'][0]}")
+    with st.spinner("Loading data..."):
+        inputs = get_analysis_inputs(analysis_id_1)
+        settings1 = client.analyses.settings.get(analysis_id_1).json()
+
+    with st.spinner('Loading analysis summary...'):
+        summarise_inputs(inputs.get('location.csv', None), settings1, title_prefix='###')
+
+with cols[1]:
+    st.write(f"## {selected['name'][1]}")
+    with st.spinner("Loading data..."):
+        inputs = get_analysis_inputs(analysis_id_2)
+        settings2 = client.analyses.settings.get(analysis_id_2).json()
+
+    with st.spinner('Loading analysis summary...'):
+        summarise_inputs(inputs.get('location.csv', None), settings2, title_prefix='###')
 
 @st.cache_data
 def get_locations_file(ID):
@@ -88,6 +112,7 @@ def merge_locations(locations_1, locations_2):
 
 perspectives = ['gul', 'il', 'ri']
 
+st.write("# Outputs")
 for p in perspectives:
     if not settings1.get(f'{p}_output', False) and not settings2.get(f'{p}_output', False):
         continue
