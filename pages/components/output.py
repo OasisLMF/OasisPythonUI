@@ -771,9 +771,21 @@ def generate_leccalc_fragment(p, vis, lec_outputs):
 def generate_leccalc_comparison_fragment(perspective, outputs, lec_outputs, names=[]):
     '''
     Compare outputs from leccalc. Note that 'per_sample' or 'wheatsheaf' plots are not supported.
+
+    Parameters
+    ----------
+    perspective : str
+                  Perspective of output. 'gul', 'il' or 'ri'
+    outputs : List[OutputInterface]
+              Lists of `OutputInterface` containing the outputs to compare.
+    lec_outputs : List[str]
+                  List of leccalc output types.
+    names : List[str]
+            Names of each analysis references to by `outputs`.
     '''
     lec_options = [option for option in lec_outputs.keys() if lec_outputs[option]]
     lec_options = [opt for opt in lec_options if opt not in ['wheatsheaf_aep', 'wheatsheaf_oep']]
+
     def format_lec_options(opt):
         analysis_type = '_'.join(opt.split('_')[:-1])
         loss_type = opt.split('_')[-1]
@@ -790,7 +802,10 @@ def generate_leccalc_comparison_fragment(perspective, outputs, lec_outputs, name
         for i in range(diff_names):
             names.append(f'Analysis {i + offset + 1}')
 
-    assert len(outputs) <= 2, 'Maximum 2 outputs for comparison'
+    if len(outputs) > 2:
+        st.error('Maximum 2 outputs for comparison')
+        logger.error(f'Too many outputs for leccalc comparison plot.\nOutputs: {outputs}')
+        return
 
     if option is None:
         st.info('Output option not selected.')
@@ -818,6 +833,18 @@ def generate_leccalc_comparison_fragment(perspective, outputs, lec_outputs, name
     if selected_group is None:
         selected_group = 'summary_id'
 
+    name_map = {i: names[i] for i in range(2)}
+    selected_analysis = st.segmented_control('Analysis Filter:',
+                                             options=name_map.keys(),
+                                             format_func = lambda x: name_map.get(x, x),
+                                             key=f'{perspective}_lec_name_filter')
+
+    linestyles = ['dash', None]
+    if selected_analysis is not None:
+        results = [results[selected_analysis]]
+        names = [names[selected_analysis]]
+        linestyles = [linestyles[selected_analysis]]
+
     results_plot = []
     for result in results:
         result_plot = result[[selected_group, 'return_period', 'loss']]
@@ -834,24 +861,37 @@ def generate_leccalc_comparison_fragment(perspective, outputs, lec_outputs, name
         unique_group += result_plot[selected_group].unique().tolist()
     unique_group = list(set(unique_group))
 
+    graphed_group_fields = unique_group
     if len(unique_group) > 5:
         filter_group = st.multiselect(f'Filtered {selected_group} Values:',
                                       options = unique_group,
                                       default = unique_group[:5])
         for i in range(len(results_plot)):
             results_plot[i] = results_plot[i][results_plot[i][selected_group].isin(filter_group)]
+        graphed_group_fields = filter_group
 
-    for i in range(len(results_plot)):
-        results_plot[i]['name'] = names[i]
-    results_plot = pd.concat(results_plot)
 
-    fig = px.line(results_plot, x='return_period', y='loss',
-                  color=selected_group, line_dash='name', markers=False,
-                  labels = {'return_period': 'Return Period', 'loss':
-                            'Loss',
-                            selected_group: selected_group},
-                  line_group='name',
-                  log_x=log_x)
+    fig = go.Figure()
+    colors = px.colors.qualitative.Plotly
+    j = 0
+    for result, name in zip(results_plot, names):
+        for i, field in enumerate(graphed_group_fields):
+            curr_result = result[result[selected_group] == field]
+            hover_title = f'{name} - {field}'
+            fig.add_trace(go.Scatter(x=curr_result['return_period'], y=curr_result['loss'], name=field, legendgroup=name,
+                                     legendgrouptitle_text=name,
+                                     line=dict(color=colors[i % len(colors)], dash=linestyles[j % 2]),
+                                     hovertemplate= hover_title + '<br>Return Period: %{x}'+
+                                                   '<br><b>Loss: %{y}</b>',
+                                     customdata=[f'{name}']))
+        j += 1
+
+    fig.update_layout(
+        xaxis=dict(title=dict(text='Loss'), type="log" if log_x else None),
+        yaxis=dict(title=dict(text='Return Period')),
+        hovermode='closest',
+    )
+
     st.plotly_chart(fig)
 
 @st.cache_data(show_spinner='Creating pltcalc bar')
