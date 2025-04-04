@@ -890,6 +890,7 @@ def generate_leccalc_comparison_fragment(perspective, outputs, lec_outputs, name
         xaxis=dict(title=dict(text='Loss'), type="log" if log_x else None),
         yaxis=dict(title=dict(text='Return Period')),
         hovermode='closest',
+        showlegend=True
     )
 
     st.plotly_chart(fig)

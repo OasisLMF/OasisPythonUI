@@ -32,26 +32,18 @@ else:
     st.switch_page("app.py")
 
 analyses = sorted(client_interface.analyses.search(metadata={'status': 'RUN_COMPLETED'}), key=lambda x: x['id'], reverse=True)
-
-analyses = pd.DataFrame(analyses)
-analyses = analyses[['name', 'id', 'portfolio', 'model']]
-analyses = analyses.rename(columns={'id':'analysis_id'})
-
-portfolios = client_interface.portfolios.get()
-portfolios = pd.DataFrame(portfolios)[['id', 'name']]
-portfolios = portfolios.rename(columns={'name': 'portfolio_name'})
-
-models = client_interface.models.get()
-models = pd.DataFrame(models)[['id', 'supplier_id', 'model_id']]
-
-analyses = pd.merge(left=analyses, right=portfolios, how='left', left_on='portfolio', right_on='id')
-analyses = pd.merge(left=analyses, right=models, how='left', left_on='model', right_on='id')
-analyses = analyses[['analysis_id', 'name', 'portfolio_name', 'model_id', 'supplier_id']]
-
-analyses_view = DataframeView(analyses, selectable='multi',
-                              display_cols=['name', 'portfolio_name', 'model_id', 'supplier_id'])
-selected = analyses_view.display()
-
+cols = st.columns(2)
+selected = []
+with cols[0]:
+    selected_analysis = st.selectbox("Select Analysis 1", options=analyses,
+                            format_func= lambda x : x['name'], index=None)
+    if selected_analysis:
+        selected.append(selected_analysis)
+with cols[1]:
+    selected_analysis = st.selectbox("Select Analysis 2", options=analyses,
+                            format_func= lambda x : x['name'], index=None)
+    if selected_analysis:
+        selected.append(selected_analysis)
 
 validations = ValidationGroup()
 none_validation = NotNoneValidation()
@@ -65,8 +57,10 @@ if not validations.is_valid():
     st.info(validations.message)
     st.stop()
 
-analysis_id_1 = selected['analysis_id'][0]
-analysis_id_2 = selected['analysis_id'][1]
+selected = pd.DataFrame(selected)
+
+analysis_id_1 = selected['id'][0]
+analysis_id_2 = selected['id'][1]
 
 settings1 = client.analyses.settings.get(analysis_id_1).json()
 settings2 = client.analyses.settings.get(analysis_id_2).json()
