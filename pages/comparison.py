@@ -117,9 +117,20 @@ for p in perspectives:
     if not settings1.get(f'{p}_output', False) and not settings2.get(f'{p}_output', False):
         continue
 
-    st.write(f"## {p.upper()} Output")
+    supported_outputs = ['aalcalc', 'eltcalc', 'lec_output']
+
     summaries1 = settings1.get(f'{p}_summaries', [{}])
     summaries2 = settings2.get(f'{p}_summaries', [{}])
+
+    no_outputs = True
+    for output in supported_outputs:
+        if summaries1[0].get(output, False) and summaries2[0].get(output, False):
+            st.write(f"## {p.upper()} Output")
+            no_outputs = False
+            break
+
+    if no_outputs:
+        st.error('No comparison available.')
 
     with st.spinner("Loading data..."):
         output_1 = get_analysis_outputs(analysis_id_1)
