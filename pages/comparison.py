@@ -60,8 +60,7 @@ if not validations.is_valid():
 
 selected = pd.DataFrame(selected)
 
-analysis_id_1 = selected['id'][0]
-analysis_id_2 = selected['id'][1]
+analysis_ids = [selected['id'][i] for i in range(2)]
 
 st.write("# Analysis Summary")
 expander = st.expander('Analysis Summary')
@@ -71,23 +70,24 @@ with expander:
 def get_analysis_inputs(ID):
     return client_interface.analyses.get_file(ID, 'input_file', df=True)
 
+settings = []
 with cols[0]:
     st.write(f"## {selected['name'][0]}")
     with st.spinner("Loading data..."):
-        inputs = get_analysis_inputs(analysis_id_1)
-        settings1 = client.analyses.settings.get(analysis_id_1).json()
+        inputs = get_analysis_inputs(analysis_ids[0])
+        settings.append(client.analyses.settings.get(analysis_ids[0]).json())
 
     with st.spinner('Loading analysis summary...'):
-        summarise_inputs(inputs.get('location.csv', None), settings1, title_prefix='###')
+        summarise_inputs(inputs.get('location.csv', None), settings[0], title_prefix='###')
 
 with cols[1]:
     st.write(f"## {selected['name'][1]}")
     with st.spinner("Loading data..."):
-        inputs = get_analysis_inputs(analysis_id_2)
-        settings2 = client.analyses.settings.get(analysis_id_2).json()
+        inputs = get_analysis_inputs(analysis_ids[1])
+        settings.append(client.analyses.settings.get(analysis_ids[1]).json())
 
     with st.spinner('Loading analysis summary...'):
-        summarise_inputs(inputs.get('location.csv', None), settings2, title_prefix='###')
+        summarise_inputs(inputs.get('location.csv', None), settings[1], title_prefix='###')
 
 @st.cache_data
 def get_locations_file(ID):
@@ -114,17 +114,16 @@ perspectives = ['gul', 'il', 'ri']
 
 st.write("# Outputs")
 for p in perspectives:
-    if not settings1.get(f'{p}_output', False) and not settings2.get(f'{p}_output', False):
+    if not all([s.get(f'{p}_output', False) for s in settings]):
         continue
 
+    summaries = [s.get(f'{p}_summaries', [{}])[0] for s in settings]
+    names = selected['name'].tolist()
+
     supported_outputs = ['aalcalc', 'eltcalc', 'lec_output']
-
-    summaries1 = settings1.get(f'{p}_summaries', [{}])
-    summaries2 = settings2.get(f'{p}_summaries', [{}])
-
     no_outputs = True
     for output in supported_outputs:
-        if summaries1[0].get(output, False) and summaries2[0].get(output, False):
+        if all([s.get(output, False) for s in summaries]):
             st.write(f"## {p.upper()} Output")
             no_outputs = False
             break
@@ -133,48 +132,35 @@ for p in perspectives:
         st.error('No comparison available.')
 
     with st.spinner("Loading data..."):
-        output_1 = get_analysis_outputs(analysis_id_1)
-        output_2 = get_analysis_outputs(analysis_id_2)
+        outputs = [OutputInterface(get_analysis_outputs(id)) for id in analysis_ids]
 
-    output_1 = OutputInterface(output_1)
-    output_2 = OutputInterface(output_2)
+    for output, s in zip(outputs, summaries):
+        oed_fields = s.get('oed_fields', None)
+        if oed_fields is not None:
+            output.set_oed_fields(p, oed_fields)
 
-    oed_field_1 = summaries1[0].get('oed_fields', None)
-    if oed_field_1:
-        output_1.set_oed_fields(p, oed_field_1)
-
-    oed_field_2 = summaries2[0].get('oed_fields', None)
-    if oed_field_2:
-        output_2.set_oed_fields(p, oed_field_2)
-
-    if summaries1[0].get('aalcalc', False) and summaries2[0].get('aalcalc', False):
+    if all([s.get('aalcalc', False) for s in summaries]):
         expander = st.expander("AAL Output")
         with expander:
-            generate_aalcalc_comparison_fragment(p, output_1, output_2,
-                                                 name_1=selected['name'][0],
-                                                 name_2=selected['name'][1])
+            generate_aalcalc_comparison_fragment(p, outputs, names)
 
-    if summaries1[0].get('eltcalc', False) and summaries2[0].get('eltcalc', False):
+    if all([s.get('eltcalc', False) for s in summaries]):
         expander = st.expander("ELT Output")
         with expander:
-            locations_1 = get_locations_file(analysis_id_1)
-            locations_2 = get_locations_file(analysis_id_2)
+            locations = [get_locations_file(id) for id in analysis_ids]
+            locations = merge_locations(*locations)
 
-            locations = merge_locations(locations_1, locations_2)
-
-            generate_eltcalc_comparison_fragment(p, output_1, output_2,
-                                                 name_1=selected['name'][0],
-                                                 name_2=selected['name'][1],
+            generate_eltcalc_comparison_fragment(p, outputs, names=names,
                                                  locations=locations)
 
-    if summaries1[0].get('lec_output', False) and summaries2[0].get('lec_output', False):
+    if all([s.get('lec_output', False) for s in summaries]):
         expander = st.expander("LEC Output")
         with expander:
-            lec_outputs_1 = summaries1[0].get('leccalc', {})
-            lec_outputs_2 = summaries2[0].get('leccalc', {})
+            lec_outputs_list = [s.get('leccalc', {}) for s in summaries]
             lec_outputs = {}
-            for k, v in lec_outputs_1.items():
-                if v and lec_outputs_2.get(k, False):
-                    lec_outputs[k] = v
-            generate_leccalc_comparison_fragment(p, [output_1, output_2], lec_outputs,
-                                                 names=selected['name'].tolist())
+            keys = lec_outputs_list[0].keys()
+            for k in keys:
+                if all([lec.get(k, False) for lec in lec_outputs_list]):
+                    lec_outputs[k] = True
+            generate_leccalc_comparison_fragment(p, outputs, lec_outputs,
+                                                 names=names)

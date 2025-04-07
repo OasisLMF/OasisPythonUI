@@ -824,7 +824,7 @@ def generate_leccalc_comparison_fragment(perspective, outputs, lec_outputs, name
     for i in range(len(results)):
         results[i] = results[i][results[i]['type'] == selected_type]
 
-    oed_fields = shared_oed_fields(perspective, *outputs)
+    oed_fields = shared_oed_fields(perspective, outputs)
 
     selected_group = None
     if oed_fields and len(oed_fields) > 0:
@@ -1130,57 +1130,51 @@ def generate_ept_fragment(p, vis):
                   log_x=log_x)
     st.plotly_chart(fig)
 
-def shared_oed_fields(p, output_1, output_2):
-    oed_fields = output_1.oed_fields.get(p)
-    return list(set(oed_fields) & set(output_2.oed_fields.get(p)))
+def shared_oed_fields(p, outputs):
+    oed_fields = outputs[0].oed_fields.get(p)
+    return list(set(oed_fields) & set(outputs[1].oed_fields.get(p)))
 
-def generate_aalcalc_comparison_fragment(p, output_1, output_2,
-                                         name_1 = None, name_2 = None):
-    result_1 = output_1.get(1, p, 'aalcalc')
-    result_2 = output_2.get(1, p, 'aalcalc')
+def generate_aalcalc_comparison_fragment(p, outputs, names = None):
+    results = [o.get(1, p, 'aalcalc') for o in outputs]
 
-    oed_fields = shared_oed_fields(p, output_1, output_2)
+    oed_fields = shared_oed_fields(p, outputs)
     breakdown_field = None
     if oed_fields and len(oed_fields) > 0:
         breakdown_field = st.pills('Breakdown OED Field: ', options=oed_fields)
 
     breakdown_field_invalid = False
-    if breakdown_field and (result_1[breakdown_field].nunique() > 100 or result_2[breakdown_field].nunique()>100):
+    if breakdown_field and any([r[breakdown_field].nunique() > 100 for r in results]):
         breakdown_field_invalid = True
         breakdown_field = None
 
-    types = result_1['type'].unique()
+    types = results[0]['type'].unique()
     selected_type = st.radio('Type filter: ', options=types, index=0, horizontal=True)
 
-    result_1 = result_1[result_1['type'] == selected_type]
-    result_2 = result_2[result_2['type'] == selected_type]
+    for i in range(2):
+        results[i] = results[i][results[i]['type'] == selected_type]
 
     group_field = []
     if breakdown_field:
-        result_1[breakdown_field] = result_1[breakdown_field].astype(str)
-        result_2[breakdown_field] = result_2[breakdown_field].astype(str)
+        for i in range(2):
+            results[i][breakdown_field] = results[i][breakdown_field].astype(str)
         group_field += [breakdown_field]
 
-    result_1 = result_1.loc[:, group_field + ['mean']]
-    result_2 = result_2.loc[:, group_field + ['mean']]
+    results = list(map(lambda x: x.loc[:, group_field + ['mean']], results))
+
     if len(group_field) > 0:
-        result_1 = result_1.groupby(group_field, as_index=False).agg({'mean': 'sum'})
-        result_2 = result_2.groupby(group_field, as_index=False).agg({'mean': 'sum'})
+        results = list(map(lambda x: x.groupby(group_field, as_index=False).agg({'mean': 'sum'}), results))
 
-    if name_1 is None:
-        result_1['name'] = 'Analysis 1'
-    else:
-        result_1['name'] = name_1
-    if name_2 is None:
-        result_2['name'] = 'Analysis 2'
-    else:
-        result_2['name'] = name_2
+    if names is None:
+        names = ['Analysis 1', 'Analysis 2']
 
-    result = pd.concat([result_1, result_2])
+    for i in range(2):
+        results[i]['name'] = names[i]
+
+    results = pd.concat(results)
     if breakdown_field is None:
-        result = result.groupby('name', as_index=False).agg({'mean': 'sum'})
+        results = results.groupby('name', as_index=False).agg({'mean': 'sum'})
 
-    graph = px.bar(result, x='name', y='mean', color=breakdown_field,
+    graph = px.bar(results, x='name', y='mean', color=breakdown_field,
                    labels = {'mean': 'Mean', 'name': 'Analysis Name'},
                    color_discrete_sequence= px.colors.sequential.RdBu)
     st.plotly_chart(graph, use_container_width=True)
@@ -1188,14 +1182,10 @@ def generate_aalcalc_comparison_fragment(p, output_1, output_2,
     if breakdown_field_invalid:
         st.error("Too many values in group field.")
 
-def generate_eltcalc_comparison_fragment(perspective, output_1, output_2,
-                                         locations=None, name_1 = None,
-                                         name_2 = None):
-    outputs = [output_1, output_2]
-    names = [name_1, name_2]
-
+def generate_eltcalc_comparison_fragment(perspective, outputs, names=None,
+                                         locations=None):
     results = [o.get(1, perspective, 'eltcalc') for o in outputs]
-    oed_fields = shared_oed_fields(perspective, *outputs)
+    oed_fields = shared_oed_fields(perspective, outputs)
 
     types = results[0]['type'].unique()
 
