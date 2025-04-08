@@ -10,6 +10,7 @@ from modules.rerun import RefreshHandler
 from modules.settings import get_analyses_settings
 from pages.components.display import DataframeView, MapView
 from pages.components.create import create_analysis_form
+from pages.components.output import valid_locations
 from modules.validation import KeyInValuesValidation, NotNoneValidation, ValidationGroup, IsNoneValidation
 from modules.visualisation import OutputInterface
 import time
@@ -137,12 +138,10 @@ with create_container:
             def show_locations_map():
                 with st.spinner('Loading map...'):
                     locations = client_interface.portfolios.endpoint.location_file.get_dataframe(selected_portfolio["id"])
-                    cols = locations.columns
-                    if 'Latitude' not in cols or 'Longitude' not in cols:
-                        st.error('Longitude and Latitude columns not found.')
-                    else:
+                    if valid_locations(locations):
                         exposure_map = MapView(locations, map_type='heatmap', weight='BuildingTIV')
-                        exposure_map.display()
+                    else:
+                        st.error('Longitude and Latitude columns not found.')
             show_locations_map()
 
     with cols[2]:
