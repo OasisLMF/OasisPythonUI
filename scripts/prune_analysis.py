@@ -4,7 +4,6 @@ import datetime
 import argparse
 import logging
 from requests import HTTPError
-import streamlit as st
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +18,12 @@ def main():
     parser.add_argument('-d', '--days', help='Number of days of history to preserve (default 7).',
                         default=7, type=int)
 
+    parser.add_argument('--user', help='Username for oasislmf client.',
+                        default='admin')
+
+    parser.add_argument('--password', help='Password for oasislmf client.',
+                        default='password')
+
     args = parser.parse_args()
 
     week_ago = datetime.datetime.today() - datetime.timedelta(days=args.days)
@@ -27,8 +32,8 @@ def main():
     print('Pruning analyses created before: ', week_ago)
 
     api_url = os.environ.get('API_URL', 'http://localhost:8000')
-    client = APIClient(username=st.secrets.get("user", "admin"),
-                       password=st.secrets.get("password", "password"),
+    client = APIClient(username=args.user,
+                       password=args.password,
                        api_url=api_url)
 
     old_analyses = client.analyses.search(metadata={'created__lt': week_ago}).json()
