@@ -141,8 +141,8 @@ with create_container:
                     if 'Latitude' not in cols or 'Longitude' not in cols:
                         st.error('Longitude and Latitude columns not found.')
                     else:
-                        exposure_map = MapView(locations)
-                        exposure_map.display(heatmap_col='BuildingTIV')
+                        exposure_map = MapView(locations, map_type='heatmap', weight='BuildingTIV')
+                        exposure_map.display()
             show_locations_map()
 
     with cols[2]:
