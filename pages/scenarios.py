@@ -140,8 +140,12 @@ with create_container:
                     locations = client_interface.portfolios.endpoint.location_file.get_dataframe(selected_portfolio["id"])
                     if valid_locations(locations):
                         exposure_map = MapView(locations, map_type='heatmap', weight='BuildingTIV')
+                        exposure_map.display()
+                    elif 'CountryCode' in locations.columns:
+                        exposure_map = MapView(locations, map_type='choropleth', weight='BuildingTIV')
+                        exposure_map.display()
                     else:
-                        st.error('Longitude and Latitude columns not found.')
+                        st.error('Location data not found.')
             show_locations_map()
 
     with cols[2]:
