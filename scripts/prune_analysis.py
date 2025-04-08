@@ -4,6 +4,7 @@ import datetime
 import argparse
 import logging
 from requests import HTTPError
+import streamlit as st
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,11 @@ def main():
 
     print('Pruning analyses created before: ', week_ago)
 
-    client = APIClient()
+    api_url = os.environ.get('API_URL', 'http://localhost:8000')
+    client = APIClient(username=st.secrets.get("user", "admin"),
+                       password=st.secrets.get("password", "password"),
+                       api_url=api_url)
+
     old_analyses = client.analyses.search(metadata={'created__lt': week_ago}).json()
     analysis_ids = [a['id'] for a in old_analyses]
 
