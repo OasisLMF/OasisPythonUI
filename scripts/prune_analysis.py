@@ -1,11 +1,12 @@
 from oasislmf.platform_api.client import APIClient
+from oasis_data_manager.errors import OasisException
+import time
 import os
 import datetime
 import argparse
 import logging
 from requests import HTTPError
 
-logger = logging.getLogger(__name__)
 
 
 def main():
@@ -24,7 +25,14 @@ def main():
     parser.add_argument('--password', help='Password for oasislmf client.',
                         default='password')
 
+    parser.add_argument('--log', help='Set logging level.', default='WARNING')
+    parser.add_argument('--retry_time', help='Time between retries (s).', default=60, type=int)
+    parser.add_argument('--n_retries', help='Number of retries.', default=30, type=int)
+
     args = parser.parse_args()
+
+    logging.basicConfig(level=args.log.upper())
+    logger = logging.getLogger(__name__)
 
     week_ago = datetime.datetime.today() - datetime.timedelta(days=args.days)
     week_ago = week_ago.strftime('%Y-%m-%d')
@@ -32,9 +40,21 @@ def main():
     print('Pruning analyses created before: ', week_ago)
 
     api_url = os.environ.get('API_URL', 'http://localhost:8000')
-    client = APIClient(username=args.user,
-                       password=args.password,
-                       api_url=api_url)
+    retries = 0
+    while True:
+        if retries > args.n_retries:
+            logger.error(f'Failed to create client. No. of retries: {retries}')
+            print('Client intialisation failed.')
+            return
+        try:
+            client = APIClient(username=args.user,
+                               password=args.password,
+                               api_url=api_url)
+            break
+        except OasisException:
+            logger.debug(f'Client initialisation failed. Attempt {retries}/{args.n_retries}')
+            retries += 1
+            time.sleep(args.retry_time)
 
     old_analyses = client.analyses.search(metadata={'created__lt': week_ago}).json()
     analysis_ids = [a['id'] for a in old_analyses]
