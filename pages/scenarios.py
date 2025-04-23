@@ -264,6 +264,11 @@ with run_container:
 
             results_dict = get_output_file(analysis_id)
             vis_interface = OutputInterface(results_dict)
+            perspectives = ['gul', 'il', 'ri']
+            for p in perspectives:
+                p_oed_fields = a_settings.get(f'{p}_summaries', [{}])[0].get('oed_fields', None)
+                if p_oed_fields:
+                    vis_interface.set_oed_fields(p, p_oed_fields)
 
             def generate_perspective_visualisation(perspective, summaries_settings):
                 if summaries_settings[0].get('eltcalc', False):
