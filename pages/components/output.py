@@ -1174,7 +1174,6 @@ def generate_aalcalc_comparison_fragment(p, outputs, names = None):
     if breakdown_field is None:
         results = results.groupby('name', as_index=False).agg({'mean': 'sum'})
 
-    st.write(results)
     graph = px.bar(results, x='name', y='mean', color=breakdown_field,
                    labels = {'mean': 'Mean', 'name': 'Analysis Name'},
                    color_discrete_sequence= px.colors.sequential.RdBu,
