@@ -1214,7 +1214,7 @@ def generate_eltcalc_comparison_fragment(perspective, outputs, names=None,
         result, selected = elt_ord_table(result, perspective=perspective, oed_fields=oed_fields,
                                  order_cols=['mean','exposure_value'],
                                  data_cols = ['mean', 'exposure_value'],
-                                 key_prefix='elt', event_id='event_id',
+                                 key_prefix=f'{perspective}_elt', event_id='event_id',
                                  additional_cols=['name'],
                                  name_map = {
                                         'mean': 'Mean',
