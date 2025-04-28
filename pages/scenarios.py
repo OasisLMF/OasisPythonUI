@@ -138,11 +138,13 @@ with create_container:
                 with st.spinner('Loading map...'):
                     locations = client_interface.portfolios.endpoint.location_file.get_dataframe(selected_portfolio["id"])
                     cols = locations.columns
-                    if 'Latitude' not in cols or 'Longitude' not in cols:
-                        st.error('Longitude and Latitude columns not found.')
+                    required_cols = ["Latitude", "Longitude", "BuildingTIV"]
+                    if any([c not in cols for c in required_cols]):
+                        st.error('Map cannot be displayed.')
+                        logger.error(f"Map view\n\tRequired_cols: {required_cols}\n\tData cols: {cols}")
                     else:
-                        exposure_map = MapView(locations)
-                        exposure_map.display(heatmap_col='BuildingTIV')
+                        exposure_map = MapView(locations, weight="BuildingTIV", map_type="heatmap")
+                        exposure_map.display()
             show_locations_map()
 
     with cols[2]:
