@@ -1,5 +1,4 @@
 from modules.visualisation import OutputInterface
-from pages.dashboard import get_analysis_outputs
 import streamlit as st
 import pandas as pd
 from modules.nav import SidebarNav
@@ -69,6 +68,10 @@ with expander:
 @st.cache_data
 def get_analysis_inputs(ID):
     return client_interface.analyses.get_file(ID, 'input_file', df=True)
+
+@st.cache_data
+def get_analysis_outputs(ID):
+    return client_interface.analyses.get_file(ID, 'output_file', df=True)
 
 settings = []
 with cols[0]:
