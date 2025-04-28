@@ -10,6 +10,7 @@ from modules.rerun import RefreshHandler
 from modules.settings import get_analyses_settings
 from pages.components.display import DataframeView, MapView
 from pages.components.create import create_analysis_form
+from pages.components.output import valid_locations
 from modules.validation import KeyInValuesValidation, NotNoneValidation, ValidationGroup, IsNoneValidation
 from modules.visualisation import OutputInterface
 import time
@@ -138,13 +139,17 @@ with create_container:
                 with st.spinner('Loading map...'):
                     locations = client_interface.portfolios.endpoint.location_file.get_dataframe(selected_portfolio["id"])
                     cols = locations.columns
-                    required_cols = ["Latitude", "Longitude", "BuildingTIV"]
-                    if any([c not in cols for c in required_cols]):
-                        st.error('Map cannot be displayed.')
-                        logger.error(f"Map view\n\tRequired_cols: {required_cols}\n\tData cols: {cols}")
-                    else:
+                    heatmap_cols = ["Latitude", "Longitude", "BuildingTIV"]
+                    choropleth_cols = ["CountryCode", "BuildingTIV"]
+                    if all([c in cols for c in heatmap_cols]) and valid_locations(locations):
                         exposure_map = MapView(locations, weight="BuildingTIV", map_type="heatmap")
                         exposure_map.display()
+                    elif all([c in cols for c in choropleth_cols]):
+                        exposure_map = MapView(locations, weight="BuildingTIV", map_type="choropleth")
+                        exposure_map.display()
+                    else:
+                        st.error('Map cannot be displayed.')
+                        logger.error(f"Map view\n\tData cols: {cols}")
             show_locations_map()
 
     with cols[2]:
