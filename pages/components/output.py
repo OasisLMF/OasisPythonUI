@@ -297,7 +297,8 @@ def oed_fields_group(oed_fields, key_prefix=None, selection_mode='multi'):
     return group_fields
 
 def elt_ord_table(result, perspective, oed_fields = None, key_prefix=None,
-                  order_cols=None, data_cols=None, selectable=False):
+                  order_cols=None, data_cols=None, name_map = {},
+                  event_id='EventId', additional_cols=None, selectable=False):
     table_df = result
     if key_prefix is None:
         key_prefix = ''
@@ -308,11 +309,14 @@ def elt_ord_table(result, perspective, oed_fields = None, key_prefix=None,
     if data_cols is None:
         data_cols = []
 
-    # Ordering
+    if additional_cols is None:
+        additional_cols = []
 
+    # Ordering
     if order_cols:
         if len(order_cols) > 1:
             order_col = st.radio('Sort By: ', options=order_cols, index=0, horizontal=True,
+                                 format_func = lambda x: name_map.get(x, x),
                                  key=f'{key_prefix}_elt_ord_order_col')
         else:
             order_col = order_cols[0]
@@ -329,14 +333,17 @@ def elt_ord_table(result, perspective, oed_fields = None, key_prefix=None,
             if oed_filter:
                 table_df = table_df[table_df[oed_field].isin(oed_filter)]
 
-    cols = ['EventId'] + oed_fields + data_cols
+    cols = [event_id] + additional_cols + oed_fields + data_cols
     table_view = DataframeView(table_df, display_cols=cols, selectable=selectable)
 
-    for col in data_cols:
-        table_view.column_config[col] = st.column_config.NumberColumn(col, format='%.2f')
+    for c in data_cols:
+        table_view.column_config[c] = st.column_config.NumberColumn(name_map.get(c, c),
+                                                                      format='%.2f')
     for c in oed_fields:
-        table_view.column_config[c] = st.column_config.ListColumn(c)
-    table_view.column_config['EventId'] = st.column_config.ListColumn('EventId')
+        table_view.column_config[c] = st.column_config.ListColumn(name_map.get(c, c))
+    for c in additional_cols:
+        table_view.column_config[c] = st.column_config.ListColumn(name_map.get(c, c))
+    table_view.column_config[event_id] = st.column_config.ListColumn('Event ID')
 
     selected = table_view.display()
 
@@ -409,7 +416,6 @@ def eltcalc_map(map_df, locations, oed_fields=[], map_type=None,
     if map_type == 'heatmap':
         group_fields = ['LocNumber']
         map_df = elt_group_fields(map_df, group_fields, categorical_cols=oed_fields)
-        map_df = map_df[[intensity_col] + oed_fields]
 
         loc_reduced = locations[['LocNumber', 'Longitude', 'Latitude']]
         map_df = map_df.merge(loc_reduced, how="left", on="LocNumber")
@@ -420,7 +426,7 @@ def eltcalc_map(map_df, locations, oed_fields=[], map_type=None,
         mv.display()
         return
 
-    st.info("No map to display")
+    st.info("No map to display.")
 
 def valid_locations(loc_df):
     '''
@@ -440,7 +446,7 @@ def valid_locations(loc_df):
 
 
 @st.fragment
-def generate_eltcalc_fragment(perspective, vis_interface,
+def generate_eltcalc_fragment(perspective, output,
                               table = True, map = False, locations = None):
     '''
     Generate an `eltcalc` visualisation. Currently supports the `table`
@@ -460,8 +466,8 @@ def generate_eltcalc_fragment(perspective, vis_interface,
                 DataFrame representing `locations.csv` file. Required for `map` view.
 
     '''
-    oed_fields = vis_interface.oed_fields.get(perspective, [])
-    eltcalc_result = vis_interface.get(1, perspective, 'eltcalc')
+    oed_fields = output.oed_fields.get(perspective, [])
+    eltcalc_result = output.get(1, perspective, 'eltcalc')
 
     tab_names = []
     if table:
@@ -762,6 +768,133 @@ def generate_leccalc_fragment(p, vis, lec_outputs):
                           log_x=log_x)
         st.plotly_chart(fig)
 
+def generate_leccalc_comparison_fragment(perspective, outputs, lec_outputs, names=[]):
+    '''
+    Compare outputs from leccalc. Note that 'per_sample' or 'wheatsheaf' plots are not supported.
+
+    Parameters
+    ----------
+    perspective : str
+                  Perspective of output. 'gul', 'il' or 'ri'
+    outputs : List[OutputInterface]
+              Lists of `OutputInterface` containing the outputs to compare.
+    lec_outputs : List[str]
+                  List of leccalc output types.
+    names : List[str]
+            Names of each analysis references to by `outputs`.
+    '''
+    lec_options = [option for option in lec_outputs.keys() if lec_outputs[option]]
+    lec_options = [opt for opt in lec_options if opt not in ['wheatsheaf_aep', 'wheatsheaf_oep']]
+
+    def format_lec_options(opt):
+        analysis_type = '_'.join(opt.split('_')[:-1])
+        loss_type = opt.split('_')[-1]
+
+        analysis_type = analysis_type.replace('wheatsheaf', 'per_sample')
+        return f'{analysis_type}_{loss_type}'
+
+    option = st.pills('Select Output:', options=lec_options,
+                      format_func=format_lec_options)
+
+    diff_names = len(outputs) - len(names)
+    offset = len(names)
+    if diff_names > 0:
+        for i in range(diff_names):
+            names.append(f'Analysis {i + offset + 1}')
+
+    if len(outputs) > 2:
+        st.error('Maximum 2 outputs for comparison')
+        logger.error(f'Too many outputs for leccalc comparison plot.\nOutputs: {outputs}')
+        return
+
+    if option is None:
+        st.info('Output option not selected.')
+        return
+
+    analysis_type = '_'.join(option.split('_')[:-1])
+    loss_type = option.split('_')[-1]
+
+    results = [o.get(1, perspective, 'leccalc', analysis_type = analysis_type, loss_type = loss_type) for o in outputs]
+
+    types = set()
+    for r in results:
+        types.update(r['type'].unique().tolist())
+    selected_type = st.radio('Type Filter:', options=types, index=0, horizontal=True,
+                             key=f'{perspective}_lec_comparison_type_filter')
+    for i in range(len(results)):
+        results[i] = results[i][results[i]['type'] == selected_type]
+
+    oed_fields = shared_oed_fields(perspective, outputs)
+
+    selected_group = None
+    if oed_fields and len(oed_fields) > 0:
+        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key='leccalc_group_field_pills')
+
+    if selected_group is None:
+        selected_group = 'summary_id'
+
+    name_map = {i: names[i] for i in range(2)}
+    selected_analysis = st.segmented_control('Analysis Filter:',
+                                             options=name_map.keys(),
+                                             format_func = lambda x: name_map.get(x, x),
+                                             key=f'{perspective}_lec_name_filter')
+
+    linestyles = ['dash', None]
+    if selected_analysis is not None:
+        results = [results[selected_analysis]]
+        names = [names[selected_analysis]]
+        linestyles = [linestyles[selected_analysis]]
+
+    results_plot = []
+    for result in results:
+        result_plot = result[[selected_group, 'return_period', 'loss']]
+        result_plot = result_plot.groupby([selected_group, 'return_period'],
+                                          as_index=False).agg({'loss': 'sum'})
+        result_plot = result_plot.sort_values(by=['return_period', 'loss'], ascending=[True, False])
+        results_plot.append(result_plot)
+
+    log_x = [log10(result_plot['return_period'].max()) - log10(result_plot['return_period'].min()) > 2 for result_plot in results_plot]
+    log_x = any(log_x)
+
+    unique_group = []
+    for result_plot in results_plot:
+        unique_group += result_plot[selected_group].unique().tolist()
+    unique_group = list(set(unique_group))
+
+    graphed_group_fields = unique_group
+    if len(unique_group) > 5:
+        filter_group = st.multiselect(f'Filtered {selected_group} Values:',
+                                      options = unique_group,
+                                      default = unique_group[:5])
+        for i in range(len(results_plot)):
+            results_plot[i] = results_plot[i][results_plot[i][selected_group].isin(filter_group)]
+        graphed_group_fields = filter_group
+
+
+    fig = go.Figure()
+    colors = px.colors.qualitative.Plotly
+    j = 0
+    for result, name in zip(results_plot, names):
+        for i, field in enumerate(graphed_group_fields):
+            curr_result = result[result[selected_group] == field]
+            hover_title = f'{name} - {field}'
+            fig.add_trace(go.Scatter(x=curr_result['return_period'], y=curr_result['loss'], name=field, legendgroup=name,
+                                     legendgrouptitle_text=name,
+                                     line=dict(color=colors[i % len(colors)], dash=linestyles[j % 2]),
+                                     hovertemplate= hover_title + '<br>Return Period: %{x}'+
+                                                   '<br><b>Loss: %{y}</b>',
+                                     customdata=[f'{name}']))
+        j += 1
+
+    fig.update_layout(
+        xaxis=dict(title=dict(text='Loss'), type="log" if log_x else None),
+        yaxis=dict(title=dict(text='Return Period')),
+        hovermode='closest',
+        showlegend=True
+    )
+
+    st.plotly_chart(fig)
+
 @st.cache_data(show_spinner='Creating pltcalc bar')
 def pltcalc_bar(result, selected_group=None, number_shown=10, date_id = False,
                 year='Year', month='Month', day='Day', loss='MeanLoss'):
@@ -996,3 +1129,147 @@ def generate_ept_fragment(p, vis):
                   labels = {'ReturnPeriod': 'Return Period'},
                   log_x=log_x)
     st.plotly_chart(fig)
+
+def shared_oed_fields(p, outputs):
+    oed_fields = outputs[0].oed_fields.get(p)
+    return list(set(oed_fields) & set(outputs[1].oed_fields.get(p)))
+
+def generate_aalcalc_comparison_fragment(p, outputs, names = None):
+    results = [o.get(1, p, 'aalcalc') for o in outputs]
+
+    oed_fields = shared_oed_fields(p, outputs)
+    breakdown_field = None
+    if oed_fields and len(oed_fields) > 0:
+        breakdown_field = st.pills('Breakdown OED Field: ', options=oed_fields)
+
+    breakdown_field_invalid = False
+    if breakdown_field and any([r[breakdown_field].nunique() > 100 for r in results]):
+        breakdown_field_invalid = True
+        breakdown_field = None
+
+    types = results[0]['type'].unique()
+    selected_type = st.radio('Type filter: ', options=types, index=0, horizontal=True)
+
+    for i in range(2):
+        results[i] = results[i][results[i]['type'] == selected_type]
+
+    group_field = []
+    if breakdown_field:
+        for i in range(2):
+            results[i][breakdown_field] = results[i][breakdown_field].astype(str)
+        group_field += [breakdown_field]
+
+    results = list(map(lambda x: x.loc[:, group_field + ['mean']], results))
+
+    if len(group_field) > 0:
+        results = list(map(lambda x: x.groupby(group_field, as_index=False).agg({'mean': 'sum'}), results))
+
+    if names is None:
+        names = ['Analysis 1', 'Analysis 2']
+
+    for i in range(2):
+        results[i]['name'] = names[i]
+
+    results = pd.concat(results)
+    if breakdown_field is None:
+        results = results.groupby('name', as_index=False).agg({'mean': 'sum'})
+
+    graph = px.bar(results, x='name', y='mean', color=breakdown_field,
+                   labels = {'mean': 'Mean', 'name': 'Analysis Name'},
+                   color_discrete_sequence= px.colors.sequential.RdBu,
+                   category_orders={'name': names})
+    st.plotly_chart(graph, use_container_width=True)
+
+    if breakdown_field_invalid:
+        st.error("Too many values in group field.")
+
+def generate_eltcalc_comparison_fragment(perspective, outputs, names=None,
+                                         locations=None):
+    results = [o.get(1, perspective, 'eltcalc') for o in outputs]
+    oed_fields = shared_oed_fields(perspective, outputs)
+
+    types = results[0]['type'].unique()
+
+    selected_type = st.radio('Type Filter:', options=types, index=0, horizontal=True,
+                             key=f'{perspective}_elt_comparison_type_filter')
+
+    for i in range(len(results)):
+        results[i] = results[i][results[i]['type'] == selected_type]
+        results[i]['name'] = names[i] if names[i] else f'Analysis {i+1}'
+
+
+    name_map = {i: names[i] for i in range(2)}
+    selected_analysis = st.segmented_control('Analysis Filter:',
+                                             options=name_map.keys(),
+                                             format_func = lambda x: name_map.get(x, x),
+                                             key=f'{perspective}_elt_name_filter')
+
+    if selected_analysis is not None:
+        result = results[selected_analysis]
+    else:
+        result = pd.concat(results)
+
+    table_tab, map_tab = st.tabs(['Table', 'Map'])
+
+    with table_tab:
+        result, selected = elt_ord_table(result, perspective=perspective, oed_fields=oed_fields,
+                                 order_cols=['mean','exposure_value'],
+                                 data_cols = ['mean', 'exposure_value'],
+                                 key_prefix=f'{perspective}_elt', event_id='event_id',
+                                 additional_cols=['name'],
+                                 name_map = {
+                                        'mean': 'Mean',
+                                        'exposure_value': 'Exposure Value',
+                                        'name': 'Analysis Name'
+                                    },
+                                 selectable='multi')
+
+    cols = st.columns(2)
+    mapped_events = {}
+    for i in range(2):
+        with cols[i]:
+            analysis_name = results[i]['name'].loc[0]
+            default_session_variable = f'elt_default_events_analysis_{i}'
+
+            if default_session_variable not in st.session_state:
+                st.session_state[default_session_variable] = []
+                curr_default = []
+            else:
+                curr_default = st.session_state[default_session_variable]
+
+            if selected is not None:
+                curr_default += selected[selected['name'] == analysis_name]['event_id'].unique().tolist()
+                curr_default = list(set(curr_default))
+            curr_event_ids = result[result['name'] == analysis_name]['event_id'].unique()
+            curr_default = [d for d in curr_default if d in curr_event_ids]
+            curr_events = st.multiselect(f'{analysis_name} Mapped Events:', options=curr_event_ids,
+                                         default=curr_default,
+                                         key=f'elt_{perspective}_selectbox_events_{i}')
+
+            if len(curr_event_ids) > 0:
+                st.session_state[default_session_variable] = curr_events
+            mapped_events[analysis_name] = curr_events
+
+    with map_tab:
+        if locations is None:
+            st.info('Locations files not found.')
+            return
+
+        map_type = None
+
+        if 'LocNumber' in oed_fields and valid_locations(locations):
+            map_type = 'heatmap'
+        elif 'CountryCode' in oed_fields:
+            map_type = 'choropleth'
+
+        if all([len(v) > 0 for v in mapped_events.values()]):
+            results = []
+
+            for k, v in mapped_events.items():
+                curr_result = result[result['name'] == k]
+                curr_result = curr_result[curr_result['event_id'].isin(v)]
+                results.append(curr_result)
+            result = pd.concat(results)
+
+        eltcalc_map(result, locations, oed_fields, map_type=map_type,
+                    intensity_col='mean')

@@ -25,6 +25,7 @@ class EndpointInterface:
     def get_file(self, ID, filename, df=False):
         file_available = self.get(ID).get(filename, None)
         if file_available is None:
+            logger.error(f'File not available. Analysis ID: {ID }Filename: {filename}')
             return None
 
         data = getattr(self.endpoint, filename)

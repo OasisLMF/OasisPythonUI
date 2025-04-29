@@ -127,6 +127,17 @@ class KeyInValuesValidation(Validation):
     def validation_func(map, key, value_list):
         return map[key] in value_list
 
+class LenValidation(Validation):
+    def __init__(self, pname="Parameter"):
+        self.message = f'{pname} is incorrect size.'
+        super().__init__(self.message)
+
+    @staticmethod
+    def validation_func(param, required_n):
+        if len(param) != required_n:
+            return False
+        return True
+
 
 class ValidationGroup:
     def __init__(self, validations=None, args=None):

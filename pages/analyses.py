@@ -272,7 +272,7 @@ def run_analysis(re_handler):
 
     validations = ValidationGroup()
     validations.add_validation(NotNoneValidation('Analysis'), selected)
-    validations.add_validation(KeyInValuesValidation('Status'), selected, 'status', ['READY', 'NEW'])
+    validations.add_validation(KeyInValuesValidation('Status'), selected, 'status', ['READY', 'NEW', 'RUN_ERROR', 'RUN_CANCELLED', 'RUN_COMPLETED'])
     if middle.button("Upload Settings File", disabled=not validations.is_valid(),
                    use_container_width=True):
         upload_settings_file(selected)
