@@ -5,11 +5,18 @@
   ],
   "post_login_page": "pages/scenarios.py",
   "model_map": {
-    "PiWind": ["piwind-small", "piwind-large", "piwind-small-alt"],
-    "MAEQ": ["maeq-test", "maeq-test-ll"],
-    "EUWS": ["euws-test", "euws-test-ll"],
+    "PiWind": ["piwind-small", "piwind-large"],
+    "MAEQ": ["maeq-test"],
+    "EUWS": ["euws-test"],
     "TREQ": ["treq-test"],
-    "PHTY-D": ["phty-taiwan"],
-    "PHTY-U": ["phty-taiwan"]
+    "Philippines-Taiwan-Defended":   ["taiwan-comparison-test", "philippines-taiwan-flat"],
+    "Philippines-Taiwan-Undefended": ["taiwan-comparison-test", "philippines-taiwan-flat"],
+    "US-Hurricane": ["us-flat"],
+    "Ghana-E635900": ["ghana-flat"],
+    "Ghana-E689982": ["ghana-flat"],
+    "Ghana-E760461": ["ghana-flat"],
+    "Nepal-E151185": ["nepal-flat"],
+    "Nepal-E432557": ["nepal-flat"],
+    "Nepal-E505423": ["nepal-flat"]
   }
 }

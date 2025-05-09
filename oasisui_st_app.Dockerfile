@@ -15,7 +15,6 @@ RUN pip install -r requirements.txt
 COPY ./images ./images
 COPY ./modules ./modules
 COPY ./app.py ./app.py
-COPY ./defaults ./defaults
 COPY ./pages ./pages
 COPY ./assets/ ./assets
 COPY ./.streamlit ./.streamlit

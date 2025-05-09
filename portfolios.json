@@ -12,5 +12,40 @@
     "accounts_f": "./OasisPiWind/tests/inputs/SourceAccOEDPiWind.csv",
     "ri_info_f": "./OasisPiWind/tests/inputs/SourceReinsInfoOEDPiWind.csv",
     "ri_scope_f": "./OasisPiWind/tests/inputs/SourceReinsScopeOEDPiWind.csv"
+  },
+  "maeq": {
+    "portfolio_name": "maeq-test",
+    "location_f": "../models/MAEQ/1.0.0/tests/MAEQ_100_oasis.csv",
+    "accounts_f": "../models/MAEQ/1.0.0/tests/MAEQ_acc.csv"
+  },
+  "trek": {
+    "portfolio_name": "trek-test",
+    "location_f": "../models/TREQ/1.0.0/tests/TREQ_P_test_loc_100.csv",
+    "accounts_f": "../models/TREQ/1.0.0/tests/TREQ_acc.csv"
+  },
+  "euws": {
+    "portfolio_name": "euws-test",
+    "location_f": "../models/EUWS/1.0.0/tests/EUWS_200_oasis.csv",
+    "accounts_f": "../models/EUWS/1.0.0/tests/EUWS_acc.csv"
+  },
+  "tw_comp": {
+    "portfolio_name": "taiwan-comparison-test",
+    "location_f": "../Scenarios/JBA/Philippines-Taiwan/tests/inputs/locationTW_diff3.csv"
+  },
+  "ph_tw_flat": {
+    "portfolio_name": "philippines-taiwan-flat",
+    "location_f": "../Scenarios/JBA/Philippines-Taiwan/tests/inputs/location.csv"
+  },
+  "us_flat": {
+    "portfolio_name": "us-flat",
+    "location_f": "../models/US_Hurricane/tests/test_1/locationFlat.csv"
+  },
+  "ghana_flat": {
+    "portfolio_name": "ghana-flat",
+    "location_f": "../Scenarios/JBA/Ghana/tests/inputs/location.csv"
+  },
+  "nepal": {
+    "portfolio_name": "nepal-flat",
+    "location_f": "../Scenarios/JBA/Nepal/tests/inputs/location.csv"
   }
 }

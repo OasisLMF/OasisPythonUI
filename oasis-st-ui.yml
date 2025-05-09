@@ -8,6 +8,8 @@ services:
       - 8501:8501
     environment:
       - API_URL=http://server:8000
+    volumes:
+      - ./defaults/:/usr/src/app/defaults/
     develop:
       watch:
         - action: sync
@@ -22,9 +24,6 @@ services:
         - action: sync
           path: ./ui-config.json
           target: ./usr/src/app/ui-config.json
-        - action: sync
-          path: ./defaults/
-          target: ./usr/src/app/defaults/
 
 # networks:
 #   platform_network:

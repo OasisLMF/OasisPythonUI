@@ -170,7 +170,7 @@ services:
     volumes:
       - filestore-OasisData:/shared-fs:rw
       - ../models/TREQ/1.0.0/:/home/worker/model
-  phty_d-worker:
+  philippines_taiwan_defended-worker:
     restart: always
     image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
     build:
@@ -182,14 +182,14 @@ services:
     environment:
      <<: *shared-env
      OASIS_MODEL_SUPPLIER_ID: JBA
-     OASIS_MODEL_ID: PHTY-D
+     OASIS_MODEL_ID: Philippines-Taiwan-Defended
      OASIS_MODEL_VERSION_ID: 'v2'
      OASIS_RUN_MODE: v2
      OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
     volumes:
-     - ../models/PHTY/D/:/home/worker/model
+     - ../Scenarios/JBA/Philippines-Taiwan/combined-defended/:/home/worker/model
      - filestore-OasisData:/shared-fs:rw
-  phty_u-worker:
+  philippines_taiwan_undefended-worker:
     restart: always
     image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
     build:
@@ -201,12 +201,126 @@ services:
     environment:
      <<: *shared-env
      OASIS_MODEL_SUPPLIER_ID: JBA
-     OASIS_MODEL_ID: PHTY-U
+     OASIS_MODEL_ID: Philippines-Taiwan-Undefended
      OASIS_MODEL_VERSION_ID: 'v2'
      OASIS_RUN_MODE: v2
      OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
     volumes:
-     - ../models/PHTY/U/:/home/worker/model
+     - ../Scenarios/JBA/Philippines-Taiwan/combined-undefended/:/home/worker/model
+     - filestore-OasisData:/shared-fs:rw
+  ghana-E635900-worker:
+    restart: always
+    image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.model_worker
+    links:
+     - celery-db
+     - broker:mybroker
+    environment:
+     <<: *shared-env
+     OASIS_MODEL_SUPPLIER_ID: JBA
+     OASIS_MODEL_ID: Ghana-E635900
+     OASIS_MODEL_VERSION_ID: 'v2'
+     OASIS_RUN_MODE: v2
+     OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
+    volumes:
+     - ../Scenarios/JBA/Ghana/E635900/combined/:/home/worker/model
+     - filestore-OasisData:/shared-fs:rw
+  ghana-E689982-worker:
+    restart: always
+    image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.model_worker
+    links:
+     - celery-db
+     - broker:mybroker
+    environment:
+     <<: *shared-env
+     OASIS_MODEL_SUPPLIER_ID: JBA
+     OASIS_MODEL_ID: Ghana-E689982
+     OASIS_MODEL_VERSION_ID: 'v2'
+     OASIS_RUN_MODE: v2
+     OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
+    volumes:
+     - ../Scenarios/JBA/Ghana/E689982/combined/:/home/worker/model
+     - filestore-OasisData:/shared-fs:rw
+  ghana-E760461-worker:
+    restart: always
+    image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.model_worker
+    links:
+     - celery-db
+     - broker:mybroker
+    environment:
+     <<: *shared-env
+     OASIS_MODEL_SUPPLIER_ID: JBA
+     OASIS_MODEL_ID: Ghana-E760461
+     OASIS_MODEL_VERSION_ID: 'v2'
+     OASIS_RUN_MODE: v2
+     OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
+    volumes:
+     - ../Scenarios/JBA/Ghana/E760461/combined/:/home/worker/model
+     - filestore-OasisData:/shared-fs:rw
+  nepal-E151185-worker:
+    restart: always
+    image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.model_worker
+    links:
+     - celery-db
+     - broker:mybroker
+    environment:
+     <<: *shared-env
+     OASIS_MODEL_SUPPLIER_ID: JBA
+     OASIS_MODEL_ID: Nepal-E151185
+     OASIS_MODEL_VERSION_ID: 'v2'
+     OASIS_RUN_MODE: v2
+     OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
+    volumes:
+     - ../Scenarios/JBA/Nepal/E151185/combined/:/home/worker/model
+     - filestore-OasisData:/shared-fs:rw
+  nepal-E432557-worker:
+    restart: always
+    image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.model_worker
+    links:
+     - celery-db
+     - broker:mybroker
+    environment:
+     <<: *shared-env
+     OASIS_MODEL_SUPPLIER_ID: JBA
+     OASIS_MODEL_ID: Nepal-E432557
+     OASIS_MODEL_VERSION_ID: 'v2'
+     OASIS_RUN_MODE: v2
+     OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
+    volumes:
+     - ../Scenarios/JBA/Nepal/E432557/combined/:/home/worker/model
+     - filestore-OasisData:/shared-fs:rw
+  nepal-E505423-worker:
+    restart: always
+    image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.model_worker
+    links:
+     - celery-db
+     - broker:mybroker
+    environment:
+     <<: *shared-env
+     OASIS_MODEL_SUPPLIER_ID: JBA
+     OASIS_MODEL_ID: Nepal-E505423
+     OASIS_MODEL_VERSION_ID: 'v2'
+     OASIS_RUN_MODE: v2
+     OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
+    volumes:
+     - ../Scenarios/JBA/Nepal/E505423/combined/:/home/worker/model
      - filestore-OasisData:/shared-fs:rw
   us_hurricane-worker:
     restart: always
