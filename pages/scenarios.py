@@ -270,21 +270,12 @@ with run_container:
                 return ci.analyses.get_file(analysis_id, 'output_file', df=True)
 
             results_dict = get_output_file(analysis_id)
-<<<<<<< HEAD
-            vis_interface = OutputInterface(results_dict)
-            perspectives = ['gul', 'il', 'ri']
-            for p in perspectives:
-                p_oed_fields = a_settings.get(f'{p}_summaries', [{}])[0].get('oed_fields', None)
-                if p_oed_fields:
-                    vis_interface.set_oed_fields(p, p_oed_fields)
-=======
             output_interface = OutputInterface(results_dict)
 
             for p in ['gul', 'il', 'ri']:
                 p_oed_fields = a_settings.get(f'{p}_summaries', [{}])[0].get('oed_fields', None)
                 if p_oed_fields:
                     output_interface.set_oed_fields(p, p_oed_fields)
->>>>>>> main
 
             def generate_perspective_visualisation(perspective, summaries_settings):
                 if summaries_settings[0].get('eltcalc', False):
