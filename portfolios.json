@@ -1,0 +1,16 @@
+{
+  "piwind_small": {
+    "portfolio_name": "piwind-small",
+    "location_f": "./OasisPiWind/tests/inputs/SourceLocOEDPiWind10.csv",
+    "accounts_f": "./OasisPiWind/tests/inputs/SourceAccOEDPiWind.csv",
+    "ri_info_f": "./OasisPiWind/tests/inputs/SourceReinsInfoOEDPiWind.csv",
+    "ri_scope_f": "./OasisPiWind/tests/inputs/SourceReinsScopeOEDPiWind.csv"
+  },
+  "piwind_large": {
+    "portfolio_name": "piwind-large",
+    "location_f": "./OasisPiWind/tests/inputs/SourceLocOEDPiWind.csv",
+    "accounts_f": "./OasisPiWind/tests/inputs/SourceAccOEDPiWind.csv",
+    "ri_info_f": "./OasisPiWind/tests/inputs/SourceReinsInfoOEDPiWind.csv",
+    "ri_scope_f": "./OasisPiWind/tests/inputs/SourceReinsScopeOEDPiWind.csv"
+  }
+}
