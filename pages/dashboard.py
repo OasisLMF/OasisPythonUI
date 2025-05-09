@@ -40,7 +40,7 @@ analysis_id = selected_analysis['id']
 
 @st.cache_data
 def get_analysis_inputs(ID):
-    return client_interface.analyses.get_file(analysis_id, 'input_file', df=True)
+    return client_interface.analyses.get_file(ID, 'input_file', df=True)
 
 with st.spinner("Loading data..."):
     inputs = get_analysis_inputs(analysis_id)
@@ -65,7 +65,7 @@ for p in perspectives:
     if p_oed_fields:
         vis.set_oed_fields(p, p_oed_fields)
 
-st.write("# Output Visualisation")
+st.write("# Output")
 with st.spinner("Loading visualisations..."):
     for p in perspectives:
         if not settings.get(f'{p}_output', False):

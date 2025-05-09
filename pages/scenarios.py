@@ -138,14 +138,18 @@ with create_container:
             def show_locations_map():
                 with st.spinner('Loading map...'):
                     locations = client_interface.portfolios.endpoint.location_file.get_dataframe(selected_portfolio["id"])
-                    if valid_locations(locations):
-                        exposure_map = MapView(locations, map_type='heatmap', weight='BuildingTIV')
+                    cols = locations.columns
+                    heatmap_cols = ["Latitude", "Longitude", "BuildingTIV"]
+                    choropleth_cols = ["CountryCode", "BuildingTIV"]
+                    if all([c in cols for c in heatmap_cols]) and valid_locations(locations):
+                        exposure_map = MapView(locations, weight="BuildingTIV", map_type="heatmap")
                         exposure_map.display()
-                    elif 'CountryCode' in locations.columns:
-                        exposure_map = MapView(locations, map_type='choropleth', weight='BuildingTIV')
+                    elif all([c in cols for c in choropleth_cols]):
+                        exposure_map = MapView(locations, weight="BuildingTIV", map_type="choropleth")
                         exposure_map.display()
                     else:
-                        st.error('Location data not found.')
+                        st.error('Map cannot be displayed.')
+                        logger.error(f"Map view\n\tData cols: {cols}")
             show_locations_map()
 
     with cols[2]:
