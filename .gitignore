@@ -1,6 +1,10 @@
 # Oasis Model imports
 OasisPiWind/
 
+# Streamlit
+.streamlit/secrets.toml
+.streamlit/secrets.sh
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
