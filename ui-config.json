@@ -1,6 +1,15 @@
 {
-  "pages" : [{"path": "pages/scenarios.py", "label": "Scenarios"}],
+  "pages" : [
+    {"path": "pages/scenarios.py", "label": "Scenarios"},
+    {"path": "pages/comparison.py", "label": "Comparison"}
+  ],
   "post_login_page": "pages/scenarios.py",
   "model_map": {
+    "PiWind": ["piwind-small", "piwind-large", "piwind-small-alt"],
+    "MAEQ": ["maeq-test", "maeq-test-ll"],
+    "EUWS": ["euws-test", "euws-test-ll"],
+    "TREQ": ["treq-test"],
+    "PHTY-D": ["phty-taiwan"],
+    "PHTY-U": ["phty-taiwan"]
   }
 }

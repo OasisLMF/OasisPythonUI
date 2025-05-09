@@ -1,12 +1,11 @@
 services:
   streamlit_ui:
+    restart: always
     container_name: oasis_st_ui
     build:
       dockerfile: ./oasisui_st_app.Dockerfile
     ports:
       - 8501:8501
-    #    networks:
-    #      - platform_network
     environment:
       - API_URL=http://server:8000
     develop:

@@ -10,6 +10,13 @@
     "gul_summaries": [
         {
             "eltcalc": true,
+	    "aalcalc": false, 
+	    "lec_output": false,
+            "leccalc": {
+                "full_uncertainty_aep": true,
+                "full_uncertainty_oep": true,
+                "return_period_file": true
+            }, 
             "id": 1
         }
     ],

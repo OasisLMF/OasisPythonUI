@@ -1,0 +1,38 @@
+{
+        "gul_output": true,
+        "gul_summaries": [
+            {
+                "aalcalc": true,
+                "eltcalc": true,
+                "id": 1,
+                "ord_output": {
+                    "ept_per_sample_mean_aep": true
+                    },
+                "return_period_file": true
+
+            }
+        ],
+        "gul_threshold": 0,
+        "il_output": false,
+        "il_summaries": [
+            {
+                "aalcalc": true,
+                "eltcalc": true,
+                "id": 1,
+                "lec_output": true,
+                "leccalc": {
+                    "outputs": {
+                        "full_uncertainty_aep": true,
+                        "full_uncertainty_oep": true
+                    },
+                "return_period_file": true
+                }
+            }
+        ],
+        "gul_threshold": 0,
+        "model_settings": {
+         },
+        "model_name_id": "US_Hurricane",
+        "model_supplier_id": "ARA",
+        "number_of_samples": 10
+}

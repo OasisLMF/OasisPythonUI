@@ -1,0 +1,34 @@
+{
+
+	"source_tag": "MDK",
+	"analysis_tag": 1,
+	"model_version_id": "0.0.0.1",
+	"model_name_id": "treq",
+	"module_supplier_id": "ImpactForecasting",
+	"number_of_samples": 10,
+	"model_settings": {
+		"event_set": "",
+		"peril_wind": true
+	 },
+        "gul_output": true,
+	"gul_summaries": [
+	            {	
+	            	"id": 1,
+	            	"summarycalc": false,
+	                "aalcalc": false,
+	                "eltcalc": true,
+	                "lec_output": false,
+	                "leccalc": {
+	                    "outputs": {
+	                        "full_uncertainty_aep": false,
+	                        "full_uncertainty_oep": false,
+	                        "sample_mean_aep": false,
+	                        "sample_mean_oep": false
+	                    },
+	                "return_period_file": false
+	                }
+	            }
+	        ],
+        "gul_threshold": 0
+    
+}

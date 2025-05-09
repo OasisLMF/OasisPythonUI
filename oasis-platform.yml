@@ -40,9 +40,15 @@ services:
      <<: *shared-env
      STARTUP_RUN_MIGRATIONS: "true"
      OASIS_ADMIN_USER: admin
-     OASIS_ADMIN_PASS: password
+     OASIS_ADMIN_PASS: ${OASIS_ADMIN_PASS}
    volumes:
      - filestore-OasisData:/shared-fs:rw
+   healthcheck:
+      test: curl --fail http:localhost:8000/healthcheck/ || exit
+      interval: 30s
+      retries : 10
+      start_period: 30s
+      timeout: 10s
   server_websocket:
    restart: always
    image: ${SERVER_IMG:-coreoasis/api_server}:${VERS_API:-latest}
@@ -92,7 +98,7 @@ services:
    environment:
      <<: *shared-env
    volumes: *shared-volumes
-  v2-worker:
+  piwind-worker:
     restart: always
     image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
     build:
@@ -109,6 +115,117 @@ services:
      OASIS_RUN_MODE: v2
     volumes:
      - ./OasisPiWind/:/home/worker/model
+     - filestore-OasisData:/shared-fs:rw
+  maeq-worker:
+    restart: always
+    image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.model_worker
+    links:
+      - celery-db
+      - broker:mybroker
+    environment:
+      <<: *shared-env
+      OASIS_MODEL_SUPPLIER_ID: Impact Forecasting
+      OASIS_MODEL_ID: MAEQ
+      OASIS_MODEL_VERSION_ID: 'v2'
+      OASIS_RUN_MODE: v2
+    volumes:
+      - filestore-OasisData:/shared-fs:rw
+      - ../models/MAEQ/1.0.0/:/home/worker/model
+  euws-worker:
+    restart: always
+    image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.model_worker
+    links:
+      - celery-db
+      - broker:mybroker
+    environment:
+      <<: *shared-env
+      OASIS_MODEL_SUPPLIER_ID: Impact Forecasting
+      OASIS_MODEL_ID: EUWS
+      OASIS_MODEL_VERSION_ID: 'v2'
+      OASIS_RUN_MODE: v2
+    volumes:
+      - filestore-OasisData:/shared-fs:rw
+      - ../models/EUWS/1.0.0/:/home/worker/model
+  treq-worker:
+    restart: always
+    image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER}
+    build:
+      context: .
+      dockerfile: Dockerfile.model_worker
+    links:
+      - celery-db
+      - broker:mybroker
+    environment:
+      <<: *shared-env
+      OASIS_MODEL_SUPPLIER_ID: Impact Forecasting
+      OASIS_MODEL_ID: TREQ
+      OASIS_MODEL_VERSION_ID: 'v2'
+      OASIS_RUN_MODE: v2
+    volumes:
+      - filestore-OasisData:/shared-fs:rw
+      - ../models/TREQ/1.0.0/:/home/worker/model
+  phty_d-worker:
+    restart: always
+    image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.model_worker
+    links:
+     - celery-db
+     - broker:mybroker
+    environment:
+     <<: *shared-env
+     OASIS_MODEL_SUPPLIER_ID: JBA
+     OASIS_MODEL_ID: PHTY-D
+     OASIS_MODEL_VERSION_ID: 'v2'
+     OASIS_RUN_MODE: v2
+     OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
+    volumes:
+     - ../models/PHTY/D/:/home/worker/model
+     - filestore-OasisData:/shared-fs:rw
+  phty_u-worker:
+    restart: always
+    image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.model_worker
+    links:
+     - celery-db
+     - broker:mybroker
+    environment:
+     <<: *shared-env
+     OASIS_MODEL_SUPPLIER_ID: JBA
+     OASIS_MODEL_ID: PHTY-U
+     OASIS_MODEL_VERSION_ID: 'v2'
+     OASIS_RUN_MODE: v2
+     OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
+    volumes:
+     - ../models/PHTY/U/:/home/worker/model
+     - filestore-OasisData:/shared-fs:rw
+  us_hurricane-worker:
+    restart: always
+    image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.model_worker
+    links:
+     - celery-db
+     - broker:mybroker
+    environment:
+     <<: *shared-env
+     OASIS_MODEL_SUPPLIER_ID: ARA
+     OASIS_MODEL_ID: US-Hurricane
+     OASIS_MODEL_VERSION_ID: 'v2'
+     OASIS_RUN_MODE: v2
+     OASIS_OASISLMF_CONFIG: /home/worker/model/tests/test_1/oasislmf.json
+    volumes:
+     - ../models/US_Hurricane/:/home/worker/model
      - filestore-OasisData:/shared-fs:rw
   server-db:
     restart: always
