@@ -44,8 +44,12 @@
     "portfolio_name": "ghana-flat",
     "location_f": "../Scenarios/JBA/Ghana/tests/inputs/location.csv"
   },
-  "nepal": {
+  "nepal_flat": {
     "portfolio_name": "nepal-flat",
     "location_f": "../Scenarios/JBA/Nepal/tests/inputs/location.csv"
+  },
+  "france_flat_hail": {
+    "portfolio_name": "france-flat",
+    "location_f": "../Scenarios/IPE/FranceHail/tests/inputs/location.csv"
   }
 }
