@@ -341,6 +341,25 @@ services:
     volumes:
      - ../models/US_Hurricane/:/home/worker/model
      - filestore-OasisData:/shared-fs:rw
+  paris_hail-worker:
+    restart: always
+    image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.model_worker
+    links:
+     - celery-db
+     - broker:mybroker
+    environment:
+     <<: *shared-env
+     OASIS_MODEL_SUPPLIER_ID: JBA
+     OASIS_MODEL_ID: Nepal-E505423
+     OASIS_MODEL_VERSION_ID: 'v2'
+     OASIS_RUN_MODE: v2
+     OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
+    volumes:
+     - ../Scenarios/IPE/FranceHail/:/home/worker/model
+     - filestore-OasisData:/shared-fs:rw
   server-db:
     restart: always
     image: postgres
