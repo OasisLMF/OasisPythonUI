@@ -40,7 +40,7 @@ services:
      <<: *shared-env
      STARTUP_RUN_MIGRATIONS: "true"
      OASIS_ADMIN_USER: admin
-     OASIS_ADMIN_PASS: ${OASIS_ADMIN_PASS}
+     OASIS_ADMIN_PASS: catmodels
    volumes:
      - filestore-OasisData:/shared-fs:rw
    healthcheck:
