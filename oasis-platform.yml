@@ -352,8 +352,8 @@ services:
      - broker:mybroker
     environment:
      <<: *shared-env
-     OASIS_MODEL_SUPPLIER_ID: JBA
-     OASIS_MODEL_ID: Nepal-E505423
+     OASIS_MODEL_SUPPLIER_ID: IPE
+     OASIS_MODEL_ID: Paris-Hail
      OASIS_MODEL_VERSION_ID: 'v2'
      OASIS_RUN_MODE: v2
      OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
