@@ -1,2 +1,12 @@
 [client]
 showSidebarNavigation = false
+showErrorDetails = "type"
+toolbarMode = "minimal"
+
+[server]
+fileWatcherType = "none"
+headless = true
+
+[browser]
+gatherUsageStats = false
+showSidebarNavigation = false
