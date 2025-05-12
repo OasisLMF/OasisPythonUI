@@ -341,7 +341,7 @@ services:
     volumes:
      - ../models/US_Hurricane/:/home/worker/model
      - filestore-OasisData:/shared-fs:rw
-  paris_hail-worker:
+  france_hail-worker:
     restart: always
     image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
     build:
@@ -353,7 +353,7 @@ services:
     environment:
      <<: *shared-env
      OASIS_MODEL_SUPPLIER_ID: IPE
-     OASIS_MODEL_ID: Paris-Hail
+     OASIS_MODEL_ID: France-Hail
      OASIS_MODEL_VERSION_ID: 'v2'
      OASIS_RUN_MODE: v2
      OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
