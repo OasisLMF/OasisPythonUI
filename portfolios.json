@@ -15,41 +15,41 @@
   },
   "maeq": {
     "portfolio_name": "maeq-test",
-    "location_f": "../models/MAEQ/1.0.0/tests/MAEQ_100_oasis.csv",
-    "accounts_f": "../models/MAEQ/1.0.0/tests/MAEQ_acc.csv"
+    "location_f": "../Scenarios/ImpactForecasting/MAEQ/1.0.0/tests/MAEQ_100_oasis.csv",
+    "accounts_f": "../Scenarios/ImpactForecasting/MAEQ/1.0.0/tests/MAEQ_acc.csv"
   },
-  "trek": {
-    "portfolio_name": "trek-test",
-    "location_f": "../models/TREQ/1.0.0/tests/TREQ_P_test_loc_100.csv",
-    "accounts_f": "../models/TREQ/1.0.0/tests/TREQ_acc.csv"
+  "treq": {
+    "portfolio_name": "treq-test",
+    "location_f": "../Scenarios/ImpactForecasting/TREQ/1.0.0/tests/TREQ_P_test_loc_100.csv",
+    "accounts_f": "../Scenarios/ImpactForecasting/TREQ/1.0.0/tests/TREQ_acc.csv"
   },
   "euws": {
     "portfolio_name": "euws-test",
-    "location_f": "../models/EUWS/1.0.0/tests/EUWS_200_oasis.csv",
-    "accounts_f": "../models/EUWS/1.0.0/tests/EUWS_acc.csv"
+    "location_f": "../Scenarios/ImpactForecasting/EUWS/1.0.0/tests/EUWS_200_oasis.csv",
+    "accounts_f": "../Scenarios/ImpactForecasting/EUWS/1.0.0/tests/EUWS_acc.csv"
   },
   "tw_comp": {
     "portfolio_name": "taiwan-comparison-test",
     "location_f": "../Scenarios/JBA/Philippines-Taiwan/tests/inputs/locationTW_diff3.csv"
   },
   "ph_tw_flat": {
-    "portfolio_name": "philippines-taiwan-flat",
+    "portfolio_name": "philippines-taiwan-typhoon-flat",
     "location_f": "../Scenarios/JBA/Philippines-Taiwan/tests/inputs/location.csv"
   },
   "us_flat": {
-    "portfolio_name": "us-flat",
-    "location_f": "../models/US_Hurricane/tests/test_1/locationFlat.csv"
+    "portfolio_name": "us-hurricane-flat",
+    "location_f": "../Scenarios/ARA/US_Hurricane/tests/test_2/location.csv"
   },
   "ghana_flat": {
-    "portfolio_name": "ghana-flat",
+    "portfolio_name": "ghana-flood-flat",
     "location_f": "../Scenarios/JBA/Ghana/tests/inputs/location.csv"
   },
   "nepal_flat": {
-    "portfolio_name": "nepal-flat",
+    "portfolio_name": "nepal-flood-flat",
     "location_f": "../Scenarios/JBA/Nepal/tests/inputs/location.csv"
   },
   "france_flat_hail": {
-    "portfolio_name": "france-flat",
+    "portfolio_name": "france-hail-flat",
     "location_f": "../Scenarios/IPE/FranceHail/tests/inputs/location.csv"
   }
 }

@@ -133,7 +133,7 @@ services:
       OASIS_RUN_MODE: v2
     volumes:
       - filestore-OasisData:/shared-fs:rw
-      - ../models/MAEQ/1.0.0/:/home/worker/model
+      - ../Scenarios/ImpactForecasting/MAEQ/1.0.0/:/home/worker/model
   euws-worker:
     restart: always
     image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER-latest}
@@ -151,7 +151,7 @@ services:
       OASIS_RUN_MODE: v2
     volumes:
       - filestore-OasisData:/shared-fs:rw
-      - ../models/EUWS/1.0.0/:/home/worker/model
+      - ../Scenarios/ImpactForecasting/EUWS/1.0.0/:/home/worker/model
   treq-worker:
     restart: always
     image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER}
@@ -169,7 +169,7 @@ services:
       OASIS_RUN_MODE: v2
     volumes:
       - filestore-OasisData:/shared-fs:rw
-      - ../models/TREQ/1.0.0/:/home/worker/model
+      - ../Scenarios/ImpactForecasting/TREQ/1.0.0/:/home/worker/model
   philippines_taiwan_defended-worker:
     restart: always
     image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
@@ -337,9 +337,9 @@ services:
      OASIS_MODEL_ID: US-Hurricane
      OASIS_MODEL_VERSION_ID: 'v2'
      OASIS_RUN_MODE: v2
-     OASIS_OASISLMF_CONFIG: /home/worker/model/tests/test_1/oasislmf.json
+     OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
     volumes:
-     - ../models/US_Hurricane/:/home/worker/model
+     - ../Scenarios/ARA/US_Hurricane/:/home/worker/model
      - filestore-OasisData:/shared-fs:rw
   france_hail-worker:
     restart: always

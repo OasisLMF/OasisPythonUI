@@ -9,15 +9,15 @@
     "MAEQ": ["maeq-test"],
     "EUWS": ["euws-test"],
     "TREQ": ["treq-test"],
-    "Philippines-Taiwan-Defended":   ["taiwan-comparison-test", "philippines-taiwan-flat"],
-    "Philippines-Taiwan-Undefended": ["taiwan-comparison-test", "philippines-taiwan-flat"],
-    "US-Hurricane": ["us-flat"],
-    "Ghana-E635900": ["ghana-flat"],
-    "Ghana-E689982": ["ghana-flat"],
-    "Ghana-E760461": ["ghana-flat"],
-    "Nepal-E151185": ["nepal-flat"],
-    "Nepal-E432557": ["nepal-flat"],
-    "Nepal-E505423": ["nepal-flat"],
-    "France-Hail": ["france-flat"]
+    "Philippines-Taiwan-Defended":   ["taiwan-comparison-test", "philippines-taiwan-typhoon-flat"],
+    "Philippines-Taiwan-Undefended": ["taiwan-comparison-test", "philippines-taiwan-typhoon-flat"],
+    "US-Hurricane": ["us-hurricane-flat"],
+    "Ghana-E635900": ["ghana-flood-flat"],
+    "Ghana-E689982": ["ghana-flood-flat"],
+    "Ghana-E760461": ["ghana-flood-flat"],
+    "Nepal-E151185": ["nepal-flood-flat"],
+    "Nepal-E432557": ["nepal-flood-flat"],
+    "Nepal-E505423": ["nepal-flood-flat"],
+    "France-Hail": ["france-hail-flat"]
   }
 }
