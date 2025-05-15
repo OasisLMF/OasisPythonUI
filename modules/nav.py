@@ -1,7 +1,12 @@
+"""
+This file allows for creating a sidebar based on UI config.
+"""
+
 import streamlit as st
 import json
 
 def SidebarNav():
+    """Generate the sidebar as configured by the `ui-config.json`."""
     with st.sidebar:
         if "client" in st.session_state:
             with open("ui-config.json", "r") as f:
