@@ -3,31 +3,9 @@ Test file for modules/nav.py
 """
 import pytest
 from streamlit.testing.v1 import AppTest
+from tests.modules.mocks import mock_uiconfig, mock_pagelink
 
 from unittest.mock import call
-
-@pytest.fixture
-def mock_uiconfig(mocker):
-    mocked_uiconfig = mocker.mock_open(read_data='''
-    {
-        "pages" : [{"path": "pages/test_1.py", "label": "Test_1"},
-                   {"path": "pages/test_2.py", "label": "Test_2"}
-        ],
-        "post_login_page": "pages/test.py"
-    }''')
-
-    original_open = open
-
-    def open_side_effect(file, mode='r', *args, **kwargs):
-        if file == "ui-config.json":
-            return mocked_uiconfig(file, mode, *args, **kwargs)
-        return original_open(file, mode, *args, **kwargs)
-    mocker.patch('builtins.open', side_effect=open_side_effect)
-
-@pytest.fixture
-def mock_pagelink(mocker):
-    mock_pl = mocker.patch('streamlit.page_link', autospec=True)
-    return mock_pl
 
 """Creating a sidebar with a basic config."""
 def app_script():

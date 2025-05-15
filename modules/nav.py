@@ -1,7 +1,6 @@
 """
 This file allows for creating a sidebar based on UI config.
 """
-
 import streamlit as st
 import json
 
