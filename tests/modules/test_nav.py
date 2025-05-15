@@ -1,9 +1,10 @@
 """
 Test file for modules/nav.py
 """
-import json
 import pytest
 from streamlit.testing.v1 import AppTest
+
+from unittest.mock import call
 
 @pytest.fixture
 def mock_uiconfig(mocker):
@@ -25,22 +26,21 @@ def mock_uiconfig(mocker):
 
 @pytest.fixture
 def mock_pagelink(mocker):
-    mock_pl = mocker.patch('streamlit.page_link')
+    mock_pl = mocker.patch('streamlit.page_link', autospec=True)
     return mock_pl
 
 """Creating a sidebar with a basic config."""
 def app_script():
     from modules.nav import SidebarNav
-
     SidebarNav()
 
 def test_prelogin_sidebarnav(mock_uiconfig, mock_pagelink):
     at = AppTest.from_function(app_script)
     at.run()
 
+    assert not at.exception
     assert mock_pagelink.call_count == 1
-    assert mock_pagelink.call_args[0][0] == 'app.py'
-    assert mock_pagelink.call_args[1]['label'] == 'Login'
+    mock_pagelink.assert_called_with('app.py', label='Login')
 
 
 def test_postlogin_sidebarnav(mock_uiconfig, mock_pagelink):
@@ -48,8 +48,8 @@ def test_postlogin_sidebarnav(mock_uiconfig, mock_pagelink):
     at.session_state['client'] = True
     at.run()
 
+    assert not at.exception
     assert mock_pagelink.call_count == 2
-    assert mock_pagelink.call_args_list[0][0][0] == 'pages/test_1.py'
-    assert mock_pagelink.call_args_list[1][0][0] == 'pages/test_2.py'
-    assert mock_pagelink.call_args_list[0][1]['label'] == 'Test_1'
-    assert mock_pagelink.call_args_list[1][1]['label'] == 'Test_2'
+    expected_calls = (call('pages/test_1.py', label='Test_1'),
+                      call('pages/test_2.py', label='Test_2'))
+    mock_pagelink.assert_has_calls(expected_calls)
