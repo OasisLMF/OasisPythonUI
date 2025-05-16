@@ -15,6 +15,7 @@ class UIConfig():
         post_login_page: Subdomain to redirect to after login.
         model_map: dict where the key is the model name and the value is a list
         of exposure sets the model should correspond to.
+        skip_login (bool): If True skip the login redirection.
     """
     def __init__(self):
         config_path = os.getenv("OASIS_UI_CONFIG", OASIS_UI_CONFIG)
@@ -29,6 +30,7 @@ class UIConfig():
         self.pages = config.get('pages', [])
         self.post_login_page = config.get('post_login_page')
         self.model_map = config.get('model_map', {})
+        self.skip_login = config.get('skip_login', False)
 
 
 def retrieve_ui_config():

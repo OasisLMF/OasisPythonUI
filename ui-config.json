@@ -2,5 +2,6 @@
   "pages" : [{"path": "pages/scenarios.py", "label": "Scenarios"}],
   "post_login_page": "pages/scenarios.py",
   "model_map": {
-  }
+  },
+  "skip_login": true
 }

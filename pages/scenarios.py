@@ -1,3 +1,5 @@
+from modules.authorisation import validate_page
+from modules.login import handle_login
 from oasis_data_manager.errors import OasisException
 import tarfile
 from io import BytesIO
@@ -24,24 +26,24 @@ from pages.components.process import enrich_analyses, enrich_portfolios
 
 logger = logging.getLogger(__name__)
 
-ui_config = retrieve_ui_config()
+validate_page("Scenarios")
 
-st.set_page_config(
-    page_title = "Scenarios",
-    layout = "centered"
-)
+ui_config = retrieve_ui_config()
+handle_login(ui_config.skip_login)
+
+client_interface = st.session_state["client_interface"]
+client = client_interface.client
+
+# st.set_page_config(
+#     page_title = "Scenarios",
+#     layout = "centered"
+# )
 
 SidebarNav()
 
 cols = st.columns([0.1, 0.8, 0.1])
 with cols[1]:
     st.image("images/oasis_logo.png")
-
-if "client" in st.session_state:
-    client = st.session_state.client
-    client_interface = ClientInterface(client)
-else:
-    st.switch_page("app.py")
 
 '## Create Analysis'
 

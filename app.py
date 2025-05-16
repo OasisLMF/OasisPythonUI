@@ -1,4 +1,5 @@
 from modules.config import retrieve_ui_config
+from modules.login import handle_login
 import streamlit as st
 from modules.client import ClientInterface
 from modules.nav import SidebarNav
@@ -17,14 +18,13 @@ SidebarNav()
 
 ui_config = retrieve_ui_config()
 
+if ui_config.skip_login:
+    client_interface = ClientInterface(username=st.secrets["user"], password=st.secrets["password"])
+    st.session_state["client"]  = client_interface.client
+
 cols = st.columns([0.1, 0.8, 0.1])
 with cols[1]:
     st.image(image="images/oasis_logo.png")
-
-if "client" not in st.session_state:
-    client_interface = ClientInterface(username=st.secrets["user"], password=st.secrets["password"])
-    st.session_state["client"]  = client_interface.client
-    st.rerun()
 
 if "client" in st.session_state:
     st.write("Logged in")
