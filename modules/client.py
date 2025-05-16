@@ -3,13 +3,26 @@ from oasislmf.platform_api.client import APIClient
 import tempfile
 import os
 from requests import HTTPError
-import streamlit as st
 import logging
 
 logger = logging.getLogger(__name__)
 
+class JsonEndpointInterface:
+    '''
+    Abstract class for handling a endpoint of the Oasis APIClient restricted to json output.
+    '''
+    def __init__(self, client, endpoint_name='portfolios'):
+        self.endpoint = getattr(client, endpoint_name)
+
+    def get(self, ID=None):
+        return self.endpoint.get(ID=ID).json()
+
 
 class EndpointInterface:
+    '''
+    Abstract class for handling a endpoint of the Oasis APIClient. Includes
+    handling both file and json endpoints.
+    '''
     def __init__(self, client, endpoint_name='portfolios'):
         self.endpoint = getattr(client, endpoint_name)
 
@@ -35,9 +48,23 @@ class EndpointInterface:
             data = data.get(ID)
         return data
 
+
+class ModelsEndpointInterface(EndpointInterface):
+    '''
+    Interface for models endpoint of the Oasis APIClient.
+    '''
+    def __init__(self, client):
+        super().__init__(client, endpoint_name='models')
+        self.settings = JsonEndpointInterface(self.endpoint, endpoint_name='settings')
+
+
 class AnalysesEndpointInterface(EndpointInterface):
+    '''
+    Interface for analyses endpoint of the Oasis APIClient.
+    '''
     def __init__(self, client):
         super().__init__(client, endpoint_name='analyses')
+        self.settings = JsonEndpointInterface(self.endpoint, endpoint_name='settings')
 
     def get_traceback(self, ID, error_type='input_generation'):
         '''
@@ -64,6 +91,9 @@ class AnalysesEndpointInterface(EndpointInterface):
 
 
 class PortfoliosEndpointInterface(EndpointInterface):
+    '''
+    Interface for portfolios endpoint of the Oasis APIClient.
+    '''
     def __init__(self, client):
         super().__init__(client, "portfolios")
         self.client = client
@@ -114,6 +144,15 @@ class PortfoliosEndpointInterface(EndpointInterface):
 
 
 class ClientInterface:
+    '''
+    Wrapper interface around the Oasis APIClient.
+
+    Attributes:
+        client: Instance of the `APIClient` from `oasislmf.platform_api.client`.
+        portfolios: Interface for managing portfolios.
+        analyses: Interface for managing analyses.
+        models: Interface for managing models.
+    '''
     def __init__(self, client=None, username=None, password=None):
         api_url = os.environ.get('API_URL', 'http://localhost:8000')
 
@@ -125,7 +164,7 @@ class ClientInterface:
         self.client = client
         self.portfolios = PortfoliosEndpointInterface(client)
         self.analyses = AnalysesEndpointInterface(client)
-        self.models = EndpointInterface(client, "models")
+        self.models = ModelsEndpointInterface(client)
 
 
     def create_analysis(self, portfolio_id, model_id, analysis_name):
@@ -136,6 +175,8 @@ class ClientInterface:
         return resp
 
     def create_and_generate_analysis(self, portfolio_id, model_id, analysis_name):
+        '''Create the analysis and run input generation.
+        '''
         resp = self.create_analysis(portfolio_id, model_id, analysis_name)
         resp = self.client.run_generate(resp["id"])
         return resp
@@ -144,12 +185,18 @@ class ClientInterface:
         self.client.upload_settings(analysis_id, analysis_settings)
 
     def run(self, analysis_id):
+        '''Run the analysis specified by `analysis_id`.
+        '''
         return self.client.analyses.run(analysis_id)
 
     def generate_and_run(self, analysis_id):
+        '''Generate input files and run the analysis specified by `analysis_id`.
+        '''
         return self.client.analyses.generate_and_run(analysis_id)
 
     def download_output(self, analysis_id):
+        '''Retrieve the output files from a given analysis specified by `analysis_id`.
+        '''
         with tempfile.TemporaryDirectory() as tmpdir:
             self.client.download_output(analysis_id, download_path=tmpdir)
             fname = os.listdir(tmpdir)[0]
