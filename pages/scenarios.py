@@ -1,4 +1,3 @@
-from os.path import isfile
 from oasis_data_manager.errors import OasisException
 import tarfile
 from io import BytesIO
@@ -6,6 +5,7 @@ from pathlib import Path
 from requests.exceptions import HTTPError
 import streamlit as st
 from modules.nav import SidebarNav
+from modules.config import retrieve_ui_config
 from modules.rerun import RefreshHandler
 from modules.settings import get_analyses_settings
 from pages.components.display import DataframeView, MapView
@@ -24,11 +24,7 @@ from pages.components.process import enrich_analyses, enrich_portfolios
 
 logger = logging.getLogger(__name__)
 
-if isfile("ui-config.json"):
-    with open("ui-config.json") as f:
-        ui_config = json.load(f)
-else:
-    ui_config = {}
+ui_config = retrieve_ui_config()
 
 st.set_page_config(
     page_title = "Scenarios",
@@ -62,7 +58,7 @@ create_container = st.container(border=True)
 run_container = st.container(border=True)
 
 with create_container:
-    model_map = ui_config.get("model_map", {})
+    model_map = ui_config.model_map
 
     '#### Model Selection'
     models = client_interface.models.get(df=True)
