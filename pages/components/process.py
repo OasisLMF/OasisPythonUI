@@ -12,26 +12,37 @@ def number_rows(portfolio_ids, client_interface, filename='location_file', col_n
         if file_df is None:
             data['id'].append(id)
             data[col_name].append(None)
-
-        data['id'].append(id)
-        data[col_name].append(file_df.shape[0])
+        else:
+            data['id'].append(id)
+            data[col_name].append(file_df.shape[0])
     return pd.DataFrame(data)
 
+def enrich_portfolios(portfolios, client_interface, disable=[]):
+    '''
+    Add summary information columns to portfolios dataframe. Currently supports the following column options:
+        - `loc` : The number of locations in the location file.
+        - `acc` : The number of accounts in the accounts file
 
-def number_locations(portfolio_ids, client_interface):
-    return number_rows(portfolio_ids, client_interface, filename='location_file', col_name='number_locations')
+    Args:
+        portfolios : DataFrame containing output from portfolios endpoint.
+        client_interface : ClientInterface instance.
+        disable : List of column options to ignore.
 
-def number_accounts(portfolio_ids, client_interface):
-    return number_rows(portfolio_ids, client_interface, filename='accounts_file', col_name='number_accounts')
-
-def enrich_portfolios(portfolios, client_interface,
-                      disable=[]):
+    Returns:
+        The new enriched portfolio.
+    '''
     enriched = None
     if 'loc' not in disable:
-        _n_loc_df = number_locations(portfolios[portfolios['location_file.stored'].notna()]['id'], client_interface)
+        filtered_portfolios = portfolios[portfolios['location_file.stored'].notna()]['id']
+        _n_loc_df = number_rows(filtered_portfolios, client_interface,
+                                filename='location_file',
+                                col_name='number_locations')
         enriched = _n_loc_df.set_index('id')
     if 'acc' not in disable:
-        _n_acc_df = number_accounts(portfolios[portfolios['accounts_file.stored'].notna()]['id'], client_interface)
+        filtered_portfolios = portfolios[portfolios['accounts_file.stored'].notna()]['id']
+        _n_acc_df = number_rows(filtered_portfolios, client_interface,
+                                    filename='accounts_file',
+                                    col_name='number_accounts')
         _n_acc_df = _n_acc_df.set_index('id')
         if enriched is None:
             enriched = _n_acc_df
@@ -42,7 +53,6 @@ def enrich_portfolios(portfolios, client_interface,
         portfolios =  portfolios.set_index('id').join(enriched).reset_index(names='id')
 
     return portfolios
-
 
 def enrich_analyses_with_portfolios(analyses, portfolios):
     portfolios = portfolios[['id', 'name']].rename(columns={'name': 'portfolio_name'})
