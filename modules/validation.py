@@ -1,3 +1,7 @@
+"""
+Module to handle parameter validation for input elements such as buttons.
+"""
+
 def validate_not_none(param, paramName='parameter'):
     if param is None:
         return False, f'{paramName} is not set.'
@@ -32,24 +36,42 @@ def process_validations(validations):
 
 
 class Validation:
+    """
+    Base class for a validation.
+
+    Attributes:
+        message (str) : Message to display upon validation failue.
+        valid (bool or None) : State of validation.
+
+    Methods:
+        validation_func : Validation function to use against input.
+    """
     def __init__(self, message=""):
         self.message = message
         self.valid = None
 
     @staticmethod
     def validation_func():
+        """ Placeholder method for validation function.
+        """
         return True
 
     def get_message(self):
+        """Retrieve the failure message if validation failed.
+        """
         if self.valid is None or self.valid == True:
             return None
         return self.message
 
     def set_message(self, message):
+        """Set the failure message.
+        """
         self.message = message
         return self.message
 
     def validate(self, *args, **kwargs):
+        """Run the validation, if validation fails then raise a `ValidationError`.
+        """
         self.valid =  self.validation_func(*args, **kwargs)
 
         if not self.valid:
@@ -58,17 +80,23 @@ class Validation:
         return True
 
     def is_valid(self, *args, **kwargs):
+        """Run the validation, return a bool with the outcome.
+        """
         self.valid = self.validation_func(*args, **kwargs)
         return self.valid
 
 
 class NameValidation(Validation):
+    """Validation to check if a valid name has been provided. A valid name is string with length greater than 0.
+    """
     def __init__(self, pname="Parameter"):
         self.message = f"{pname} is required"
         super().__init__(self.message)
 
     @staticmethod
     def validation_func(name):
+        if not isinstance(name, str):
+            return False
         if not name or len(name) == 0:
             return False
         return True
@@ -129,7 +157,7 @@ class KeyInValuesValidation(Validation):
 
 class LenValidation(Validation):
     def __init__(self, pname="Parameter"):
-        self.message = f'{pname} is incorrect size.'
+        self.message = f'{pname} is incorrect size'
         super().__init__(self.message)
 
     @staticmethod
@@ -137,7 +165,6 @@ class LenValidation(Validation):
         if len(param) != required_n:
             return False
         return True
-
 
 class ValidationGroup:
     def __init__(self, validations=None, args=None):
