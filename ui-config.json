@@ -19,5 +19,6 @@
     "Nepal-E432557": ["nepal-flood-flat"],
     "Nepal-E505423": ["nepal-flood-flat"],
     "France-Hail": ["france-hail-flat"]
-  }
+  },
+  "skip_login": true
 }

@@ -1,4 +1,4 @@
-from os.path import isfile
+from modules.authorisation import validate_page, handle_login
 from oasis_data_manager.errors import OasisException
 import tarfile
 from io import BytesIO
@@ -6,6 +6,7 @@ from pathlib import Path
 from requests.exceptions import HTTPError
 import streamlit as st
 from modules.nav import SidebarNav
+from modules.config import retrieve_ui_config
 from modules.rerun import RefreshHandler
 from modules.settings import get_analyses_settings
 from pages.components.display import DataframeView, MapView
@@ -24,28 +25,33 @@ from pages.components.process import enrich_analyses, enrich_portfolios
 
 logger = logging.getLogger(__name__)
 
-if isfile("ui-config.json"):
-    with open("ui-config.json") as f:
-        ui_config = json.load(f)
-else:
-    ui_config = {}
+##########################################################################################
+# Header
+##########################################################################################
+
+ui_config = retrieve_ui_config()
+validate_page("Scenarios")
 
 st.set_page_config(
     page_title = "Scenarios",
     layout = "centered"
 )
 
-SidebarNav()
-
 cols = st.columns([0.1, 0.8, 0.1])
 with cols[1]:
     st.image("images/oasis_logo.png")
 
-if "client" in st.session_state:
-    client = st.session_state.client
-    client_interface = ClientInterface(client)
-else:
-    st.switch_page("app.py")
+
+##########################################################################################
+# Page
+##########################################################################################
+
+handle_login(ui_config.skip_login)
+
+SidebarNav()
+
+client_interface = st.session_state["client_interface"]
+client = client_interface.client
 
 '## Create Analysis'
 
@@ -62,7 +68,7 @@ create_container = st.container(border=True)
 run_container = st.container(border=True)
 
 with create_container:
-    model_map = ui_config.get("model_map", {})
+    model_map = ui_config.model_map
 
     '#### Model Selection'
     models = client_interface.models.get(df=True)
