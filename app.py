@@ -1,9 +1,10 @@
+from modules.config import retrieve_ui_config
+from modules.authorisation import handle_login
 import streamlit as st
 from modules.client import ClientInterface
 from modules.nav import SidebarNav
 from oasis_data_manager.errors import OasisException
 from modules.validation import NameValidation, ValidationError, ValidationGroup
-import json
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,20 +16,20 @@ st.set_page_config(
 
 SidebarNav()
 
+ui_config = retrieve_ui_config()
+
+if ui_config.skip_login:
+    with st.spinner("Loading platform..."):
+        client_interface = ClientInterface(username=st.secrets["user"], password=st.secrets["password"])
+    st.session_state["client"]  = client_interface.client
+
 cols = st.columns([0.1, 0.8, 0.1])
 with cols[1]:
     st.image(image="images/oasis_logo.png")
 
-if "client" not in st.session_state:
-    client_interface = ClientInterface(username=st.secrets["user"], password=st.secrets["password"])
-    st.session_state["client"]  = client_interface.client
-    st.rerun()
-
 if "client" in st.session_state:
-    with open("ui-config.json", "r") as f:
-        config = json.load(f)
     st.write("Logged in")
-    post_login_page = config.get("post_login_page", None)
+    post_login_page = ui_config.post_login_page
     if post_login_page:
         st.switch_page(post_login_page)
 else:
