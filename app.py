@@ -1,5 +1,5 @@
 from modules.config import retrieve_ui_config
-from modules.login import handle_login
+from modules.authorisation import handle_login
 import streamlit as st
 from modules.client import ClientInterface
 from modules.nav import SidebarNav
@@ -19,7 +19,8 @@ SidebarNav()
 ui_config = retrieve_ui_config()
 
 if ui_config.skip_login:
-    client_interface = ClientInterface(username=st.secrets["user"], password=st.secrets["password"])
+    with st.spinner("Loading platform..."):
+        client_interface = ClientInterface(username=st.secrets["user"], password=st.secrets["password"])
     st.session_state["client"]  = client_interface.client
 
 cols = st.columns([0.1, 0.8, 0.1])

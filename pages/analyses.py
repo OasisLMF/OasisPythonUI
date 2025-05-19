@@ -1,11 +1,10 @@
-from modules.authorisation import validate_page
+from modules.authorisation import validate_page, handle_login
 from oasis_data_manager.errors import OasisException
 import streamlit as st
 from requests.exceptions import HTTPError
 from modules.nav import SidebarNav
 from modules.rerun import RefreshHandler
 from modules.validation import KeyInValuesValidation, KeyNotNoneValidation, KeyValueValidation, NotNoneValidation, ValidationGroup
-from modules.login import handle_login
 from modules.config import retrieve_ui_config
 import json
 from json import JSONDecodeError
@@ -20,32 +19,33 @@ from pages.components.output import summarise_inputs
 
 logger = logging.getLogger(__name__)
 
+##########################################################################################
+# Header
+##########################################################################################
+
+ui_config = retrieve_ui_config()
+validate_page("Analyses")
+
 st.set_page_config(
     page_title = "Analysis",
     layout = "centered"
 )
-
-validate_page("Analysis")
-
-# Retrieve client
-ui_config = retrieve_ui_config()
-handle_login(ui_config.skip_login)
-
-client_interface = st.session_state["client_interface"]
-client = client_interface.client
-
-
-SidebarNav()
-
-##########################################################################################
-# Header
-##########################################################################################
 
 cols = st.columns([0.1, 0.8, 0.1])
 with cols[1]:
     st.image("images/oasis_logo.png")
 
 ##########################################################################################
+# Page
+##########################################################################################
+
+# Retrieve client
+handle_login(ui_config.skip_login)
+SidebarNav()
+
+client_interface = st.session_state["client_interface"]
+client = client_interface.client
+
 "## Portfolios"
 
 def show_portfolio():

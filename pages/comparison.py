@@ -1,39 +1,41 @@
-from modules.authorisation import validate_page
+from modules.authorisation import validate_page, handle_login
 from modules.visualisation import OutputInterface
 import streamlit as st
 import pandas as pd
 from modules.nav import SidebarNav
-from modules.login import handle_login
 from modules.config import retrieve_ui_config
 from modules.validation import LenValidation, NotNoneValidation, ValidationGroup
 from pages.components.display import DataframeView
 from pages.components.output import generate_aalcalc_comparison_fragment, generate_leccalc_comparison_fragment
 from pages.components.output import generate_eltcalc_comparison_fragment, summarise_inputs
 
+##########################################################################################
+# Header
+##########################################################################################
+
+ui_config = retrieve_ui_config()
+validate_page("Comparison")
+
 st.set_page_config(
     page_title = "Comparison",
     layout = "centered"
 )
 
-validate_page("Comparison")
-
-# Retrieve client
-ui_config = retrieve_ui_config()
-handle_login(ui_config.skip_login)
-
-client_interface = st.session_state["client_interface"]
-client = client_interface.client
-
-
-SidebarNav()
-
-##########################################################################################
-# Header
-##########################################################################################
-
 cols = st.columns([0.1, 0.8, 0.1])
 with cols[1]:
     st.image("images/oasis_logo.png")
+
+##########################################################################################
+# Page
+##########################################################################################
+
+# Retrieve client
+handle_login(ui_config.skip_login)
+
+SidebarNav()
+
+client_interface = st.session_state["client_interface"]
+client = client_interface.client
 
 analyses = sorted(client_interface.analyses.search(metadata={'status': 'RUN_COMPLETED'}), key=lambda x: x['id'], reverse=True)
 cols = st.columns(2)
