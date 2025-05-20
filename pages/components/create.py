@@ -374,13 +374,20 @@ def create_analysis_settings(model, model_settings, oed_fields=None):
     model_settings : dict
             Model settings dictionary for given model.
     oed_fields : list[str]
-                 List of OED Fields to allow user to group by.
+                 List of OED Fields to allow user to group by. If `None`,
+                 attempt to infer the `oed_fields` from the `data_settings` in
+                 `model_settings`.
 
     Returns
     -------
     dict : Dictionary of settings for analysis, can be used in `client.upload_settings`
     '''
     default = get_analyses_settings(model_name_id=model["model_id"], supplier_id=model["supplier_id"])
+
+    if oed_fields is None:
+        oed_fields = model_settings.get('data_settings', {}).get('damage_group_fields', [])
+        oed_fields.extend(model_settings.get('data_settings', {}).get('hazard_group_fields', []))
+        oed_fields = list(set(oed_fields))
 
     if default:
         with open(default[0], 'r') as f:
