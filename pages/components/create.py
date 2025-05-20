@@ -1,4 +1,5 @@
 # Module to display ui components for running analyses
+from copy import copy
 from pages.components.display import DataframeView
 from pages.components.output import summarise_summary_level, summarise_summary_levels
 import streamlit as st
@@ -487,8 +488,6 @@ def summary_settings_fragment(oed_fields, perspective):
         st.info('Editing level')
         pos = [i for i, el in enumerate(curr_summaries) if el['id'] == selected][0]
         selected_summary = curr_summaries[pos]
-        st.write(selected_summary)
-        st.write('Defaults')
         defaults = extract_default_from_level_settings(selected_summary)
 
         with level_container:
@@ -531,7 +530,7 @@ def create_analysis_settings(model, model_settings, oed_fields=None, initial_set
         oed_fields = list(set(oed_fields))
 
     if initial_settings is not None:
-        analysis_settings = initial_settings
+        analysis_settings = copy(initial_settings)
     else:
         analysis_settings = {
                     'model_settings': {},
@@ -562,17 +561,6 @@ def create_analysis_settings(model, model_settings, oed_fields=None, initial_set
         supported_outputs = set([
             'eltcalc', 'aalcalc', 'pltcalc', 'summarycalc'
         ])
-        for p in perspectives:
-            settings_name = f'{p}_summaries'
-            default_summaries = analysis_settings.get(settings_name, None)
-
-            if default_summaries:
-                default_summaries = default_summaries[0]
-                default_outputs = supported_outputs & set(default_summaries.keys())
-                default_dict[p] = [output for output in default_outputs if default_summaries[output]]
-
-        # Todo handle the default logic
-        # st.write(default_dict)
 
         p_tabs = st.tabs([p.upper() for p in perspectives])
         for p, tab in zip(perspectives, p_tabs):
@@ -588,10 +576,7 @@ def create_analysis_settings(model, model_settings, oed_fields=None, initial_set
         # Merge summaries settings
         for p in perspectives:
             settings_name = f'{p}_summaries'
-            default_summaries = analysis_settings.pop(settings_name, None)
-            if default_summaries is None:
-                selected_settings[settings_name] = summaries[settings_name]
-            else:
-                selected_settings[settings_name] = merge_summaries(default_summaries, summaries[settings_name])
+            analysis_settings.pop(settings_name)
+            selected_settings[settings_name] = st.session_state[settings_name]
         settings = merge_settings(analysis_settings, selected_settings)
         return settings
