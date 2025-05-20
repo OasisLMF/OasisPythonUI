@@ -66,21 +66,23 @@ class DataframeView(View):
             else:
                 self.column_config[c] = st.column_config.TextColumn(self.format_column_heading(c))
 
-    def display(self, max_rows=1000):
+    def display(self, max_rows=1000, key=None):
         '''
         Show the dataframe.
         '''
         if self.data.empty:
             st.dataframe(pd.DataFrame(columns=self.display_cols),
                          hide_index=self.hide_index, column_config=self.column_config,
-                         column_order=self.display_cols)
+                         column_order=self.display_cols, use_container_width=True,
+                         key=key)
             return None
 
         args = {
             'hide_index': self.hide_index,
             'column_config': self.column_config,
             'use_container_width': True,
-            'column_order': self.display_cols
+            'column_order': self.display_cols,
+            'key': key
         }
 
         if self.selectable:

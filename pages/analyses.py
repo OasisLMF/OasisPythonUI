@@ -1,3 +1,4 @@
+from modules.settings import get_analyses_settings
 from oasis_data_manager.errors import OasisException
 import streamlit as st
 from requests.exceptions import HTTPError
@@ -258,7 +259,16 @@ def run_analysis(re_handler):
             for f in invalid_fields:
                 valid_oed_fields[new_k].pop(f, None)
 
-        analysis_settings = create_analysis_settings(model, model_settings, oed_fields=valid_oed_fields)
+        default_paths = get_analyses_settings(model_name_id=model["model_id"], supplier_id=model["supplier_id"])
+
+        if default_paths:
+            with open(default_paths[0], 'r') as f:
+                default_settings = json.load(f)
+        else:
+            default_settings = None
+
+        analysis_settings = create_analysis_settings(model, model_settings, oed_fields=valid_oed_fields,
+                                                     initial_settings=default_settings)
 
         if analysis_settings is not None:
             try:

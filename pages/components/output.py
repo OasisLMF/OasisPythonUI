@@ -105,6 +105,77 @@ def summarise_output_settings(analysis_settings):
 
     return pd.DataFrame(summary, index=active_perspectives)
 
+def summarise_summary_levels(summary_settings):
+    '''
+    Take a list of summary sets from the analysis settings and produce a list of summaries of each level.
+
+    Returns
+        List[dict] where each dict corresponds to a single summary level with
+        the following keys for each summary level:
+            - `id` - summary level id
+            - `ord_output` - list of ord outputs
+            - `legacy_outputs` - list of legacy outputs
+            - `oed_fields` - list of oed group fields
+    '''
+    return [summarise_summary_level(level) for level in summary_settings]
+
+def summarise_summary_level(summary_level_settings):
+    '''Summarise a single summary set from the analysis settings.
+    '''
+    curr_summary = {}
+
+    # Handle ord outputs
+    ord_output = summary_level_settings.get('ord_output', None)
+    ord_outputs_list = []
+
+    if ord_output:
+        valid_options = [
+            'elt_sample', 'elt_quantile', 'elt_moment', 'plt_sample',
+            'plt_quantile', 'plt_moment', 'alt_period', 'alt_meanonly',
+            'alct_convergence',
+            'ept_full_uncertainty_aep', 'ept_full_uncertainty_oep',
+            'ept_mean_sample_aep', 'ept_mean_sample_oep',
+            'ept_per_sample_mean_aep', 'ept_per_sample_mean_oep',
+            'psept_aep', 'psept_oep'
+        ]
+
+        for opt in valid_options:
+            if ord_output.get(opt, False):
+                    ord_outputs_list.append(opt)
+    curr_summary['ord_output'] = ord_outputs_list
+
+    ## Handle legacy outputs
+
+    output_options = [
+        'eltcalc',
+        'aalcalc',
+        'aalcalcmeanonly',
+        'pltcalc',
+        'summarycalc']
+
+    legacy_outputs = [o for o in output_options if summary_level_settings.get(o, False)]
+
+    if summary_level_settings.get('lec_output', False):
+        lec_dict = summary_level_settings.get('leccalc', {})
+        lec_opts = {
+            'full_uncertainty_aep': 'full_uncertainty_aep',
+            'full_uncertainty_oep': 'full_uncertainty_oep',
+            'wheatsheaf_aep': 'persample_aep',
+            'wheatsheaf_oep': 'persample_oep',
+            'wheatsheaf_mean_aep': 'persample_mean_aep',
+            'wheatsheaf_mean_oep': 'persample_mean_oep',
+            'sample_mean_aep': 'sample_mean_aep',
+            'sample_mean_oep': 'sample_mean_oep'
+        }
+
+        legacy_outputs += [f'leccalc-{v}' for k, v in lec_opts.items() if lec_dict.get(k, False)]
+
+    curr_summary['legacy_output'] = legacy_outputs
+
+    curr_summary['oed_fields'] = summary_level_settings.get('oed_fields', [])
+    curr_summary['level_id'] = summary_level_settings['id']
+    return curr_summary
+
 def summarise_inputs(locations=None, analysis_settings=None, title_prefix='##'):
     if locations is None and analysis_settings is None:
         st.info('No locations or analysis settings.')

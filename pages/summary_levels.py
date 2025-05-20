@@ -1,6 +1,7 @@
 from requests.models import HTTPError
 from modules.client import ClientInterface
 from modules.nav import SidebarNav
+from pages.components.create import ViewSummarySettings, create_analysis_settings
 import streamlit as st
 
 st.set_page_config(
@@ -19,6 +20,7 @@ def page():
         return
 
     analysis = ci.analyses.get()[0]
+    st.write(analysis)
     model_id = analysis['model']
 
     model = ci.models.get(model_id)
@@ -39,7 +41,17 @@ def page():
         st.error(e)
         analysis_settings = None
 
-    st.write(analysis_settings)
+    # Try and retrieve oed group fields from model settings
+    oed_fields = model_settings.get('data_settings', {}).get('damage_group_fields', [])
+    oed_fields.extend(model_settings.get('data_settings', {}).get('hazard_group_fields', []))
+    oed_fields = list(set(oed_fields))
 
+    st.write(oed_fields)
 
+    output = create_analysis_settings(model, model_settings, oed_fields, initial_settings=analysis_settings)
+
+    st.write("Form Output")
+    st.write(output)
+
+    ViewSummarySettings(analysis_settings['gul_summaries'])
 page()
