@@ -7,6 +7,7 @@ from modules.settings import get_analyses_settings
 from modules.validation import NameValidation, NotNoneValidation, ValidationError, ValidationGroup
 import json
 import pandas as pd
+import time
 
 class FormFragment():
     def __init__(self, params={}):
@@ -440,9 +441,10 @@ def ViewSummarySettings(summary_settings, key=None):
 def summary_settings_fragment(oed_fields, perspective):
     if f'{perspective}_summaries' not in st.session_state:
         st.session_state[f'{perspective}_summaries'] = []
-    curr_summaries = st.session_state[f'{perspective}_summaries']
+    original_summaries = st.session_state[f'{perspective}_summaries']
+    curr_summaries = copy(original_summaries)
 
-    selected = ViewSummarySettings(curr_summaries, key=f'{perspective}_summaries_view')
+    selected = ViewSummarySettings(original_summaries, key=f'{perspective}_summaries_view')
 
     col1, col2, col3, *_ = st.columns(5)
 
@@ -456,6 +458,7 @@ def summary_settings_fragment(oed_fields, perspective):
     if col1.button('Add Level', key=f'{perspective}_summary_add_button',
                    use_container_width=True):
         st.session_state[f'adding_level_{perspective}'] = not st.session_state[f'adding_level_{perspective}']
+        st.session_state[f'{perspective}_summaries'] = original_summaries
 
     if st.session_state[f'adding_level_{perspective}']:
         with level_container:
@@ -479,6 +482,7 @@ def summary_settings_fragment(oed_fields, perspective):
     if col3.button('Edit Level', key=f'{perspective}_summary_edit_button',
                    use_container_width=True, disabled=selected is None):
         st.session_state[f'editing_level_{perspective}'] = not st.session_state[f'editing_level_{perspective}']
+        st.session_state[f'{perspective}_summaries'] = original_summaries
 
     if st.session_state[f'editing_level_{perspective}']:
         if selected is None:
@@ -502,8 +506,34 @@ def summary_settings_fragment(oed_fields, perspective):
             st.session_state[f'{perspective}_summaries'] = curr_summaries
             st.rerun(scope='fragment')
 
+def clear_summaries_settings():
+    """Remove summaries settings from session state.
+    """
+    perspectives = ['gul', 'il', 'ri']
+    # Reset form if previously rendered
+    for p in perspectives:
+        setting_name = f'{p}_summaries'
+        if setting_name in st.session_state:
+            del st.session_state[setting_name]
 
-def create_analysis_settings(model, model_settings, oed_fields=None, initial_settings=None):
+
+def save_settings(initial_settings, selected_settings):
+    perspectives = ['gul', 'il', 'ri']
+    for p in perspectives:
+        settings_name = f'{p}_summaries'
+
+        # Remove default summaries
+        if settings_name in initial_settings.keys():
+            initial_settings.pop(settings_name)
+
+        selected_settings[settings_name] = st.session_state[settings_name]
+
+    settings = merge_settings(initial_settings, selected_settings)
+    clear_summaries_settings() # Remove settings from session state
+    st.write('Saving settings')
+    st.session_state['created_analysis_settings'] = settings
+
+def produce_analysis_settings(model, model_settings, oed_fields=None, initial_settings=None):
     '''
     Create a form to get user input for setting analysis settings.
 
@@ -522,8 +552,24 @@ def create_analysis_settings(model, model_settings, oed_fields=None, initial_set
 
     Returns
     -------
-    dict : Dictionary of settings for analysis, can be used in `client.upload_settings`
+    dict : Dictionary of the new analysis settings.
     '''
+    clear_summaries_settings() # Run this once prior to loading fragment
+    create_analysis_settings_fragment(model, model_settings, oed_fields, initial_settings)
+
+
+def consume_analysis_settings():
+    if 'created_analysis_settings' in st.session_state:
+        output = copy(st.session_state['created_analysis_settings'])
+        del st.session_state['created_analysis_settings']
+    else:
+        output = None
+    return output
+
+@st.fragment
+def create_analysis_settings_fragment(model, model_settings, oed_fields=None, initial_settings=None):
+    perspectives = ['gul', 'il', 'ri']
+
     if oed_fields is None:
         oed_fields = model_settings.get('data_settings', {}).get('damage_group_fields', [])
         oed_fields.extend(model_settings.get('data_settings', {}).get('hazard_group_fields', []))
@@ -540,7 +586,6 @@ def create_analysis_settings(model, model_settings, oed_fields=None, initial_set
                     'gul_summaries': [],
         }
 
-    perspectives = ['gul', 'il', 'ri']
 
     form_container = st.container(border=True)
     with form_container:
@@ -567,16 +612,9 @@ def create_analysis_settings(model, model_settings, oed_fields=None, initial_set
             with tab:
                 st.write(f'### {p.upper()} Output Settings')
 
-                st.session_state[f'{p}_summaries'] = analysis_settings.get(f'{p}_summaries', [])
+                if f'{p}_summaries' not in st.session_state:
+                    st.session_state[f'{p}_summaries'] = analysis_settings.get(f'{p}_summaries', [])
                 summary_settings_fragment(oed_fields, p)
 
-        submitted = st.button('Submit')
-
-    if submitted:
-        # Merge summaries settings
-        for p in perspectives:
-            settings_name = f'{p}_summaries'
-            analysis_settings.pop(settings_name)
-            selected_settings[settings_name] = st.session_state[settings_name]
-        settings = merge_settings(analysis_settings, selected_settings)
-        return settings
+        if st.button('Save Settings', on_click=save_settings, args=[analysis_settings, selected_settings]):
+            st.rerun()
