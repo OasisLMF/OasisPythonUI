@@ -192,10 +192,25 @@ class PerspectivesFragment(FormFragment):
 
         return outputs
 
-class NumberSamplesFragment(FormFragment):
+class NumberSamplesFragment:
+    ''' Form fragment to set the number of samples in the analysis settings.
+
+    Args:
+        model_settings (dict)
+        analysis_settings (dict)
+
+    Usage:
+        Initialise and run `display()` to create form elements. Returns corresponding section of analysis settings.
+    '''
+
+    def __init__(self, model_settings={}, analysis_settings={}):
+        self.model_settings = model_settings
+        self.analysis_settings = analysis_settings
+
+
     def display(self):
-        model_settings = self.params.get('model_settings')
-        analysis_settings = self.params.get('analysis_settings')
+        model_settings = self.model_settings
+        analysis_settings = self.analysis_settings
 
         outputs = {}
 
