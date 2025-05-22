@@ -124,7 +124,7 @@ class ModelSettingsFragment:
         model_settings (dict) : model settings for form fragment
     '''
     def __init__(self, model_settings):
-        self.model_settings = model_settings
+        self.model_settings = model_settings['model_settings']
 
     def display(self):
         '''
@@ -165,18 +165,25 @@ class ModelSettingsFragment:
         return [i for i in range(len(options)) if options[i]['id'] == default][0]
 
 
-class PerspectivesFragment(FormFragment):
+class PerspectivesFragment:
+    '''Form fragment to set the active perspectives.
+
+    Args:
+        model_settings (dict)
+        default (list) : List of active perspectives.
+    '''
+    def __init__(self, model_settings={}, default=[]):
+        self.valid_perspectives = ['gul', 'il', 'ri']
+        if "valid_output_perspectives" in model_settings.get('model_settings', {}):
+            self.valid_perspectives = model_settings["model_settings"]["valid_output_perspectives"]
+
+        self.default = default
+
     def display(self):
-        model_settings = self.params.get('model_settings', {}).get('model_settings', {})
-        # Select perspectives
-        valid_outputs = ['gul', 'il', 'ri']
-        if "valid_output_perspectives" in model_settings:
-            valid_outputs = model_settings["model_settings"]["valid_output_perspectives"]
+        valid_outputs = self.valid_perspectives
+        default = self.default
 
         outputs = {}
-
-        default = self.params.get('default', [])
-
         perspectives = {'gul': 'Ground up loss',
                         'il': 'Insured loss',
                         'ri': 'Reinsurance net loss'}
@@ -193,7 +200,7 @@ class PerspectivesFragment(FormFragment):
         return outputs
 
 class NumberSamplesFragment:
-    ''' Form fragment to set the number of samples in the analysis settings.
+    '''Form fragment to set the number of samples in the analysis settings.
 
     Args:
         model_settings (dict)
@@ -202,7 +209,6 @@ class NumberSamplesFragment:
     Usage:
         Initialise and run `display()` to create form elements. Returns corresponding section of analysis settings.
     '''
-
     def __init__(self, model_settings={}, analysis_settings={}):
         self.model_settings = model_settings
         self.analysis_settings = analysis_settings
@@ -622,12 +628,12 @@ def create_analysis_settings_fragment(model, model_settings, oed_fields=None, in
     with form_container:
         selected_settings = {}
 
-        selected_settings |= ModelSettingsFragment(model_settings=model_settings['model_settings']).display()
-        selected_settings |= NumberSamplesFragment(params={'model_settings': model_settings,
-                                                           'analysis_settings': analysis_settings}).display()
+        selected_settings |= ModelSettingsFragment(model_settings=model_settings).display()
+        selected_settings |= NumberSamplesFragment(model_settings=model_settings,
+                                                   analysis_settings=analysis_settings).display()
         default_perspectives = [p for p in perspectives if analysis_settings.get(f'{p}_output', False)]
-        selected_settings |= PerspectivesFragment(params={'model_settings': model_settings,
-                                                          'default': default_perspectives}).display()
+        selected_settings |= PerspectivesFragment(model_settings=model_settings,
+                                                  default=default_perspectives).display()
 
         p_tabs = st.tabs([p.upper() for p in perspectives])
         for p, tab in zip(perspectives, p_tabs):
