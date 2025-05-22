@@ -2,57 +2,60 @@
 Test file for `pages/components/create.py`
 '''
 import json
-from requests import options
-import streamlit as st
+import pytest
 from streamlit.testing.v1 import AppTest
 
 # Test plan
 # - produce analysis settings
 # - [x] ModelSettingsFragment
-# - [ ] NumberSamplesFragment
+# - [x] NumberSamplesFragment
 # - [ ] PerspectivesFragment
 # - [ ] summaries settings fragment
 # - [ ] Mock response from each fragment output and confirm the save settings button works
 # - consume analysis settings
 # - [ ] set `created_analysis_settings` to None and test dict and confirm output
 
-def test_ModelSettingsFragment():
-    mock_model_settings = {
-      "event_set": {
-        "name": "Event Set",
-        "desc": "Custom Event Set selection",
-        "default": "h",
-        "options": [
-          {
-            "id": "h",
-            "desc": "Historical",
-            "number_of_events": 982
-          },
-          {
-            "id": "s",
-            "desc": "Synthetic",
-            "number_of_events": 2034
-          }
-        ]
-      },
-      "event_occurrence_id": {
-        "name": "Occurrence Set",
-        "desc": "Custom Occurrence selection",
-        "default": "st",
-        "options": [
-          {
-            "id": "st",
-            "desc": "Short Term"
-          },
-          {
-            "id": "mt",
-            "desc": "Medium Term"
-          }
-        ]
-      }
+mock_settings = {
+    "model_settings": {
+        "event_set": {
+            "name": "Event Set",
+            "desc": "Custom Event Set selection",
+            "default": "h",
+            "options": [
+                {
+                    "id": "h",
+                    "desc": "Historical",
+                    "number_of_events": 982
+                },
+                {
+                    "id": "s",
+                    "desc": "Synthetic",
+                    "number_of_events": 2034
+                }
+            ]
+        },
+        "event_occurrence_id": {
+            "name": "Occurrence Set",
+            "desc": "Custom Occurrence selection",
+            "default": "st",
+            "options": [
+                {
+                    "id": "st",
+                    "desc": "Short Term"
+                },
+                {
+                    "id": "mt",
+                    "desc": "Medium Term"
+                }
+            ]
+        }
     }
+}
 
-    def test_script(model_settings, *args):
+def test_ModelSettingsFragment():
+    mock_model_settings = mock_settings["model_settings"]
+
+    def test_script(model_settings):
         import streamlit as st
         from pages.components.create import ModelSettingsFragment
 
@@ -80,3 +83,48 @@ def test_ModelSettingsFragment():
                           "event_occurrence_id": "st"
                         }
                      }
+
+test_data = [
+    (1, 2, 2),
+    (1, None, 1),
+    (None, 2, 2),
+    (None, None, 10)
+]
+@pytest.mark.parametrize("model_settings_no,analysis_settings_no,initial", test_data)
+def test_NumberSamplesFragment(model_settings_no, analysis_settings_no, initial):
+
+    model_settings = {}
+    analysis_settings = {}
+
+    if model_settings_no is not None:
+        model_settings = {
+            "model_default_samples": model_settings_no
+        }
+
+    if analysis_settings_no is not None:
+        analysis_settings = {
+            "number_of_samples": analysis_settings_no
+        }
+
+    def test_script(model_settings, analysis_settings):
+        import streamlit as st
+        from pages.components.create import NumberSamplesFragment
+
+        output = NumberSamplesFragment(model_settings=model_settings,
+                                       analysis_settings=analysis_settings).display()
+
+        st.write(output)
+
+    at = AppTest.from_function(test_script, args=[model_settings, analysis_settings])
+    at.run()
+
+    assert not at.exception
+
+    input_widget = at.number_input[0]
+    assert input_widget.label == 'Number of samples'
+    assert input_widget.step == 1.0
+    assert input_widget.min == 1.0
+    assert input_widget.value == initial
+
+    output = json.loads(at.json[0].value)
+    assert output == {"number_of_samples" : initial}
