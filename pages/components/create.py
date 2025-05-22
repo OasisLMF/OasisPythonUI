@@ -607,21 +607,12 @@ def create_analysis_settings_fragment(model, model_settings, oed_fields=None, in
     with form_container:
         selected_settings = {}
 
-        selected_settings |= ModelSettingsFragment(model_settings=model_settings}).display()
+        selected_settings |= ModelSettingsFragment(model_settings=model_settings['model_settings']).display()
         selected_settings |= NumberSamplesFragment(params={'model_settings': model_settings,
                                                            'analysis_settings': analysis_settings}).display()
         default_perspectives = [p for p in perspectives if analysis_settings.get(f'{p}_output', False)]
         selected_settings |= PerspectivesFragment(params={'model_settings': model_settings,
                                                           'default': default_perspectives}).display()
-
-        # Generate summaries
-        summaries = {f'{p}_summaries': [{'id': 1}] for p in perspectives}
-
-        # Load default outputs
-        default_dict = {}
-        supported_outputs = set([
-            'eltcalc', 'aalcalc', 'pltcalc', 'summarycalc'
-        ])
 
         p_tabs = st.tabs([p.upper() for p in perspectives])
         for p, tab in zip(perspectives, p_tabs):
