@@ -15,45 +15,43 @@ from streamlit.testing.v1 import AppTest
 # - consume analysis settings
 # - [ ] set `created_analysis_settings` to None and test dict and confirm output
 
-mock_settings = {
-    "model_settings": {
-        "event_set": {
-            "name": "Event Set",
-            "desc": "Custom Event Set selection",
-            "default": "h",
-            "options": [
-                {
-                    "id": "h",
-                    "desc": "Historical",
-                    "number_of_events": 982
-                },
-                {
-                    "id": "s",
-                    "desc": "Synthetic",
-                    "number_of_events": 2034
-                }
-            ]
-        },
-        "event_occurrence_id": {
-            "name": "Occurrence Set",
-            "desc": "Custom Occurrence selection",
-            "default": "st",
-            "options": [
-                {
-                    "id": "st",
-                    "desc": "Short Term"
-                },
-                {
-                    "id": "mt",
-                    "desc": "Medium Term"
-                }
-            ]
+def test_ModelSettingsFragment():
+    mock_settings = {
+        "model_settings": {
+            "event_set": {
+                "name": "Event Set",
+                "desc": "Custom Event Set selection",
+                "default": "h",
+                "options": [
+                    {
+                        "id": "h",
+                        "desc": "Historical",
+                        "number_of_events": 982
+                    },
+                    {
+                        "id": "s",
+                        "desc": "Synthetic",
+                        "number_of_events": 2034
+                    }
+                ]
+            },
+            "event_occurrence_id": {
+                "name": "Occurrence Set",
+                "desc": "Custom Occurrence selection",
+                "default": "st",
+                "options": [
+                    {
+                        "id": "st",
+                        "desc": "Short Term"
+                    },
+                    {
+                        "id": "mt",
+                        "desc": "Medium Term"
+                    }
+                ]
+            }
         }
     }
-}
-
-def test_ModelSettingsFragment():
-    mock_model_settings = mock_settings["model_settings"]
 
     def test_script(model_settings):
         import streamlit as st
@@ -63,8 +61,7 @@ def test_ModelSettingsFragment():
 
         st.write(output)
 
-
-    at = AppTest.from_function(test_script, args=[mock_model_settings,])
+    at = AppTest.from_function(test_script, args=[mock_settings,])
     at.run()
 
     assert not at.exception
@@ -128,3 +125,46 @@ def test_NumberSamplesFragment(model_settings_no, analysis_settings_no, initial)
 
     output = json.loads(at.json[0].value)
     assert output == {"number_of_samples" : initial}
+
+
+test_data = [
+    (None, None, (False, False, False), (False, False, False)),
+    (None, ['gul', 'ri'], (False, False, False), (True, False, True)),
+    (['il', 'ri'], 'ri', (True, False, False), (False, False, True))
+]
+@pytest.mark.parametrize("valid_perspectives,default_perspectives,disabled,expected_output", test_data)
+def test_PerspectivesFragment(valid_perspectives, default_perspectives, disabled, expected_output):
+    kwargs = {}
+
+    if valid_perspectives is not None:
+        model_settings = {"model_settings": {"valid_output_perspectives": valid_perspectives}}
+        kwargs["model_settings"] = model_settings
+
+    if default_perspectives is not None:
+        kwargs["default"] = default_perspectives
+
+    def test_script(kwargs):
+        import streamlit as st
+        from pages.components.create import PerspectivesFragment
+
+        output = PerspectivesFragment(**kwargs).display()
+
+        st.write(output)
+
+    at = AppTest.from_function(test_script, args=(kwargs,))
+    at.run()
+
+    assert not at.exception
+
+    perspectives = ["GUL", "IL", "RI"]
+    for i in range(3):
+        checkbox = at.checkbox[i]
+        assert checkbox.label == perspectives[i]
+        assert checkbox.disabled == disabled[i]
+        assert checkbox.value == expected_output[i]
+
+    output = json.loads(at.json[0].value)
+
+    assert output == {'gul_output': expected_output[0],
+                      'il_output': expected_output[1],
+                      'ri_output': expected_output[2]}
