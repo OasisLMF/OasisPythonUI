@@ -5,9 +5,7 @@ from pages.components.output import summarise_summary_level, summarise_summary_l
 import streamlit as st
 from modules.settings import get_analyses_settings
 from modules.validation import NameValidation, NotNoneValidation, ValidationError, ValidationGroup
-import json
 import pandas as pd
-import time
 
 class FormFragment():
     def __init__(self, params={}):
@@ -112,8 +110,29 @@ def create_portfolio_form():
 
 
 
-class ModelSettingsFragment(FormFragment):
+class ModelSettingsFragment:
+    '''Form fragment which sets categorical model settings.
+
+    Currently handles the following settings:
+        - `event_set`,
+        - `event_occurrence_id`,
+        - `footprint_set`,
+        - `vulnerability_set`,
+        - `pla_loss_factor_set`,
+
+    Args:
+        model_settings (dict) : model settings for form fragment
+    '''
+    def __init__(self, model_settings):
+        self.model_settings = model_settings
+
     def display(self):
+        '''
+        Display the form fragment.
+
+        Returns:
+           (dict) selected options in a dict under the `model_settings` key.
+        '''
         # Handle categorical settings
         valid_settings = [
             'event_set',
@@ -123,11 +142,8 @@ class ModelSettingsFragment(FormFragment):
             'pla_loss_factor_set',
         ]
 
-        model_settings = self.params.get('model_settings', {}).get('model_settings', {})
+        model_settings = self.model_settings
         outputs = {'model_settings': {}}
-
-        if not model_settings:
-            return outputs
 
         for k, v in model_settings.items():
             if k in valid_settings:
@@ -591,7 +607,7 @@ def create_analysis_settings_fragment(model, model_settings, oed_fields=None, in
     with form_container:
         selected_settings = {}
 
-        selected_settings |= ModelSettingsFragment(params={'model_settings': model_settings}).display()
+        selected_settings |= ModelSettingsFragment(model_settings=model_settings}).display()
         selected_settings |= NumberSamplesFragment(params={'model_settings': model_settings,
                                                            'analysis_settings': analysis_settings}).display()
         default_perspectives = [p for p in perspectives if analysis_settings.get(f'{p}_output', False)]
