@@ -558,21 +558,41 @@ class OutputFragment(FormFragment):
 
 
 class OEDGroupFragment(FormFragment):
+    '''
+    Fragment to select OED group fields in the analysis settings form.
+
+    Note that the following fields are excluded:
+    `[ "BuildingTIV", "ContentsTIV", "OtherTIV", "BITIV", "OEDVersion" ]`
+
+    Args:
+        perspective: perspective name (`gul`, `il`, `ri`)
+        oed_options (list[str]): List of potential `oed_fields` to select from.
+            If `None` the following default groups are possible `['PortNumber',
+            'CountryCode', 'LocNumber']`.
+        defaults (list[str]): Default `oed_fields` to pre-fill.
+
+    '''
     EXCLUDED_FIELDS = [ "BuildingTIV", "ContentsTIV", "OtherTIV", "BITIV", "OEDVersion" ]
 
-    def display(self):
-        perspective = self.params.get('perspective', 'gul')
-        oed_options = self.params.get('oed_fields', None)
-        defaults = self.params.get('default', [])
+    def __init__(self, perspective, oed_options=None, default=[]):
         if oed_options is None:
             oed_options = ['PortNumber', 'CountryCode', 'LocNumber']
+
+        self.oed_options = oed_options
+        self.perspective = perspective
+        self.default = default
+
+    def display(self):
+        perspective = self.perspective
+        oed_options = self.oed_options
+        defaults = self.default
 
         oed_options = sorted(filter(self.valid_field_filter, oed_options))
 
         oed_fields = st.multiselect(f"{perspective.upper()} OED grouping:",
                              oed_options,
                              default=defaults,
-                             key=f'{id}_{perspective}_oed')
+                             key=f'{perspective}_oed_select')
 
         output = {'oed_fields': oed_fields}
 

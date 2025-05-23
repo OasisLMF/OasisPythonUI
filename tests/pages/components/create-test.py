@@ -24,6 +24,9 @@ import pandas as pd
 # - consume analysis settings
 # - [ ] set `created_analysis_settings` to None and test dict and confirm output
 
+def assert_list_equal_noorder(list1, list2):
+    assert len(list1) == len(list2)
+    assert all([el in list2 for el in list1])
 
 def test_ModelSettingsFragment():
     mock_settings = {
@@ -235,8 +238,7 @@ def test_ViewSummarySettings(settings, empty, df_dict):
     assert df.empty == empty
     expected_cols = ['level_id', 'ord_output', 'legacy_output', 'oed_fields']
     df_cols = df.columns.to_list()
-    assert len(expected_cols) == len(df_cols)
-    assert all([col in expected_cols for col in df_cols])
+    assert_list_equal_noorder(expected_cols, df_cols)
     assert_frame_equal(df, pd.DataFrame(df_dict), check_dtype=False)
 
 test_data = [
@@ -344,6 +346,62 @@ def test_OutputFragment(default, selected, expected_output):
 
     for option in selected:
         at.multiselect(key="gul_legacy_output_select").select(option)
+    at.run()
+
+    assert json.loads(at.json[0].value) == expected_output
+
+def create_app_test(func, *args, **kwargs):
+    def wrapper(func, *args, **kwargs):
+        import streamlit as st
+        output = func(*args, **kwargs)
+
+        st.json(output)
+
+    at = AppTest.from_function(wrapper, args=(func, *args), kwargs=kwargs)
+    return at
+
+options_full = [
+    "AccCurrency", "AccNumber", "BuildingID", "BuildingTIV",
+    "ConstructionCode", "CountryCode", "IsTenant", "Latitude",
+    "LayerAttachment", "LayerLimit", "LayerNumber", "LayerParticipation",
+    "LocCurrency", "LocNumber", "LocPerilsCovered", "Longitude",
+    "NumberOfBuildings", "OEDVersion", "OccupancyCode", "PolExpiryDate",
+    "PolInceptionDate", "PolNumber", "PolPeril", "PolPerilsCovered",
+    "PortNumber", "PostalCode", "StreetAddress"
+    ]
+test_data = [
+        (None, [], [], {'oed_fields': []}),
+        (options_full, ['AccNumber', 'PostalCode', 'LocNumber'], [],
+         {'oed_fields': ['AccNumber', 'PostalCode', 'LocNumber']}),
+        (options_full, ['AccNumber', 'PostalCode', 'LocNumber'],
+         ['AccCurrency', 'CountryCode'], {'oed_fields': ['AccNumber',
+                                                         'PostalCode',
+                                                         'LocNumber',
+                                                         'AccCurrency',
+                                                         'CountryCode']})
+]
+@pytest.mark.parametrize("options,default,selected,expected_output", test_data)
+def test_OEDGroupFragment(options, default, selected, expected_output):
+    EXCLUDED_FIELDS = [ "BuildingTIV", "ContentsTIV", "OtherTIV", "BITIV", "OEDVersion" ]
+    def test_script(options, default):
+        from pages.components.create import OEDGroupFragment
+        return OEDGroupFragment('gul', options, default).display()
+
+    at = create_app_test(test_script, options, default)
+    at.run()
+
+    assert not at.exception
+
+    expected_options = options
+    if expected_options is None:
+        expected_options = ["PortNumber", "CountryCode", "LocNumber"] # default options
+    expected_options = [opt for opt in expected_options if opt not in EXCLUDED_FIELDS]
+
+    selectbox = at.multiselect(key="gul_oed_select")
+    assert_list_equal_noorder(selectbox.options, expected_options)
+
+    for option in selected:
+        selectbox.select(option)
     at.run()
 
     assert json.loads(at.json[0].value) == expected_output
