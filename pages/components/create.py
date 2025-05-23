@@ -228,90 +228,6 @@ class NumberSamplesFragment:
 
         return outputs
 
-class OEDGroupFragment(FormFragment):
-    EXCLUDED_FIELDS = [ "BuildingTIV", "ContentsTIV", "OtherTIV", "BITIV", "OEDVersion" ]
-
-    def display(self):
-        perspective = self.params.get('perspective', 'gul')
-        oed_options = self.params.get('oed_fields', None)
-        defaults = self.params.get('default', [])
-        if oed_options is None:
-            oed_options = ['PortNumber', 'CountryCode', 'LocNumber']
-
-        oed_options = sorted(filter(self.valid_field_filter, oed_options))
-
-        oed_fields = st.multiselect(f"{perspective.upper()} OED grouping:",
-                             oed_options,
-                             default=defaults,
-                             key=f'{id}_{perspective}_oed')
-
-        output = {'oed_fields': oed_fields}
-
-        return output
-
-    @staticmethod
-    def valid_field_filter(field):
-        if field in OEDGroupFragment.EXCLUDED_FIELDS:
-            return False
-        return True
-
-
-
-class OutputFragment(FormFragment):
-    def display(self):
-        perspective = self.params.get('perspective', 'gul')
-        default = self.params.get('default', [])
-
-        options = [
-            'eltcalc',
-            'aalcalc',
-            'aalcalcmeanonly',
-            'pltcalc',
-            'summarycalc',
-            'leccalc-full_uncertainty_aep',
-            'leccalc-full_uncertainty_oep',
-            'leccalc-persample_aep',
-            'leccalc-persample_oep',
-            'leccalc-persample_mean_aep',
-            'leccalc-persample_mean_oep',
-            'leccalc-sample_mean_aep',
-            'leccalc-sample_mean_oep'
-        ]
-
-        selected = st.multiselect(f"{perspective.upper()} Outputs",
-                                 options, key=f'{perspective}_legacy_output_select',
-                                 default=default)
-
-        output_dict = {
-            'eltcalc': False,
-            'aalcalc': False,
-            'aalcalcmeanonly': False,
-            'pltcalc': False,
-            'summarycalc': False,
-            'lec_output': False,
-            'leccalc': {
-                'full_uncertainty_aep': False,
-                'full_uncertainty_oep': False,
-                'wheatsheaf_aep': False,
-                'wheatsheaf_oep': False,
-                'wheatsheaf_mean_aep': False,
-                'wheatsheaf_mean_oep': False,
-                'sample_mean_aep': False,
-                'sample_mean_oep': False
-            }
-
-        }
-
-        for output_option in selected:
-            if output_option[:7] == 'leccalc':
-                output_dict['lec_output'] = True
-                lec_option = output_option[8:]
-                lec_option = lec_option.replace('persample', 'wheatsheaf')
-                output_dict['leccalc'][lec_option] = True
-            else:
-                output_dict[output_option] = True
-
-        return output_dict
 
 def merge_settings(settings1, settings2):
     from copy import copy
@@ -376,6 +292,97 @@ def extract_default_from_level_settings(level_settings):
 
     return default
 
+
+@st.fragment
+def summary_settings_fragment(oed_fields, perspective):
+    if f'{perspective}_summaries' not in st.session_state:
+        st.session_state[f'{perspective}_summaries'] = []
+    original_summaries = st.session_state[f'{perspective}_summaries']
+    curr_summaries = copy(original_summaries)
+
+    selected = ViewSummarySettings(original_summaries, key=f'{perspective}_summaries_view')
+
+    col1, col2, col3, *_ = st.columns(5)
+
+    level_container = st.container(border=True)
+
+    if f'adding_level_{perspective}' not in st.session_state:
+        st.session_state[f'adding_level_{perspective}'] = False
+    if f'editing_level_{perspective}' not in st.session_state:
+        st.session_state[f'editing_level_{perspective}'] = False
+
+    if col1.button('Add Level', key=f'{perspective}_summary_add_button',
+                   use_container_width=True):
+        st.session_state[f'adding_level_{perspective}'] = not st.session_state[f'adding_level_{perspective}']
+        st.session_state[f'{perspective}_summaries'] = original_summaries
+
+    if st.session_state[f'adding_level_{perspective}']:
+        with level_container:
+            curr_summary_settings = SummarySettingsFragment(oed_fields, perspective)
+            curr_summary_settings['id'] = max([s['id'] for s in curr_summaries] + [0]) + 1
+            submitted = st.button('Create Level')
+
+        if submitted:
+            st.session_state[f'adding_level_{perspective}'] = False
+            curr_summaries.append(curr_summary_settings)
+            st.session_state[f'{perspective}_summaries'] = curr_summaries
+            st.rerun(scope='fragment')
+
+    if col2.button('Delete Level', key=f'{perspective}_summary_delete_button',
+                   use_container_width=True, disabled=selected is None):
+        pos = [i for i, el in enumerate(curr_summaries) if el['id'] == selected][0]
+        curr_summaries.pop(pos)
+        st.session_state[f'{perspective}_summaries'] = curr_summaries
+        st.rerun(scope='fragment')
+
+    if col3.button('Edit Level', key=f'{perspective}_summary_edit_button',
+                   use_container_width=True, disabled=selected is None):
+        st.session_state[f'editing_level_{perspective}'] = not st.session_state[f'editing_level_{perspective}']
+        st.session_state[f'{perspective}_summaries'] = original_summaries
+
+    if st.session_state[f'editing_level_{perspective}']:
+        if selected is None:
+            st.session_state[f'editing_level_{perspective}'] = False
+            st.rerun(scope='fragment')
+
+        st.info('Editing level')
+        pos = [i for i, el in enumerate(curr_summaries) if el['id'] == selected][0]
+        selected_summary = curr_summaries[pos]
+        defaults = extract_default_from_level_settings(selected_summary)
+
+        with level_container:
+            updated_summary_settings = SummarySettingsFragment(oed_fields, perspective, defaults)
+            submit_edit = st.button('Save Edit')
+
+        if submit_edit:
+            curr_summaries.pop(pos)
+            updated_summary_settings['id'] = selected_summary['id']
+            st.session_state[f'editing_level_{perspective}'] = False
+            curr_summaries.append(updated_summary_settings)
+            st.session_state[f'{perspective}_summaries'] = curr_summaries
+            st.rerun(scope='fragment')
+
+def ViewSummarySettings(summary_settings, key=None):
+    '''
+    Display the summary settings for a single perspective as a selectable dataframe.
+
+    Args:
+        summary_settings (list[dict]): List of summary settings to display.
+
+    Returns:
+        (int) `id` for selected summary settings.
+
+    '''
+    summaries = summarise_summary_levels(summary_settings)
+    summaries = pd.DataFrame(summaries)
+    cols = ['level_id', 'ord_output', 'legacy_output', 'oed_fields']
+    summaries = DataframeView(summaries, display_cols=cols, selectable=True)
+    summaries.column_config['ord_output'] = st.column_config.ListColumn('ORD Output')
+    summaries.column_config['legacy_output'] = st.column_config.ListColumn('Legacy Output')
+    summaries.column_config['oed_fields'] = st.column_config.ListColumn('OED Fields')
+
+    selected = summaries.display(key=key)
+    return selected['level_id'].iloc[0] if selected is not None else None
 
 def SummarySettingsFragment(oed_fields, perspective, default_outputs={}):
     '''
@@ -482,97 +489,90 @@ class ORDOutputFragment:
         return ord_options
 
 
-def ViewSummarySettings(summary_settings, key=None):
-    '''
-    Display the summary settings for a single perspective as a selectable dataframe.
+class OutputFragment(FormFragment):
+    def display(self):
+        perspective = self.params.get('perspective', 'gul')
+        default = self.params.get('default', [])
 
-    Args:
-        summary_settings (list[dict]): List of summary settings to display.
+        options = [
+            'eltcalc',
+            'aalcalc',
+            'aalcalcmeanonly',
+            'pltcalc',
+            'summarycalc',
+            'leccalc-full_uncertainty_aep',
+            'leccalc-full_uncertainty_oep',
+            'leccalc-persample_aep',
+            'leccalc-persample_oep',
+            'leccalc-persample_mean_aep',
+            'leccalc-persample_mean_oep',
+            'leccalc-sample_mean_aep',
+            'leccalc-sample_mean_oep'
+        ]
 
-    Returns:
-        (int) `id` for selected summary settings.
+        selected = st.multiselect(f"{perspective.upper()} Outputs",
+                                 options, key=f'{perspective}_legacy_output_select',
+                                 default=default)
 
-    '''
-    summaries = summarise_summary_levels(summary_settings)
-    summaries = pd.DataFrame(summaries)
-    cols = ['level_id', 'ord_output', 'legacy_output', 'oed_fields']
-    summaries = DataframeView(summaries, display_cols=cols, selectable=True)
-    summaries.column_config['ord_output'] = st.column_config.ListColumn('ORD Output')
-    summaries.column_config['legacy_output'] = st.column_config.ListColumn('Legacy Output')
-    summaries.column_config['oed_fields'] = st.column_config.ListColumn('OED Fields')
+        output_dict = {
+            'eltcalc': False,
+            'aalcalc': False,
+            'aalcalcmeanonly': False,
+            'pltcalc': False,
+            'summarycalc': False,
+            'lec_output': False,
+            'leccalc': {
+                'full_uncertainty_aep': False,
+                'full_uncertainty_oep': False,
+                'wheatsheaf_aep': False,
+                'wheatsheaf_oep': False,
+                'wheatsheaf_mean_aep': False,
+                'wheatsheaf_mean_oep': False,
+                'sample_mean_aep': False,
+                'sample_mean_oep': False
+            }
 
-    selected = summaries.display(key=key)
-    return selected['level_id'].iloc[0] if selected is not None else None
+        }
+
+        for output_option in selected:
+            if output_option[:7] == 'leccalc':
+                output_dict['lec_output'] = True
+                lec_option = output_option[8:]
+                lec_option = lec_option.replace('persample', 'wheatsheaf')
+                output_dict['leccalc'][lec_option] = True
+            else:
+                output_dict[output_option] = True
+
+        return output_dict
 
 
-@st.fragment
-def summary_settings_fragment(oed_fields, perspective):
-    if f'{perspective}_summaries' not in st.session_state:
-        st.session_state[f'{perspective}_summaries'] = []
-    original_summaries = st.session_state[f'{perspective}_summaries']
-    curr_summaries = copy(original_summaries)
+class OEDGroupFragment(FormFragment):
+    EXCLUDED_FIELDS = [ "BuildingTIV", "ContentsTIV", "OtherTIV", "BITIV", "OEDVersion" ]
 
-    selected = ViewSummarySettings(original_summaries, key=f'{perspective}_summaries_view')
+    def display(self):
+        perspective = self.params.get('perspective', 'gul')
+        oed_options = self.params.get('oed_fields', None)
+        defaults = self.params.get('default', [])
+        if oed_options is None:
+            oed_options = ['PortNumber', 'CountryCode', 'LocNumber']
 
-    col1, col2, col3, *_ = st.columns(5)
+        oed_options = sorted(filter(self.valid_field_filter, oed_options))
 
-    level_container = st.container(border=True)
+        oed_fields = st.multiselect(f"{perspective.upper()} OED grouping:",
+                             oed_options,
+                             default=defaults,
+                             key=f'{id}_{perspective}_oed')
 
-    if f'adding_level_{perspective}' not in st.session_state:
-        st.session_state[f'adding_level_{perspective}'] = False
-    if f'editing_level_{perspective}' not in st.session_state:
-        st.session_state[f'editing_level_{perspective}'] = False
+        output = {'oed_fields': oed_fields}
 
-    if col1.button('Add Level', key=f'{perspective}_summary_add_button',
-                   use_container_width=True):
-        st.session_state[f'adding_level_{perspective}'] = not st.session_state[f'adding_level_{perspective}']
-        st.session_state[f'{perspective}_summaries'] = original_summaries
+        return output
 
-    if st.session_state[f'adding_level_{perspective}']:
-        with level_container:
-            curr_summary_settings = SummarySettingsFragment(oed_fields, perspective)
-            curr_summary_settings['id'] = max([s['id'] for s in curr_summaries] + [0]) + 1
-            submitted = st.button('Create Level')
+    @staticmethod
+    def valid_field_filter(field):
+        if field in OEDGroupFragment.EXCLUDED_FIELDS:
+            return False
+        return True
 
-        if submitted:
-            st.session_state[f'adding_level_{perspective}'] = False
-            curr_summaries.append(curr_summary_settings)
-            st.session_state[f'{perspective}_summaries'] = curr_summaries
-            st.rerun(scope='fragment')
-
-    if col2.button('Delete Level', key=f'{perspective}_summary_delete_button',
-                   use_container_width=True, disabled=selected is None):
-        pos = [i for i, el in enumerate(curr_summaries) if el['id'] == selected][0]
-        curr_summaries.pop(pos)
-        st.session_state[f'{perspective}_summaries'] = curr_summaries
-        st.rerun(scope='fragment')
-
-    if col3.button('Edit Level', key=f'{perspective}_summary_edit_button',
-                   use_container_width=True, disabled=selected is None):
-        st.session_state[f'editing_level_{perspective}'] = not st.session_state[f'editing_level_{perspective}']
-        st.session_state[f'{perspective}_summaries'] = original_summaries
-
-    if st.session_state[f'editing_level_{perspective}']:
-        if selected is None:
-            st.session_state[f'editing_level_{perspective}'] = False
-            st.rerun(scope='fragment')
-
-        st.info('Editing level')
-        pos = [i for i, el in enumerate(curr_summaries) if el['id'] == selected][0]
-        selected_summary = curr_summaries[pos]
-        defaults = extract_default_from_level_settings(selected_summary)
-
-        with level_container:
-            updated_summary_settings = SummarySettingsFragment(oed_fields, perspective, defaults)
-            submit_edit = st.button('Save Edit')
-
-        if submit_edit:
-            curr_summaries.pop(pos)
-            updated_summary_settings['id'] = selected_summary['id']
-            st.session_state[f'editing_level_{perspective}'] = False
-            curr_summaries.append(updated_summary_settings)
-            st.session_state[f'{perspective}_summaries'] = curr_summaries
-            st.rerun(scope='fragment')
 
 def clear_summaries_settings():
     """Remove summaries settings from session state.
