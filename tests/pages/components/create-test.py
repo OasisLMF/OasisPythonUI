@@ -4,16 +4,22 @@ Test file for `pages/components/create.py`
 import json
 import pytest
 from streamlit.testing.v1 import AppTest
+import functools
+from pandas.testing import assert_frame_equal
+import pandas as pd
 
 # Test plan
 # - produce analysis settings
 # - [x] ModelSettingsFragment
 # - [x] NumberSamplesFragment
-# - [ ] PerspectivesFragment
+# - [x] PerspectivesFragment
 # - [ ] summaries settings fragment
+#   - [x] ViewSummarySettings
+#   - [ ] SummarySettingsFragment
 # - [ ] Mock response from each fragment output and confirm the save settings button works
 # - consume analysis settings
 # - [ ] set `created_analysis_settings` to None and test dict and confirm output
+
 
 def test_ModelSettingsFragment():
     mock_settings = {
@@ -168,3 +174,63 @@ def test_PerspectivesFragment(valid_perspectives, default_perspectives, disabled
     assert output == {'gul_output': expected_output[0],
                       'il_output': expected_output[1],
                       'ri_output': expected_output[2]}
+
+
+
+test_data_viewsummarysettings = [
+        ([], True, {'level_id': [], 'ord_output': [], 'legacy_output': [], 'oed_fields': []}) ,
+        ([{
+          "eltcalc": True,
+          "id": 1
+        },
+        {
+          "ord_output": {
+            "elt_sample": True,
+            "elt_quantile": False,
+            "elt_moment": False,
+            "plt_sample": False,
+            "plt_quantile": False,
+            "plt_moment": False,
+            "alt_period": False,
+            "alt_meanonly": False,
+            "ept_full_uncertainty_aep": False,
+            "ept_full_uncertainty_oep": False,
+            "ept_mean_sample_aep": False,
+            "ept_mean_sample_oep": False,
+            "ept_per_sample_mean_aep": False,
+            "ept_per_sample_mean_oep": False,
+            "psept_aep": False,
+            "psept_oep": False
+          },
+          "oed_fields": [
+            "CountryCode"
+          ],
+          "id": 2
+        }], False, {'ord_output': [[], ['elt_sample']],
+                    'legacy_output': [['eltcalc'],[]],
+                    'oed_fields': [[], ['CountryCode']],
+                    'level_id': [1, 2]})
+
+]
+@pytest.mark.parametrize("settings,empty,df_dict", test_data_viewsummarysettings)
+def test_ViewSummarySettings(settings, empty, df_dict):
+    def app_view_summary_script(settings):
+        import streamlit as st
+        from pages.components.create import ViewSummarySettings
+
+        output = ViewSummarySettings(settings)
+
+        st.write(output)
+
+    at = AppTest.from_function(app_view_summary_script, args=[settings,])
+    at.run()
+
+    assert not at.exception
+
+    df = at.dataframe[0].value
+    assert df.empty == empty
+    expected_cols = ['level_id', 'ord_output', 'legacy_output', 'oed_fields']
+    df_cols = df.columns.to_list()
+    assert len(expected_cols) == len(df_cols)
+    assert all([col in expected_cols for col in df_cols])
+    assert_frame_equal(df, pd.DataFrame(df_dict), check_dtype=False)
