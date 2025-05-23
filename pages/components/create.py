@@ -462,6 +462,16 @@ def SummarySettingsFragment(oed_fields, p, default_outputs={}):
     return summaries_settings
 
 def ViewSummarySettings(summary_settings, key=None):
+    '''
+    Display the summary settings for a single perspective as a selectable dataframe.
+
+    Args:
+        summary_settings (list[dict]): List of summary settings to display.
+
+    Returns:
+        (int) `id` for selected summary settings.
+
+    '''
     summaries = summarise_summary_levels(summary_settings)
     summaries = pd.DataFrame(summaries)
     cols = ['level_id', 'ord_output', 'legacy_output', 'oed_fields']
