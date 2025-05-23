@@ -403,7 +403,7 @@ def SummarySettingsFragment(oed_fields, perspective, default_outputs={}):
     if len(default_outputs.get('legacy_outputs', [])) > 0:
         legacy_outputs = True
     if st.checkbox("Enable legacy outputs", key=f'{perspective}_enable_legacy_check', value=legacy_outputs):
-        p_summaries = OutputFragment(params={'perspective': perspective, 'default': default_outputs.get('legacy_outputs', [])}).display()
+        p_summaries = OutputFragment(perspective=perspective, default=default_outputs.get('legacy_outputs', [])).display()
         summaries_settings |= p_summaries
 
     if oed_fields:
@@ -490,9 +490,20 @@ class ORDOutputFragment:
 
 
 class OutputFragment(FormFragment):
+    '''
+    Fragment to select legacy outputs.
+
+    Args:
+        perspective: perspective name (`gul`, `il`, `ri`)
+        default (list[str]): List of default outputs
+    '''
+    def __init__(self, perspective, default=[]):
+        self.perspective = perspective
+        self.default = []
+
     def display(self):
-        perspective = self.params.get('perspective', 'gul')
-        default = self.params.get('default', [])
+        perspective = self.perspective
+        default = self.default
 
         options = [
             'eltcalc',

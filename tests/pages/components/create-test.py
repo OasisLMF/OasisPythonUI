@@ -17,8 +17,9 @@ import pandas as pd
 # - [ ] summaries settings fragment
 #   - [x] ViewSummarySettings
 #   - [ ] SummarySettingsFragment
-#       -  [x] ORDOutputFragment
-#       -  [ ] OEDGroupFragment
+#       - [x] ORDOutputFragment
+#       - [x] OutputFragment
+#       - [ ] OEDGroupFragment
 # - [ ] Mock response from each fragment output and confirm the save settings button works
 # - consume analysis settings
 # - [ ] set `created_analysis_settings` to None and test dict and confirm output
@@ -304,4 +305,45 @@ def test_select_ORDOutputFragment():
                        'ept_per_sample_mean_oep': False, 'psept_aep': True,
                        'psept_oep': False}
     assert not at.exception
+    assert json.loads(at.json[0].value) == expected_output
+
+test_data = [
+    ([], [], {'eltcalc': False, 'aalcalc': False, 'aalcalcmeanonly': False,
+              'pltcalc': False, 'summarycalc': False, 'lec_output': False,
+              'leccalc': {'full_uncertainty_aep': False,
+                          'full_uncertainty_oep': False, 'wheatsheaf_aep':
+                          False, 'wheatsheaf_oep': False,
+                          'wheatsheaf_mean_aep': False, 'wheatsheaf_mean_oep':
+                          False, 'sample_mean_aep': False, 'sample_mean_oep':
+                          False}}),
+    ([],
+    ['eltcalc', 'pltcalc', 'leccalc-full_uncertainty_aep',
+      'leccalc-persample_aep', 'leccalc-persample_mean_oep'],
+    {'eltcalc': True, 'aalcalc': False, 'aalcalcmeanonly': False,
+     'pltcalc': True, 'summarycalc': False, 'lec_output': True,
+     'leccalc': {'full_uncertainty_aep': True, 'full_uncertainty_oep': False,
+                 'wheatsheaf_aep': True, 'wheatsheaf_oep': False,
+                 'wheatsheaf_mean_aep': False, 'wheatsheaf_mean_oep': True,
+                 'sample_mean_aep': False, 'sample_mean_oep': False}})
+]
+@pytest.mark.parametrize("default,selected,expected_output", test_data)
+def test_OutputFragment(default, selected, expected_output):
+
+    def test_script(default):
+        import streamlit as st
+        from pages.components.create import OutputFragment
+
+        output = OutputFragment('gul', default).display()
+
+        st.json(output)
+
+    at = AppTest.from_function(test_script, args=(default,))
+    at.run()
+
+    assert not at.exception
+
+    for option in selected:
+        at.multiselect(key="gul_legacy_output_select").select(option)
+    at.run()
+
     assert json.loads(at.json[0].value) == expected_output
