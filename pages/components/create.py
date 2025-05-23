@@ -271,8 +271,6 @@ def extract_default_from_level_settings(level_settings):
     default = {'ord_outputs': {}, 'legacy_outputs': {}}
     summary = summarise_summary_level(level_settings)
 
-    st.write(summary)
-
     summary_ord = summary.get('ord_output', [])
 
     # Handle ord output
@@ -280,7 +278,7 @@ def extract_default_from_level_settings(level_settings):
     default['ord_outputs']['plt'] = [opt[4:] for opt in summary_ord if opt.startswith('plt')]
     default['ord_outputs']['alt'] = [opt[4:] for opt in summary_ord if opt.startswith('alt')]
     default['ord_outputs']['alct_convergence'] = 'alct_convergence' in summary_ord
-    default['ord_outputs']['alct_confidence'] = level_settings['ord_output'].get('alct_confidence', 0.95)
+    default['ord_outputs']['alct_confidence'] = level_settings.get('ord_output', {}).get('alct_confidence', 0.95)
     default['ord_outputs']['ept'] = [opt[4:] for opt in summary_ord if opt.startswith('ept')]
     default['ord_outputs']['psept'] = [opt[6:] for opt in summary_ord if opt.startswith('psept')]
 
@@ -299,6 +297,9 @@ def summary_settings_fragment(oed_fields, perspective):
         st.session_state[f'{perspective}_summaries'] = []
     original_summaries = st.session_state[f'{perspective}_summaries']
     curr_summaries = copy(original_summaries)
+    oed_fields = oed_fields.get(perspective, None)
+    if oed_fields is not None:
+        oed_fields = list(oed_fields.keys())
 
     selected = ViewSummarySettings(original_summaries, key=f'{perspective}_summaries_view')
 
