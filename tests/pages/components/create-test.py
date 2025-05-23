@@ -450,3 +450,147 @@ def test_SummarySettingsFragment():
 
     assert not at.exception
     assert json.loads(at.json[0].value) == expected_output
+
+@pytest.fixture
+def at_summary_settings():
+    summaries = {"gul_summaries": [
+        {
+          "eltcalc": True,
+          "id": 1
+        },
+        {
+          "ord_output": {
+            "elt_sample": True,
+            "elt_quantile": False,
+            "elt_moment": False,
+            "plt_sample": False,
+            "plt_quantile": False,
+            "plt_moment": False,
+            "alt_period": False,
+            "alt_meanonly": False,
+            "ept_full_uncertainty_aep": False,
+            "ept_full_uncertainty_oep": False,
+            "ept_mean_sample_aep": False,
+            "ept_mean_sample_oep": False,
+            "ept_per_sample_mean_aep": False,
+            "ept_per_sample_mean_oep": False,
+            "psept_aep": False,
+            "psept_oep": False
+          },
+          "oed_fields": [
+            "CountryCode"
+          ],
+          "id": 2
+        }
+    ],
+    "il_summaries": [
+        {
+          "eltcalc": True,
+          "id": 1
+        }
+    ],
+    "ri_summaries": []}
+
+    def test_script(oed_fields):
+        from pages.components.create import summary_settings_fragment
+
+        summary_settings_fragment(oed_fields, 'gul')
+
+    oed_fields = {"gul" : {opt: "test_desc" for opt in options_full}}
+
+    at =  AppTest.from_function(test_script, args=(oed_fields,))
+
+    for k, v in summaries.items():
+        at.session_state[k] = v
+
+    return at
+
+def test_summary_settings_fragment(at_summary_settings):
+    at = at_summary_settings
+    at.run()
+
+    assert not at.exception
+    expected_view = pd.DataFrame({'ord_output': [[], ['elt_sample']],
+                    'legacy_output': [['eltcalc'],[]],
+                    'oed_fields': [[], ['CountryCode']],
+                    'level_id': [1, 2]})
+    assert_frame_equal(at.dataframe[0].value, expected_view)
+    assert at.button(key="gul_summary_edit_button").disabled == True
+    assert at.button(key="gul_summary_delete_button").disabled == True
+
+def test_summary_settings_fragment_delete(at_summary_settings, mocker):
+    # Test selecting
+    mocker.patch("pages.components.create.ViewSummarySettings", return_value = 1)
+    at = at_summary_settings
+    at.run()
+
+    assert not at.exception
+    assert at.button(key="gul_summary_edit_button").disabled == False
+    assert at.button(key="gul_summary_delete_button").disabled == False
+
+    at.button(key="gul_summary_delete_button").click().run()
+
+    assert at.session_state["gul_summaries"] == [
+        {
+          "ord_output": {
+            "elt_sample": True,
+            "elt_quantile": False,
+            "elt_moment": False,
+            "plt_sample": False,
+            "plt_quantile": False,
+            "plt_moment": False,
+            "alt_period": False,
+            "alt_meanonly": False,
+            "ept_full_uncertainty_aep": False,
+            "ept_full_uncertainty_oep": False,
+            "ept_mean_sample_aep": False,
+            "ept_mean_sample_oep": False,
+            "ept_per_sample_mean_aep": False,
+            "ept_per_sample_mean_oep": False,
+            "psept_aep": False,
+            "psept_oep": False
+          },
+          "oed_fields": [
+            "CountryCode"
+          ],
+          "id": 2
+        }
+    ]
+
+def test_summary_settings_fragment_edit(at_summary_settings, mocker):
+    # Test selecting
+    mocker.patch("pages.components.create.ViewSummarySettings", return_value = 1)
+    at = at_summary_settings
+    at.session_state["editing_level_gul"] = True
+
+    from pages.components import create
+    spy_summarysettingsfragment = mocker.spy(create, "SummarySettingsFragment")
+
+    at.run()
+
+    assert not at.exception
+    expected_default = {'ord_outputs': {'elt': [], 'plt': [], 'alt': [],
+                                        'alct_convergence': False,
+                                        'alct_confidence': 0.95, 'ept': [],
+                                        'psept': []}, 'legacy_outputs':
+                        ['eltcalc'], 'oed_fields': []}
+    spy_summarysettingsfragment.assert_called_once_with(options_full, 'gul',
+                                                        expected_default)
+
+def test_summary_settings_fragment_add(at_summary_settings, mocker):
+    # Test selecting
+    at = at_summary_settings
+    at.session_state["adding_level_gul"] = True
+
+    from pages.components import create
+    spy_summarysettingsfragment = mocker.spy(create, "SummarySettingsFragment")
+
+    at.run()
+
+    assert not at.exception
+    expected_default = {'ord_outputs': {'elt': [], 'plt': [], 'alt': [],
+                                        'alct_convergence': False,
+                                        'alct_confidence': 0.95, 'ept': [],
+                                        'psept': []}, 'legacy_outputs':
+                        ['eltcalc'], 'oed_fields': []}
+    spy_summarysettingsfragment.assert_called_once_with(options_full, 'gul')
