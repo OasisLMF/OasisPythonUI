@@ -389,7 +389,7 @@ def SummarySettingsFragment(oed_fields, perspective, default_outputs={}):
     Fragment to generate UI which creates summary settings.
 
     Args:
-        oed_fields: List of OED Fields to group by.
+        oed_fields: List of OED group by field options.
         perspective: perspective name (`gul`, `il`, `ri`)
         default_outputs : dict with default options to preload form.
 
@@ -407,9 +407,9 @@ def SummarySettingsFragment(oed_fields, perspective, default_outputs={}):
         summaries_settings |= p_summaries
 
     if oed_fields:
-        p_summaries = OEDGroupFragment(params={'perspective': perspective,
-                                               'oed_fields': oed_fields,
-                                               'default': default_outputs.get('oed_fields', [])}).display()
+        p_summaries = OEDGroupFragment(perspective=perspective,
+                                       oed_options=oed_fields,
+                                       default=default_outputs.get('oed_fields', [])).display()
         summaries_settings |= p_summaries
     return summaries_settings
 
@@ -489,7 +489,7 @@ class ORDOutputFragment:
         return ord_options
 
 
-class OutputFragment(FormFragment):
+class OutputFragment:
     '''
     Fragment to select legacy outputs.
 
@@ -499,7 +499,7 @@ class OutputFragment(FormFragment):
     '''
     def __init__(self, perspective, default=[]):
         self.perspective = perspective
-        self.default = []
+        self.default = default
 
     def display(self):
         perspective = self.perspective
