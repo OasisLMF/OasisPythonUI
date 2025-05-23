@@ -16,10 +16,10 @@ import pandas as pd
 # - [x] PerspectivesFragment
 # - [ ] summaries settings fragment
 #   - [x] ViewSummarySettings
-#   - [ ] SummarySettingsFragment
+#   - [x] SummarySettingsFragment
 #       - [x] ORDOutputFragment
 #       - [x] OutputFragment
-#       - [ ] OEDGroupFragment
+#       - [x] OEDGroupFragment
 # - [ ] Mock response from each fragment output and confirm the save settings button works
 # - consume analysis settings
 # - [ ] set `created_analysis_settings` to None and test dict and confirm output
@@ -404,4 +404,49 @@ def test_OEDGroupFragment(options, default, selected, expected_output):
         selectbox.select(option)
     at.run()
 
+    assert json.loads(at.json[0].value) == expected_output
+
+def test_SummarySettingsFragment():
+    oed_fields = options_full
+
+    default = {
+        'ord_outputs': {
+            'elt': ['sample', 'quantile']
+        },
+        'legacy_outputs': ['eltcalc', 'leccalc-persample_aep'],
+        'oed_fields': ['CountryCode', 'LocNumber']
+    }
+
+    expected_output = {'ord_output': {'elt_sample': True, 'elt_quantile': True,
+                                      'elt_moment': False, 'plt_sample': False,
+                                      'plt_quantile': False, 'plt_moment':
+                                      False, 'alt_period': False,
+                                      'alt_meanonly': False,
+                                      'ept_full_uncertainty_aep': False,
+                                      'ept_full_uncertainty_oep': False,
+                                      'ept_mean_sample_aep': False,
+                                      'ept_mean_sample_oep': False,
+                                      'ept_per_sample_mean_aep': False,
+                                      'ept_per_sample_mean_oep': False,
+                                      'psept_aep': False, 'psept_oep': False},
+                       'eltcalc': True, 'aalcalc': False, 'aalcalcmeanonly':
+                       False, 'pltcalc': False, 'summarycalc': False,
+                       'lec_output': True,
+                       'leccalc': {'full_uncertainty_aep': False,
+                                   'full_uncertainty_oep': False,
+                                   'wheatsheaf_aep': True, 'wheatsheaf_oep':
+                                   False, 'wheatsheaf_mean_aep': False,
+                                   'wheatsheaf_mean_oep': False,
+                                   'sample_mean_aep': False, 'sample_mean_oep':
+                                   False},
+                       'oed_fields': ['CountryCode', 'LocNumber']}
+
+    def test_script(oed_fields, default):
+        from pages.components.create import SummarySettingsFragment
+        return SummarySettingsFragment(oed_fields, 'gul', default)
+
+    at = create_app_test(test_script, oed_fields, default)
+    at.run()
+
+    assert not at.exception
     assert json.loads(at.json[0].value) == expected_output
