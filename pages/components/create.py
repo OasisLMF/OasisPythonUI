@@ -223,8 +223,9 @@ class NumberSamplesFragment:
         default_samples = model_settings.get("model_default_samples", 10)
         default_samples = analysis_settings.get("number_of_samples", default_samples)
         outputs["number_of_samples"] = st.number_input("Number of samples",
-                                                                 min_value = 1,
-                                                                 value = default_samples)
+                                                       min_value = 1,
+                                                       value = default_samples,
+                                                       key="number_samples_input")
 
         return outputs
 
@@ -298,7 +299,7 @@ def summary_settings_fragment(oed_fields, perspective):
     original_summaries = st.session_state[f'{perspective}_summaries']
     curr_summaries = copy(original_summaries)
     oed_fields = oed_fields.get(perspective, None)
-    if oed_fields is not None:
+    if oed_fields is not None and isinstance(oed_fields, dict):
         oed_fields = list(oed_fields.keys())
 
     selected = ViewSummarySettings(original_summaries, key=f'{perspective}_summaries_view')
@@ -626,7 +627,8 @@ def save_settings(initial_settings, selected_settings):
         if settings_name in initial_settings.keys():
             initial_settings.pop(settings_name)
 
-        selected_settings[settings_name] = st.session_state[settings_name]
+        if settings_name in st.session_state:
+            selected_settings[settings_name] = st.session_state[settings_name]
 
     settings = merge_settings(initial_settings, selected_settings)
     clear_summaries_settings() # Remove settings from session state
@@ -635,7 +637,11 @@ def save_settings(initial_settings, selected_settings):
 
 def produce_analysis_settings(model, model_settings, oed_fields=None, initial_settings=None):
     '''
-    Create a form to get user input for setting analysis settings.
+    Create a form to get user input for setting analysis settings. When the
+    user saves the settings the key `created_analysis_settings` in the
+    session_state is updated with the analysis settings.
+
+    The produced analysis settings can be retrieved by calling `consume_analysis_settings`.
 
     Parameters
     ----------
@@ -650,15 +656,18 @@ def produce_analysis_settings(model, model_settings, oed_fields=None, initial_se
     initial_settings : dict
             Analysis settings to initialise the form with.
 
-    Returns
-    -------
-    dict : Dictionary of the new analysis settings.
     '''
     clear_summaries_settings() # Run this once prior to loading fragment
     create_analysis_settings_fragment(model, model_settings, oed_fields, initial_settings)
 
 
 def consume_analysis_settings():
+    '''
+    Retrieve the analysis settings produced from `produce_analysis_settings` from the session state.
+    Returns
+    -------
+    dict : Dictionary of the new analysis settings.
+    '''
     if 'created_analysis_settings' in st.session_state:
         output = copy(st.session_state['created_analysis_settings'])
         del st.session_state['created_analysis_settings']
@@ -668,12 +677,14 @@ def consume_analysis_settings():
 
 @st.fragment
 def create_analysis_settings_fragment(model, model_settings, oed_fields=None, initial_settings=None):
+    '''Form fragment for creating analysis settings.
+    '''
     perspectives = ['gul', 'il', 'ri']
 
     if oed_fields is None:
         oed_fields = model_settings.get('data_settings', {}).get('damage_group_fields', [])
         oed_fields.extend(model_settings.get('data_settings', {}).get('hazard_group_fields', []))
-        oed_fields = list(set(oed_fields))
+        oed_fields = {p : list(set(oed_fields)) for p in perspectives}
 
     if initial_settings is not None:
         analysis_settings = copy(initial_settings)
@@ -707,5 +718,7 @@ def create_analysis_settings_fragment(model, model_settings, oed_fields=None, in
                     st.session_state[f'{p}_summaries'] = analysis_settings.get(f'{p}_summaries', [])
                 summary_settings_fragment(oed_fields, p)
 
-        if st.button('Save Settings', on_click=save_settings, args=[analysis_settings, selected_settings]):
+        if st.button('Save Settings', on_click=save_settings,
+                     args=[analysis_settings, selected_settings],
+                     key="save_button_create_analysis"):
             st.rerun()

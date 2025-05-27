@@ -2,27 +2,10 @@
 Test file for `pages/components/create.py`
 '''
 import json
-from pages.components.output import pltcalc_bar
 import pytest
 from streamlit.testing.v1 import AppTest
-import functools
 from pandas.testing import assert_frame_equal
 import pandas as pd
-
-# Test plan
-# - produce analysis settings
-# - [x] ModelSettingsFragment
-# - [x] NumberSamplesFragment
-# - [x] PerspectivesFragment
-# - [ ] summaries settings fragment
-#   - [x] ViewSummarySettings
-#   - [x] SummarySettingsFragment
-#       - [x] ORDOutputFragment
-#       - [x] OutputFragment
-#       - [x] OEDGroupFragment
-# - [ ] Mock response from each fragment output and confirm the save settings button works
-# - consume analysis settings
-# - [ ] set `created_analysis_settings` to None and test dict and confirm output
 
 def assert_list_equal_noorder(list1, list2):
     assert len(list1) == len(list2)
@@ -558,7 +541,6 @@ def test_summary_settings_fragment_delete(at_summary_settings, mocker):
     ]
 
 def test_summary_settings_fragment_edit(at_summary_settings, mocker):
-    # Test selecting
     mocker.patch("pages.components.create.ViewSummarySettings", return_value = 1)
     at = at_summary_settings
     at.session_state["editing_level_gul"] = True
@@ -578,7 +560,6 @@ def test_summary_settings_fragment_edit(at_summary_settings, mocker):
                                                         expected_default)
 
 def test_summary_settings_fragment_add(at_summary_settings, mocker):
-    # Test selecting
     at = at_summary_settings
     at.session_state["adding_level_gul"] = True
 
@@ -588,9 +569,413 @@ def test_summary_settings_fragment_add(at_summary_settings, mocker):
     at.run()
 
     assert not at.exception
-    expected_default = {'ord_outputs': {'elt': [], 'plt': [], 'alt': [],
-                                        'alct_convergence': False,
-                                        'alct_confidence': 0.95, 'ept': [],
-                                        'psept': []}, 'legacy_outputs':
-                        ['eltcalc'], 'oed_fields': []}
     spy_summarysettingsfragment.assert_called_once_with(options_full, 'gul')
+
+def test_create_analysis_settings_save():
+    """Test the save settings button."""
+    model_settings = {
+        "model_settings": {
+            "event_set": {
+                "name": "Event Set",
+                "desc": "Custom Event Set selection",
+                "default": "h",
+                "options": [
+                    {
+                        "id": "h",
+                        "desc": "Historical",
+                        "number_of_events": 982
+                    },
+                    {
+                        "id": "s",
+                        "desc": "Synthetic",
+                        "number_of_events": 2034
+                    }
+                ]
+            },
+            "event_occurrence_id": {
+                "name": "Occurrence Set",
+                "desc": "Custom Occurrence selection",
+                "default": "st",
+                "options": [
+                    {
+                        "id": "st",
+                        "desc": "Short Term"
+                    },
+                    {
+                        "id": "mt",
+                        "desc": "Medium Term"
+                    }
+                ]
+            }
+        }
+    }
+
+    model = {
+        "supplier_id" : "OasisLMF",
+        "model_id" : "Test Model"
+    }
+
+    oed_dict = {
+        'LocNumber': 'Location number',
+        'AccNumber': 'Account number',
+        'CountryCode': 'Country code (based on ISO3166 alpha-2 codes)',
+    }
+    oed_fields = {p: oed_dict  for p in ['gul', 'il', 'ri']}
+
+    initial_settings = {
+                        'model_supplier_id': 'OasisLMF',
+                        'model_version_id': '1.0.0',
+                        'model_name_id': 'Test Model',
+                        'number_of_samples': 10,
+                        'model_settings': {'event_occurrence_id': 'st', 'event_set': 'h'},
+                        'gul_output': True,
+                        'gul_summaries': [{'eltcalc': True, 'id': 1},
+                                       {'id': 2,
+                                        'oed_fields': ['CountryCode'],
+                                        'ord_output': {'alt_meanonly': False,
+                                                       'alt_period': False,
+                                                       'elt_moment': False,
+                                                       'elt_quantile': False,
+                                                       'elt_sample': True,
+                                                       'ept_full_uncertainty_aep': False,
+                                                       'ept_full_uncertainty_oep': False,
+                                                       'ept_mean_sample_aep': False,
+                                                       'ept_mean_sample_oep': False,
+                                                       'ept_per_sample_mean_aep': False,
+                                                       'ept_per_sample_mean_oep': False,
+                                                       'plt_moment': False,
+                                                       'plt_quantile': False,
+                                                       'plt_sample': False,
+                                                       'psept_aep': False,
+                                                       'psept_oep': False}}],
+                        'gul_threshold': 0,
+                        'il_output': True,
+                        'il_summaries': [{'eltcalc': True, 'id': 1}],
+                        'ri_output': False,
+                        'ri_summaries': []
+    }
+
+    kwargs = {
+        'model': model,
+        'model_settings': model_settings,
+        'oed_fields': oed_fields,
+        'initial_settings': initial_settings
+    }
+
+    def app_script(kwargs):
+        from pages.components.create import create_analysis_settings_fragment
+
+        create_analysis_settings_fragment(**kwargs)
+
+
+    at = AppTest.from_function(app_script, args=(kwargs,))
+    at.run()
+
+    assert not at.exception
+    assert "created_analysis_settings" not in at.session_state
+
+    # Change settings
+    at.number_input(key="number_samples_input").set_value(20).run()
+    output_settings = initial_settings
+    output_settings['number_of_samples'] = 20
+
+    at.button(key="save_button_create_analysis").click().run()
+    assert "created_analysis_settings" in at.session_state
+    assert at.session_state["created_analysis_settings"] == output_settings
+
+test_data = [
+    ({}, {'a': 1, 'b': 2}, {}, {'a': 1, 'b': 2}),
+    ({'a': 1, 'b': 2}, {'a': 3}, {}, {'a': 3, 'b': 2}),
+    ({'a': 1, 'b': 2, 'gul_summaries': 'initial'}, {'a': 3}, {'gul_summaries': 'session'}, {'a': 3, 'b': 2, 'gul_summaries': 'session'}),
+    ({
+        'model_supplier_id': 'OasisLMF',
+        'model_version_id': '1.0.0',
+        'model_name_id': 'Test Model',
+        'number_of_samples': 10,
+        'model_settings': {'event_occurrence_id': 'st', 'event_set': 'h'},
+        'gul_output': True,
+        'gul_summaries': [{'eltcalc': True, 'id': 1},
+                       {'id': 2,
+                        'oed_fields': ['CountryCode'],
+                        'ord_output': {'alt_meanonly': False,
+                                       'alt_period': False,
+                                       'elt_moment': False,
+                                       'elt_quantile': False,
+                                       'elt_sample': True,
+                                       'ept_full_uncertainty_aep': False,
+                                       'ept_full_uncertainty_oep': False,
+                                       'ept_mean_sample_aep': False,
+                                       'ept_mean_sample_oep': False,
+                                       'ept_per_sample_mean_aep': False,
+                                       'ept_per_sample_mean_oep': False,
+                                       'plt_moment': False,
+                                       'plt_quantile': False,
+                                       'plt_sample': False,
+                                       'psept_aep': False,
+                                       'psept_oep': False}}],
+        'gul_threshold': 0,
+        'il_output': True,
+        'il_summaries': [{'eltcalc': True, 'id': 1}],
+        'ri_output': False,
+        'ri_summaries': []
+    },
+    {
+        'number_of_samples': 100,
+        'model_settings': {'event_occurrence_id': 'lt', 'event_set': 's'},
+        'gul_output': True,
+        'il_output': False,
+    },
+    {
+        'gul_summaries': [{'eltcalc': False, 'aalcalc': True,  'id': 1},
+            {'id': 2,
+            'oed_fields': ['CountryCode', 'AccNumber'],
+            'ord_output': {'alt_meanonly': True,
+                'alt_period': True,
+                'elt_moment': True,
+                'elt_quantile': True,
+                'elt_sample': True,
+                'ept_full_uncertainty_aep': True,
+                'ept_full_uncertainty_oep': True,
+                'ept_mean_sample_aep': True,
+                'ept_mean_sample_oep': True,
+                'ept_per_sample_mean_aep': True,
+                'ept_per_sample_mean_oep': True,
+                'plt_moment': True,
+                'plt_quantile': True,
+                'plt_sample': True,
+                'psept_aep': True,
+                'psept_oep': True}
+            }],
+    },
+    {
+        'model_supplier_id': 'OasisLMF',
+        'model_version_id': '1.0.0',
+        'model_name_id': 'Test Model',
+        'number_of_samples': 100,
+        'model_settings': {'event_occurrence_id': 'lt', 'event_set': 's'},
+        'gul_output': True,
+        'gul_summaries': [{'eltcalc': False, 'aalcalc': True,  'id': 1},
+            {'id': 2,
+            'oed_fields': ['CountryCode', 'AccNumber'],
+            'ord_output': {'alt_meanonly': True,
+                'alt_period': True,
+                'elt_moment': True,
+                'elt_quantile': True,
+                'elt_sample': True,
+                'ept_full_uncertainty_aep': True,
+                'ept_full_uncertainty_oep': True,
+                'ept_mean_sample_aep': True,
+                'ept_mean_sample_oep': True,
+                'ept_per_sample_mean_aep': True,
+                'ept_per_sample_mean_oep': True,
+                'plt_moment': True,
+                'plt_quantile': True,
+                'plt_sample': True,
+                'psept_aep': True,
+                'psept_oep': True}
+            }],
+        'gul_threshold': 0,
+        'il_output': False,
+        'ri_output': False
+    })
+]
+@pytest.mark.parametrize("initial,selected,session,expected", test_data)
+def test_save_settings(initial, selected, session, expected):
+
+    def app_script(initial, selected, session):
+        import streamlit as st
+        from pages.components.create import save_settings
+
+        for k, v in session.items():
+            st.session_state[k] = v
+
+        save_settings(initial, selected)
+
+    at = AppTest.from_function(app_script, args=(initial, selected, session)).run()
+
+    assert at.session_state['created_analysis_settings'] == expected
+
+
+def test_clear_summaries_settings():
+    perpectives = ["gul", "il", "ri"]
+
+    def app_script(perpectives):
+        import streamlit as st
+        for p in perpectives:
+            st.session_state[f"{p}_summaries"] = True
+
+    at = AppTest.from_function(app_script, args=(perpectives,)).run()
+    for p in perpectives:
+        assert f"{p}_summaries" in at.session_state
+
+    def app_script_v2(perpectives):
+        from pages.components.create import clear_summaries_settings
+        app_script(perpectives)
+
+        clear_summaries_settings()
+
+    at = AppTest.from_function(app_script_v2, args=(perpectives,)).run()
+    for p in perpectives:
+        assert f"{p}_summaries" not in at.session_state
+
+
+def test_produce_analysis_settings():
+    model_settings = {
+        "model_settings": {
+            "event_set": {
+                "name": "Event Set",
+                "desc": "Custom Event Set selection",
+                "default": "h",
+                "options": [
+                    {
+                        "id": "h",
+                        "desc": "Historical",
+                        "number_of_events": 982
+                    },
+                    {
+                        "id": "s",
+                        "desc": "Synthetic",
+                        "number_of_events": 2034
+                    }
+                ]
+            },
+            "event_occurrence_id": {
+                "name": "Occurrence Set",
+                "desc": "Custom Occurrence selection",
+                "default": "st",
+                "options": [
+                    {
+                        "id": "st",
+                        "desc": "Short Term"
+                    },
+                    {
+                        "id": "mt",
+                        "desc": "Medium Term"
+                    }
+                ]
+            }
+        }
+    }
+
+    model = {
+        "supplier_id" : "OasisLMF",
+        "model_id" : "Test Model"
+    }
+
+    oed_dict = {
+        'LocNumber': 'Location number',
+        'AccNumber': 'Account number',
+        'CountryCode': 'Country code (based on ISO3166 alpha-2 codes)',
+    }
+    oed_fields = {p: oed_dict  for p in ['gul', 'il', 'ri']}
+
+    initial_settings = {
+                        'model_supplier_id': 'OasisLMF',
+                        'model_version_id': '1.0.0',
+                        'model_name_id': 'Test Model',
+                        'number_of_samples': 10,
+                        'model_settings': {'event_occurrence_id': 'st', 'event_set': 'h'},
+                        'gul_output': True,
+                        'gul_summaries': [{'eltcalc': True, 'id': 1},
+                                       {'id': 2,
+                                        'oed_fields': ['CountryCode'],
+                                        'ord_output': {'alt_meanonly': False,
+                                                       'alt_period': False,
+                                                       'elt_moment': False,
+                                                       'elt_quantile': False,
+                                                       'elt_sample': True,
+                                                       'ept_full_uncertainty_aep': False,
+                                                       'ept_full_uncertainty_oep': False,
+                                                       'ept_mean_sample_aep': False,
+                                                       'ept_mean_sample_oep': False,
+                                                       'ept_per_sample_mean_aep': False,
+                                                       'ept_per_sample_mean_oep': False,
+                                                       'plt_moment': False,
+                                                       'plt_quantile': False,
+                                                       'plt_sample': False,
+                                                       'psept_aep': False,
+                                                       'psept_oep': False}}],
+                        'gul_threshold': 0,
+                        'il_output': True,
+                        'il_summaries': [{'eltcalc': True, 'id': 1}],
+                        'ri_output': False,
+                        'ri_summaries': []
+    }
+
+    kwargs = {
+        'model': model,
+        'model_settings': model_settings,
+        'oed_fields': oed_fields,
+        'initial_settings': initial_settings
+    }
+
+    def app_script(kwargs):
+        from pages.components.create import produce_analysis_settings
+        produce_analysis_settings(**kwargs)
+
+
+    at = AppTest.from_function(app_script, args=(kwargs,)).run()
+    assert 'created_analysis_settings' not in at.session_state
+
+    at.button(key="save_button_create_analysis").click().run()
+    assert 'created_analysis_settings' in at.session_state
+
+
+def test_consume_analysis_settings():
+    def app_script_none():
+        import streamlit as st
+        from pages.components.create import consume_analysis_settings
+
+        output = consume_analysis_settings()
+
+        st.write(output)
+
+    at = AppTest.from_function(app_script_none).run()
+
+    assert at.exception is not None
+    assert at.markdown[0].value == '`None`'
+
+    created_analysis_settings  = {
+                        'model_supplier_id': 'OasisLMF',
+                        'model_version_id': '1.0.0',
+                        'model_name_id': 'Test Model',
+                        'number_of_samples': 10,
+                        'model_settings': {'event_occurrence_id': 'st', 'event_set': 'h'},
+                        'gul_output': True,
+                        'gul_summaries': [{'eltcalc': True, 'id': 1},
+                                       {'id': 2,
+                                        'oed_fields': ['CountryCode'],
+                                        'ord_output': {'alt_meanonly': False,
+                                                       'alt_period': False,
+                                                       'elt_moment': False,
+                                                       'elt_quantile': False,
+                                                       'elt_sample': True,
+                                                       'ept_full_uncertainty_aep': False,
+                                                       'ept_full_uncertainty_oep': False,
+                                                       'ept_mean_sample_aep': False,
+                                                       'ept_mean_sample_oep': False,
+                                                       'ept_per_sample_mean_aep': False,
+                                                       'ept_per_sample_mean_oep': False,
+                                                       'plt_moment': False,
+                                                       'plt_quantile': False,
+                                                       'plt_sample': False,
+                                                       'psept_aep': False,
+                                                       'psept_oep': False}}],
+                        'gul_threshold': 0
+                        }
+
+    def app_script(created_analysis_settings):
+        import streamlit as st
+        from pages.components.create import consume_analysis_settings
+
+        st.session_state["created_analysis_settings"] = created_analysis_settings
+
+        output = consume_analysis_settings()
+
+        st.json(output)
+
+    at = AppTest.from_function(app_script, args=(created_analysis_settings,)).run()
+
+    assert at.exception is not None
+    assert json.loads(at.json[0].value) == created_analysis_settings
+    assert 'created_analysis_settings' not in at.session_state
