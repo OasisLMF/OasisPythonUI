@@ -201,12 +201,38 @@ def summarise_inputs(locations=None, analysis_settings=None, title_prefix='##'):
 
     if analysis_settings is not None:
         st.markdown(f'{title_prefix} Output Settings')
-        output_settings_summary = summarise_output_settings(analysis_settings)
-        output_settings_summary = DataframeView(output_settings_summary, hide_index=False)
-        output_settings_summary.column_config['oed_fields'] = st.column_config.ListColumn('OED Fields')
-        output_settings_summary.column_config['ord_outputs'] = st.column_config.ListColumn('ORD Outputs')
-        output_settings_summary.column_config['outputs'] = st.column_config.ListColumn('Outputs')
-        output_settings_summary.display()
+        perspectives = ["gul", "il", "ri"]
+        tabs = st.tabs([p.upper() for p in perspectives])
+        for p, t in zip(perspectives, tabs):
+            with t:
+                summaries = analysis_settings.get(f"{p}_summaries", None)
+                if summaries is not None:
+                    ViewSummarySettings(summaries, key=f"show_{p}_summaries_view")
+                else:
+                    st.info("No summary settings found.")
+
+
+def ViewSummarySettings(summary_settings, key=None, selectable=False):
+    '''
+    Display the summary settings for a single perspective as a selectable dataframe.
+
+    Args:
+        summary_settings (list[dict]): List of summary settings to display.
+
+    Returns:
+        (int) `id` for selected summary settings.
+
+    '''
+    summaries = summarise_summary_levels(summary_settings)
+    summaries = pd.DataFrame(summaries)
+    cols = ['level_id', 'ord_output', 'legacy_output', 'oed_fields']
+    summaries = DataframeView(summaries, display_cols=cols, selectable=selectable)
+    summaries.column_config['ord_output'] = st.column_config.ListColumn('ORD Output')
+    summaries.column_config['legacy_output'] = st.column_config.ListColumn('Legacy Output')
+    summaries.column_config['oed_fields'] = st.column_config.ListColumn('OED Fields')
+
+    selected = summaries.display(key=key)
+    return selected['level_id'].iloc[0] if selected is not None else None
 
 
 def show_settings(settings_list):

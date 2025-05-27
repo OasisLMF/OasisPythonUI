@@ -1,11 +1,9 @@
 # Module to display ui components for running analyses
 from copy import copy
-from pages.components.display import DataframeView
-from pages.components.output import summarise_summary_level, summarise_summary_levels
+from pages.components.output import ViewSummarySettings, summarise_summary_level
 import streamlit as st
-from modules.settings import get_analyses_settings
 from modules.validation import NameValidation, NotNoneValidation, ValidationError, ValidationGroup
-import pandas as pd
+
 
 class FormFragment():
     def __init__(self, params={}):
@@ -302,7 +300,8 @@ def summary_settings_fragment(oed_fields, perspective):
     if oed_fields is not None and isinstance(oed_fields, dict):
         oed_fields = list(oed_fields.keys())
 
-    selected = ViewSummarySettings(original_summaries, key=f'{perspective}_summaries_view')
+    selected = ViewSummarySettings(original_summaries, key=f'{perspective}_summaries_view',
+                                   selectable=True)
 
     col1, col2, col3, *_ = st.columns(5)
 
@@ -363,28 +362,6 @@ def summary_settings_fragment(oed_fields, perspective):
             curr_summaries.append(updated_summary_settings)
             st.session_state[f'{perspective}_summaries'] = curr_summaries
             st.rerun(scope='fragment')
-
-def ViewSummarySettings(summary_settings, key=None):
-    '''
-    Display the summary settings for a single perspective as a selectable dataframe.
-
-    Args:
-        summary_settings (list[dict]): List of summary settings to display.
-
-    Returns:
-        (int) `id` for selected summary settings.
-
-    '''
-    summaries = summarise_summary_levels(summary_settings)
-    summaries = pd.DataFrame(summaries)
-    cols = ['level_id', 'ord_output', 'legacy_output', 'oed_fields']
-    summaries = DataframeView(summaries, display_cols=cols, selectable=True)
-    summaries.column_config['ord_output'] = st.column_config.ListColumn('ORD Output')
-    summaries.column_config['legacy_output'] = st.column_config.ListColumn('Legacy Output')
-    summaries.column_config['oed_fields'] = st.column_config.ListColumn('OED Fields')
-
-    selected = summaries.display(key=key)
-    return selected['level_id'].iloc[0] if selected is not None else None
 
 def SummarySettingsFragment(oed_fields, perspective, default_outputs={}):
     '''
