@@ -1,6 +1,8 @@
+from modules.config import retrieve_ui_config
 import streamlit as st
 from modules.client import ClientInterface
 from modules.nav import SidebarNav
+from modules.authorisation import validate_page
 import pandas as pd
 import altair as alt
 
@@ -15,19 +17,20 @@ st.set_page_config(
     layout = "centered"
 )
 
+validate_page("Dashboard")
+
+ui_config = retrieve_ui_config()
+handle_login(ui_config.skip_login)
+
+client_interface = st.session_state["client_interface"]
+client = client_interface.client
+
 SidebarNav()
 
 # Embed Logo
 cols = st.columns([0.1, 0.8, 0.1])
 with cols[1]:
     st.image("images/oasis_logo.png")
-
-# Retrieve client
-if "client" in st.session_state:
-    client = st.session_state.client
-    client_interface = ClientInterface(client)
-else:
-    st.switch_page("app.py")
 
 analyses = sorted(client_interface.analyses.search(metadata={'status': 'RUN_COMPLETED'}), key=lambda x: x['id'], reverse=True)
 selected_analysis = st.selectbox("Select Analysis", options=analyses,

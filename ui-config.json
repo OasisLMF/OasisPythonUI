@@ -4,5 +4,6 @@
   ],
   "post_login_page": "pages/analyses.py",
   "model_map": {
-  }
+  },
+  "skip_login": true
 }
