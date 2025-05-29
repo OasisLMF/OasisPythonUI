@@ -105,6 +105,77 @@ def summarise_output_settings(analysis_settings):
 
     return pd.DataFrame(summary, index=active_perspectives)
 
+def summarise_summary_levels(summary_settings):
+    '''
+    Take a list of summary sets from the analysis settings and produce a list of summaries of each level.
+
+    Returns
+        List[dict] where each dict corresponds to a single summary level with
+        the following keys for each summary level:
+            - `id` - summary level id
+            - `ord_output` - list of ord outputs
+            - `legacy_outputs` - list of legacy outputs
+            - `oed_fields` - list of oed group fields
+    '''
+    return [summarise_summary_level(level) for level in summary_settings]
+
+def summarise_summary_level(summary_level_settings):
+    '''Summarise a single summary set from the analysis settings.
+    '''
+    curr_summary = {}
+
+    # Handle ord outputs
+    ord_output = summary_level_settings.get('ord_output', None)
+    ord_outputs_list = []
+
+    if ord_output:
+        valid_options = [
+            'elt_sample', 'elt_quantile', 'elt_moment', 'plt_sample',
+            'plt_quantile', 'plt_moment', 'alt_period', 'alt_meanonly',
+            'alct_convergence',
+            'ept_full_uncertainty_aep', 'ept_full_uncertainty_oep',
+            'ept_mean_sample_aep', 'ept_mean_sample_oep',
+            'ept_per_sample_mean_aep', 'ept_per_sample_mean_oep',
+            'psept_aep', 'psept_oep'
+        ]
+
+        for opt in valid_options:
+            if ord_output.get(opt, False):
+                    ord_outputs_list.append(opt)
+    curr_summary['ord_output'] = ord_outputs_list
+
+    ## Handle legacy outputs
+
+    output_options = [
+        'eltcalc',
+        'aalcalc',
+        'aalcalcmeanonly',
+        'pltcalc',
+        'summarycalc']
+
+    legacy_outputs = [o for o in output_options if summary_level_settings.get(o, False)]
+
+    if summary_level_settings.get('lec_output', False):
+        lec_dict = summary_level_settings.get('leccalc', {})
+        lec_opts = {
+            'full_uncertainty_aep': 'full_uncertainty_aep',
+            'full_uncertainty_oep': 'full_uncertainty_oep',
+            'wheatsheaf_aep': 'persample_aep',
+            'wheatsheaf_oep': 'persample_oep',
+            'wheatsheaf_mean_aep': 'persample_mean_aep',
+            'wheatsheaf_mean_oep': 'persample_mean_oep',
+            'sample_mean_aep': 'sample_mean_aep',
+            'sample_mean_oep': 'sample_mean_oep'
+        }
+
+        legacy_outputs += [f'leccalc-{v}' for k, v in lec_opts.items() if lec_dict.get(k, False)]
+
+    curr_summary['legacy_output'] = legacy_outputs
+
+    curr_summary['oed_fields'] = summary_level_settings.get('oed_fields', [])
+    curr_summary['level_id'] = summary_level_settings['id']
+    return curr_summary
+
 def summarise_inputs(locations=None, analysis_settings=None, title_prefix='##'):
     if locations is None and analysis_settings is None:
         st.info('No locations or analysis settings.')
@@ -130,12 +201,38 @@ def summarise_inputs(locations=None, analysis_settings=None, title_prefix='##'):
 
     if analysis_settings is not None:
         st.markdown(f'{title_prefix} Output Settings')
-        output_settings_summary = summarise_output_settings(analysis_settings)
-        output_settings_summary = DataframeView(output_settings_summary, hide_index=False)
-        output_settings_summary.column_config['oed_fields'] = st.column_config.ListColumn('OED Fields')
-        output_settings_summary.column_config['ord_outputs'] = st.column_config.ListColumn('ORD Outputs')
-        output_settings_summary.column_config['outputs'] = st.column_config.ListColumn('Outputs')
-        output_settings_summary.display()
+        perspectives = ["gul", "il", "ri"]
+        tabs = st.tabs([p.upper() for p in perspectives])
+        for p, t in zip(perspectives, tabs):
+            with t:
+                summaries = analysis_settings.get(f"{p}_summaries", None)
+                if summaries is not None:
+                    ViewSummarySettings(summaries, key=f"show_{p}_summaries_view")
+                else:
+                    st.info("No summary settings found.")
+
+
+def ViewSummarySettings(summary_settings, key=None, selectable=False):
+    '''
+    Display the summary settings for a single perspective as a selectable dataframe.
+
+    Args:
+        summary_settings (list[dict]): List of summary settings to display.
+
+    Returns:
+        (int) `id` for selected summary settings.
+
+    '''
+    summaries = summarise_summary_levels(summary_settings)
+    summaries = pd.DataFrame(summaries)
+    cols = ['level_id', 'ord_output', 'legacy_output', 'oed_fields']
+    summaries = DataframeView(summaries, display_cols=cols, selectable=selectable)
+    summaries.column_config['ord_output'] = st.column_config.ListColumn('ORD Output')
+    summaries.column_config['legacy_output'] = st.column_config.ListColumn('Legacy Output')
+    summaries.column_config['oed_fields'] = st.column_config.ListColumn('OED Fields')
+
+    selected = summaries.display(key=key)
+    return selected['level_id'].iloc[0] if selected is not None else None
 
 
 def show_settings(settings_list):
