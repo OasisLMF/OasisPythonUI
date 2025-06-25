@@ -42,7 +42,7 @@ client = client_interface.client
 'A use case for this, would be to compare loss from flood in an area defended by a different level of flood protection, or no flood protection.'
 'It can also be used to test the impact of two different hazard scenarios, different vulnerability of the buildings in the portfolio, or of a different value/number of buildings in that portfolio.'
 
-'First, select two analyses, from the precomputed set. To add an analysis to the list, run it in the ''Scenario'' tool.'
+"First, select two analyses, from the precomputed set. To add an analysis to the list, run it in the 'Scenario' tool."
 'Currently, it is not possible to add your own scenarios directly; please describe any scenario you would like to add, here: https://github.com/OasisLMF/OasisPythonUI/issues'
 
 
@@ -79,7 +79,7 @@ analysis_ids = [selected['id'][i] for i in range(2)]
 
 st.write("# Analysis Summary")
 'This section summarises the analyses selected for comparison: the number and value of buildings in the portfolio; the hazard footprint selected, and the outputs available.'
-'Under output setting, ''gul'' referes to ground up loss, before insurance contract terms apply; ''aalcal'' denotes that the Annual Average Loss has been estimated; ''eltcal'' denotes that the per-event loss has ben estimated.'
+"Under output setting, 'gul' referes to ground up loss, before insurance contract terms apply; 'aalcal' denotes that the Annual Average Loss has been estimated; 'eltcal' denotes that the per-event loss has been estimated."
 
 
 expander = st.expander('Analysis Summary')

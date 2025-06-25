@@ -1228,8 +1228,16 @@ def generate_ept_fragment(p, vis):
     st.plotly_chart(fig)
 
 def shared_oed_fields(p, outputs):
-    oed_fields = outputs[0].oed_fields.get(p)
-    return list(set(oed_fields) & set(outputs[1].oed_fields.get(p)))
+    oed_fields = [outputs[i].oed_fields.get(p) for i in (0, 1)]
+
+    if not any(oed_fields):
+        return []
+
+    output = set()
+    for fields in oed_fields:
+        if fields is not None:
+            output = set(fields) & output
+    return list(output)
 
 def generate_aalcalc_comparison_fragment(p, outputs, names = None):
     results = [o.get(1, p, 'aalcalc') for o in outputs]
