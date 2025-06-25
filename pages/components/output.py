@@ -194,10 +194,11 @@ def summarise_inputs(locations=None, analysis_settings=None, title_prefix='##'):
         a_settings_summary.display()
 
     if analysis_settings and 'model_settings' in analysis_settings.keys():
-        st.markdown(f'{title_prefix} Model Settings')
         m_settings_summary = summarise_model_settings(analysis_settings['model_settings'])
-        m_settings_summary = DataframeView(m_settings_summary)
-        m_settings_summary.display()
+        if not m_settings_summary.empty:
+            st.markdown(f'{title_prefix} Model Settings')
+            m_settings_summary = DataframeView(m_settings_summary)
+            m_settings_summary.display()
 
     if analysis_settings is not None:
         st.markdown(f'{title_prefix} Output Settings')
