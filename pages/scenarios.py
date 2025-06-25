@@ -90,7 +90,7 @@ with create_container:
     '#### Portfolio Selection'
     'A pre-loaded portfolio of buildings will be shown below, corresponding to the same area as the event footprint selected above.'
     'In the near future, buildings data from the Global Exposure Model will be available to select here.'
-    "After selecting a combination of scenario and exposure portfolios, click on 'Create analysis', give it a name, and create the analysis."
+    "After selecting a combination of scenario and exposure portfolios, click on 'Create Analysis', give it a name, and create the analysis."
     'The Scenario Details button provides a description of the scenario selected.'
     'The Exposure Map button will show the distribution of building TIV (total insured value) in the selected portfolio.'
 
