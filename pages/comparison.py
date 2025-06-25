@@ -37,6 +37,15 @@ SidebarNav()
 client_interface = st.session_state["client_interface"]
 client = client_interface.client
 
+'## Run comparison of two catastrophe analysis runs'
+'This tool enables two analyses to be compared to look at the difference in, for example - change in exposure, hazard or vulnerability.'
+'A use case for this, would be to compare loss from flood in an area defended by a different level of flood protection, or no flood protection.'
+'It can also be used to test the impact of two different hazard scenarios, different vulnerability of the buildings in the portfolio, or of a different value/number of buildings in that portfolio.'
+
+"First, select two analyses, from the precomputed set. To add an analysis to the list, run it in the 'Scenario' tool."
+'Currently, it is not possible to add your own scenarios directly; please describe any scenario you would like to add, here: https://github.com/OasisLMF/OasisPythonUI/issues'
+
+
 analyses = sorted(client_interface.analyses.search(metadata={'status': 'RUN_COMPLETED'}), key=lambda x: x['id'], reverse=True)
 cols = st.columns(2)
 selected = []
@@ -69,6 +78,10 @@ selected = pd.DataFrame(selected)
 analysis_ids = [selected['id'][i] for i in range(2)]
 
 st.write("# Analysis Summary")
+'This section summarises the analyses selected for comparison: the number and value of buildings in the portfolio; the hazard footprint selected, and the outputs available.'
+"Under output setting, 'gul' referes to ground up loss, before insurance contract terms apply; 'aalcal' denotes that the Annual Average Loss has been estimated; 'eltcal' denotes that the per-event loss has been estimated."
+
+
 expander = st.expander('Analysis Summary')
 with expander:
     cols = st.columns(2)
@@ -122,7 +135,9 @@ def merge_locations(locations_1, locations_2):
 
 perspectives = ['gul', 'il', 'ri']
 
-st.write("# Outputs")
+st.write("# Loss estimates")
+'This section enable comparison of the Annual Average Loss (AAL) and per-event losses from each of the analyses.'
+
 for p in perspectives:
     if not all([s.get(f'{p}_output', False) for s in settings]):
         continue
@@ -150,12 +165,12 @@ for p in perspectives:
             output.set_oed_fields(p, oed_fields)
 
     if all([s.get('aalcalc', False) for s in summaries]):
-        expander = st.expander("AAL Output")
+        expander = st.expander("Annual Average Loss estimate") # REMOVE EXPANDER AND MAKE THE CHART APPEAR STRAIGHT AWAY
         with expander:
             generate_aalcalc_comparison_fragment(p, outputs, names)
 
     if all([s.get('eltcalc', False) for s in summaries]):
-        expander = st.expander("ELT Output")
+        expander = st.expander("Per-event loss estimates") # REMOVE EXPANDER AND MAKE THE CHART APPEAR STRAIGHT AWAY
         with expander:
             locations = [get_locations_file(id) for id in analysis_ids]
             locations = merge_locations(*locations)
