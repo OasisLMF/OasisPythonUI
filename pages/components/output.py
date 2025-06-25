@@ -1329,32 +1329,6 @@ def generate_eltcalc_comparison_fragment(perspective, outputs, names=None,
                                     },
                                  selectable='multi')
 
-    cols = st.columns(2)
-    mapped_events = {}
-    for i in range(2):
-        with cols[i]:
-            analysis_name = results[i]['name'].loc[0]
-            default_session_variable = f'elt_default_events_analysis_{i}'
-
-            if default_session_variable not in st.session_state:
-                st.session_state[default_session_variable] = []
-                curr_default = []
-            else:
-                curr_default = st.session_state[default_session_variable]
-
-            if selected is not None:
-                curr_default += selected[selected['name'] == analysis_name]['event_id'].unique().tolist()
-                curr_default = list(set(curr_default))
-            curr_event_ids = result[result['name'] == analysis_name]['event_id'].unique()
-            curr_default = [d for d in curr_default if d in curr_event_ids]
-            curr_events = st.multiselect(f'{analysis_name} Mapped Events:', options=curr_event_ids,
-                                         default=curr_default,
-                                         key=f'elt_{perspective}_selectbox_events_{i}')
-
-            if len(curr_event_ids) > 0:
-                st.session_state[default_session_variable] = curr_events
-            mapped_events[analysis_name] = curr_events
-
     with map_tab:
         if locations is None:
             st.info('Locations files not found.')
@@ -1366,15 +1340,6 @@ def generate_eltcalc_comparison_fragment(perspective, outputs, names=None,
             map_type = 'heatmap'
         elif 'CountryCode' in oed_fields:
             map_type = 'choropleth'
-
-        if all([len(v) > 0 for v in mapped_events.values()]):
-            results = []
-
-            for k, v in mapped_events.items():
-                curr_result = result[result['name'] == k]
-                curr_result = curr_result[curr_result['event_id'].isin(v)]
-                results.append(curr_result)
-            result = pd.concat(results)
 
         eltcalc_map(result, locations, oed_fields, map_type=map_type,
                     intensity_col='mean')
