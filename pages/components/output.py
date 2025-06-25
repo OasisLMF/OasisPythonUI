@@ -194,10 +194,11 @@ def summarise_inputs(locations=None, analysis_settings=None, title_prefix='##'):
         a_settings_summary.display()
 
     if analysis_settings and 'model_settings' in analysis_settings.keys():
-        st.markdown(f'{title_prefix} Model Settings')
         m_settings_summary = summarise_model_settings(analysis_settings['model_settings'])
-        m_settings_summary = DataframeView(m_settings_summary)
-        m_settings_summary.display()
+        if not m_settings_summary.empty:
+            st.markdown(f'{title_prefix} Model Settings')
+            m_settings_summary = DataframeView(m_settings_summary)
+            m_settings_summary.display()
 
     if analysis_settings is not None:
         st.markdown(f'{title_prefix} Output Settings')
@@ -1228,8 +1229,16 @@ def generate_ept_fragment(p, vis):
     st.plotly_chart(fig)
 
 def shared_oed_fields(p, outputs):
-    oed_fields = outputs[0].oed_fields.get(p)
-    return list(set(oed_fields) & set(outputs[1].oed_fields.get(p)))
+    oed_fields = [outputs[i].oed_fields.get(p) for i in (0, 1)]
+
+    if not any(oed_fields):
+        return []
+
+    output = set()
+    for fields in oed_fields:
+        if fields is not None:
+            output = set(fields) & output
+    return list(output)
 
 def generate_aalcalc_comparison_fragment(p, outputs, names = None):
     results = [o.get(1, p, 'aalcalc') for o in outputs]
@@ -1321,32 +1330,6 @@ def generate_eltcalc_comparison_fragment(perspective, outputs, names=None,
                                     },
                                  selectable='multi')
 
-    cols = st.columns(2)
-    mapped_events = {}
-    for i in range(2):
-        with cols[i]:
-            analysis_name = results[i]['name'].loc[0]
-            default_session_variable = f'elt_default_events_analysis_{i}'
-
-            if default_session_variable not in st.session_state:
-                st.session_state[default_session_variable] = []
-                curr_default = []
-            else:
-                curr_default = st.session_state[default_session_variable]
-
-            if selected is not None:
-                curr_default += selected[selected['name'] == analysis_name]['event_id'].unique().tolist()
-                curr_default = list(set(curr_default))
-            curr_event_ids = result[result['name'] == analysis_name]['event_id'].unique()
-            curr_default = [d for d in curr_default if d in curr_event_ids]
-            curr_events = st.multiselect(f'{analysis_name} Mapped Events:', options=curr_event_ids,
-                                         default=curr_default,
-                                         key=f'elt_{perspective}_selectbox_events_{i}')
-
-            if len(curr_event_ids) > 0:
-                st.session_state[default_session_variable] = curr_events
-            mapped_events[analysis_name] = curr_events
-
     with map_tab:
         if locations is None:
             st.info('Locations files not found.')
@@ -1358,15 +1341,6 @@ def generate_eltcalc_comparison_fragment(perspective, outputs, names=None,
             map_type = 'heatmap'
         elif 'CountryCode' in oed_fields:
             map_type = 'choropleth'
-
-        if all([len(v) > 0 for v in mapped_events.values()]):
-            results = []
-
-            for k, v in mapped_events.items():
-                curr_result = result[result['name'] == k]
-                curr_result = curr_result[curr_result['event_id'].isin(v)]
-                results.append(curr_result)
-            result = pd.concat(results)
 
         eltcalc_map(result, locations, oed_fields, map_type=map_type,
                     intensity_col='mean')
