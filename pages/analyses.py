@@ -1,3 +1,4 @@
+from modules.settings import get_analyses_settings
 from modules.authorisation import validate_page, handle_login
 from oasis_data_manager.errors import OasisException
 import streamlit as st
@@ -9,7 +10,7 @@ from modules.config import retrieve_ui_config
 import json
 from json import JSONDecodeError
 import time
-from pages.components.create import create_analysis_form, create_portfolio_form, create_analysis_settings
+from pages.components.create import consume_analysis_settings, create_analysis_form, create_portfolio_form, produce_analysis_settings
 from pages.components.display import DataframeView
 import logging
 
@@ -248,7 +249,7 @@ def run_analysis(re_handler):
                 st.error(f'Invalid Settings File: {e}')
                 logger.error(e)
 
-    @st.dialog("Set analysis settings")
+    @st.dialog("Set Analysis Settings", width="large")
     def set_analysis_settings(analysis):
         model = client.models.get(analysis['model']).json()
         model_settings = client.models.settings.get(analysis['model']).json()
@@ -263,17 +264,22 @@ def run_analysis(re_handler):
             for f in invalid_fields:
                 valid_oed_fields[new_k].pop(f, None)
 
-        analysis_settings = create_analysis_settings(model, model_settings, oed_fields=valid_oed_fields)
+        # Load current settings
+        try:
+            default_settings = client_interface.analyses.settings.get(analysis['id'])
+        except HTTPError as _:
+            default_paths = get_analyses_settings(model_name_id=model["model_id"], supplier_id=model["supplier_id"])
 
-        if analysis_settings is not None:
-            try:
-                client.upload_settings(analysis['id'], analysis_settings)
-                st.success('Analysis settings uploaded.')
-                time.sleep(0.5)
-                st.rerun()
-            except (JSONDecodeError, HTTPError) as e:
-                st.error(f'Invalid Settings File: {e}')
-                logger.error(e)
+            if default_paths:
+                with open(default_paths[0], 'r') as f:
+                    default_settings = json.load(f)
+            else:
+                default_settings = None
+
+        produce_analysis_settings(model, model_settings,
+                                  oed_fields=valid_oed_fields,
+                                  initial_settings=default_settings)
+
 
     validations = ValidationGroup()
     validations.add_validation(NotNoneValidation('Analysis'), selected)
@@ -294,6 +300,25 @@ def run_analysis(re_handler):
                      use_container_width=True):
         set_analysis_settings(selected)
 
+    created_analysis_settings = consume_analysis_settings()
+    if 'upload_analysis_state' not in st.session_state:
+        st.session_state['upload_analysis_state'] = None
+
+    if created_analysis_settings is not None:
+        try:
+            client.upload_settings(selected['id'], created_analysis_settings)
+            st.session_state['upload_analysis_state'] = 'success'
+            time.sleep(0.5)
+            st.rerun()
+        except (JSONDecodeError, HTTPError) as e:
+            st.session_state['upload_analysis_state'] = 'error'
+            logger.error(e)
+
+    if st.session_state['upload_analysis_state'] == 'success':
+        st.toast('Analysis settings uploaded.')
+    elif st.session_state['upload_analysis_state'] == 'error':
+        st.toast(f'Error: Setting analysis settings failed.')
+    st.session_state['upload_analysis_state'] = None
 
     # Run analysis button
     left, middle, right = st.columns(3, vertical_alignment='center')

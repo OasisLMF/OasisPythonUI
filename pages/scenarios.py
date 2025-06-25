@@ -54,6 +54,8 @@ client_interface = st.session_state["client_interface"]
 client = client_interface.client
 
 '## Create Analysis'
+'To begin a scenario impact analysis, select one of the pre-loaded hazard scenarios (footprints) from the list below.'
+
 
 if len(client_interface.portfolios.get()) == 0:
     st.error('No Portfolios Found')
@@ -64,20 +66,34 @@ if len(client_interface.models.get()) == 0:
 create_container = st.container(border=True)
 
 '## Run Analysis'
+'New analyses and previously executed analyses are shown in the table below.'
+"Previously executed analyses will have a status of 'Run Completed' and the outputs can be viewed by clicking the 'Show Output' button."
+"New analyses will have a status of 'Ready' and the analysis can be executed by clicking on the button 'Run'."
+'The ability to group output by country, portfolio and/or location depends on the level of data in the loaded portfolio.'
 
 run_container = st.container(border=True)
 
 with create_container:
     model_map = ui_config.model_map
 
-    '#### Model Selection'
+    '#### Scenario Selection'
+    'Select an event scenarios by clicking the grey box on the left side of the table.'
+
     models = client_interface.models.get(df=True)
     display_cols = [ 'model_id', 'supplier_id' ]
 
     model_view = DataframeView(models, selectable='single', display_cols=display_cols)
     selected_model = model_view.display()
 
+    'Currently, it is not possible to add your own scenarios directly; please describe any scenario you would like to add as a Github issue [here](https://github.com/OasisLMF/OasisPythonUI/issues).'
+
     '#### Portfolio Selection'
+    'A pre-loaded portfolio of buildings will be shown below, corresponding to the same area as the event footprint selected above.'
+    'In the near future, buildings data from the Global Exposure Model will be available to select here.'
+    "After selecting a combination of scenario and exposure portfolios, click on 'Create Analysis', give it a name, and create the analysis."
+    'The Scenario Details button provides a description of the scenario selected.'
+    'The Exposure Map button will show the distribution of building TIV (total insured value) in the selected portfolio.'
+
     # Prepare portfolios data
     portfolios = client_interface.portfolios.get(df=True)
 
@@ -162,14 +178,14 @@ with create_container:
         validation = NotNoneValidation("Model")
         enable_model_details = validation.is_valid(selected_model)
 
-        if st.button("Model Details", disabled=not enable_model_details,
+        if st.button("Scenario Details", disabled=not enable_model_details,
                      help = validation.get_message(), use_container_width=True):
             try:
                 model_settings = client_interface.client.models.settings.get(selected_model['id']).json()
             except HTTPError as e:
                 logger.error(e)
                 model_settings = {}
-            @st.dialog("Model Details", width="large")
+            @st.dialog("Scenario Details", width="large")
             def model_details_dialog():
                 model_summary(selected_model, model_settings, detail_level="full")
             model_details_dialog()
@@ -260,14 +276,22 @@ with run_container:
 
         # Download button
         @st.dialog("Output", width="large")
+
         def display_outputs(ci, analysis_id):
             st.markdown('# Analysis Summary')
+            st.markdown('This section summarises the input data for this analysis, including the total values contained in the portfolio, and analysis / output settings.')
             locations = ci.analyses.get_file(analysis_id, 'input_file', df=True)['location.csv']
             a_settings = client.analyses.settings.get(analysis_id).json()
             summarise_inputs(locations, a_settings)
 
 
             st.markdown('# Results Summary')
+            st.markdown('This section summarises the results.')
+            st.markdown('''Ground Up Loss (gul) is the estimated direct cost of damage to the buildings in the selected portfolio due to the selected event scenario.
+                This is the only  loss perspectiev enabled, and no insurance contracts are included in the analysis.''')
+            st.markdown("Ground Up loss is shown as the event loss ('mean') for all locations and each location if 'group by' LocNumber is selected.")
+            st.markdown("In addition to the table of mean loss, the spatial distribution is shown under 'map' and a chart shown below.")
+            st.markdown('Sample results refer to outputs from running no sample - just one realisation of the event; Analytical results refer to running the number of samples (currently defaulting to 10 samples).')
 
             # Graphs from output
 
@@ -285,12 +309,12 @@ with run_container:
 
             def generate_perspective_visualisation(perspective, summaries_settings):
                 if summaries_settings[0].get('eltcalc', False):
-                    st.write("### ELT Output")
+                    # st.write("### ELT Output") - we don't need to define ELT versus AAL loss, as this is a single event.
                     generate_eltcalc_fragment(perspective, output_interface, locations=locations, map=True)
                     st.write('---')
 
                 if summaries_settings[0].get('aalcalc', False):
-                    st.write("### AAL Output")
+                    # st.write("### AAL Output") - we don't need to define ELT versus AAL loss, as this is a single event.
                     generate_aalcalc_fragment(perspective, output_interface)
                     st.write('---')
 

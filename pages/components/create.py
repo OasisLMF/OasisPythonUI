@@ -1,8 +1,9 @@
 # Module to display ui components for running analyses
+from copy import copy
+from pages.components.output import ViewSummarySettings, summarise_summary_level
 import streamlit as st
-from modules.settings import get_analyses_settings
 from modules.validation import NameValidation, NotNoneValidation, ValidationError, ValidationGroup
-import json
+
 
 class FormFragment():
     def __init__(self, params={}):
@@ -107,8 +108,29 @@ def create_portfolio_form():
 
 
 
-class ModelSettingsFragment(FormFragment):
+class ModelSettingsFragment:
+    '''Form fragment which sets categorical model settings.
+
+    Currently handles the following settings:
+        - `event_set`,
+        - `event_occurrence_id`,
+        - `footprint_set`,
+        - `vulnerability_set`,
+        - `pla_loss_factor_set`,
+
+    Args:
+        model_settings (dict) : model settings for form fragment
+    '''
+    def __init__(self, model_settings):
+        self.model_settings = model_settings['model_settings']
+
     def display(self):
+        '''
+        Display the form fragment.
+
+        Returns:
+           (dict) selected options in a dict under the `model_settings` key.
+        '''
         # Handle categorical settings
         valid_settings = [
             'event_set',
@@ -118,11 +140,8 @@ class ModelSettingsFragment(FormFragment):
             'pla_loss_factor_set',
         ]
 
-        model_settings = self.params.get('model_settings', {}).get('model_settings', {})
+        model_settings = self.model_settings
         outputs = {'model_settings': {}}
-
-        if not model_settings:
-            return outputs
 
         for k, v in model_settings.items():
             if k in valid_settings:
@@ -144,18 +163,25 @@ class ModelSettingsFragment(FormFragment):
         return [i for i in range(len(options)) if options[i]['id'] == default][0]
 
 
-class PerspectivesFragment(FormFragment):
+class PerspectivesFragment:
+    '''Form fragment to set the active perspectives.
+
+    Args:
+        model_settings (dict)
+        default (list) : List of active perspectives.
+    '''
+    def __init__(self, model_settings={}, default=[]):
+        self.valid_perspectives = ['gul', 'il', 'ri']
+        if "valid_output_perspectives" in model_settings.get('model_settings', {}):
+            self.valid_perspectives = model_settings["model_settings"]["valid_output_perspectives"]
+
+        self.default = default
+
     def display(self):
-        model_settings = self.params.get('model_settings', {}).get('model_settings', {})
-        # Select perspectives
-        valid_outputs = ['gul', 'il', 'ri']
-        if "valid_output_perspectives" in model_settings:
-            valid_outputs = model_settings["model_settings"]["valid_output_perspectives"]
+        valid_outputs = self.valid_perspectives
+        default = self.default
 
         outputs = {}
-
-        default = self.params.get('default', [])
-
         perspectives = {'gul': 'Ground up loss',
                         'il': 'Insured loss',
                         'ri': 'Reinsurance net loss'}
@@ -171,52 +197,292 @@ class PerspectivesFragment(FormFragment):
 
         return outputs
 
-class NumberSamplesFragment(FormFragment):
+class NumberSamplesFragment:
+    '''Form fragment to set the number of samples in the analysis settings.
+
+    Args:
+        model_settings (dict)
+        analysis_settings (dict)
+
+    Usage:
+        Initialise and run `display()` to create form elements. Returns corresponding section of analysis settings.
+    '''
+    def __init__(self, model_settings={}, analysis_settings={}):
+        self.model_settings = model_settings
+        self.analysis_settings = analysis_settings
+
+
     def display(self):
-        model_settings = self.params.get('model_settings')
-        analysis_settings = self.params.get('analysis_settings')
+        model_settings = self.model_settings
+        analysis_settings = self.analysis_settings
 
         outputs = {}
 
         default_samples = model_settings.get("model_default_samples", 10)
         default_samples = analysis_settings.get("number_of_samples", default_samples)
         outputs["number_of_samples"] = st.number_input("Number of samples",
-                                                                 min_value = 1,
-                                                                 value = default_samples)
+                                                       min_value = 1,
+                                                       value = default_samples,
+                                                       key="number_samples_input")
 
         return outputs
 
-class OEDGroupFragment(FormFragment):
-    EXCLUDED_FIELDS = [ "BuildingTIV", "ContentsTIV", "OtherTIV", "BITIV", "OEDVersion" ]
+
+def merge_settings(settings1, settings2):
+    from copy import copy
+    settings1 = copy(settings1)
+
+    for key, value in settings2.items():
+        if key in settings1 and isinstance(settings1[key], dict) and isinstance(value, dict):
+            settings1[key] = merge_settings(settings1[key], value)
+        elif key in settings1 and isinstance(settings1[key], list) and isinstance(value, list):
+            settings1[key] += value
+        else:
+            settings1[key] = value
+    return settings1
+
+def merge_summaries(summaries1, summaries2):
+    summaries1 = list(sorted(summaries1, key= lambda x: x['id']))
+    summaries2 = list(sorted(summaries2, key= lambda x: x['id']))
+
+    i1, i2, output_summaries = 0, 0, []
+
+    while i1 < len(summaries1) and i2 < len(summaries2):
+        if summaries1[i1]['id'] == summaries2[i2]['id']:
+            output_summaries.append(summaries1[i1] | summaries2[i2])
+            i1 += 1
+            i2 += 1
+        elif summaries1[i1]['id'] < summaries2[i2]['id']:
+            output_summaries.append(summaries1[i1])
+            i1 += 1
+        else:
+            output_summaries.append(summaries2[i2])
+            i2 += 1
+
+    output_summaries.extend(summaries1[i1:])
+    output_summaries.extend(summaries2[i2:])
+
+    return output_summaries
+
+def extract_default_from_level_settings(level_settings):
+    '''Extract default dict for output fragments from analysis settings.
+    '''
+    default = {'ord_outputs': {}, 'legacy_outputs': {}}
+    summary = summarise_summary_level(level_settings)
+
+    summary_ord = summary.get('ord_output', [])
+
+    # Handle ord output
+    default['ord_outputs']['elt'] = [opt[4:] for opt in summary_ord if opt.startswith('elt')]
+    default['ord_outputs']['plt'] = [opt[4:] for opt in summary_ord if opt.startswith('plt')]
+    default['ord_outputs']['alt'] = [opt[4:] for opt in summary_ord if opt.startswith('alt')]
+    default['ord_outputs']['alct_convergence'] = 'alct_convergence' in summary_ord
+    default['ord_outputs']['alct_confidence'] = level_settings.get('ord_output', {}).get('alct_confidence', 0.95)
+    default['ord_outputs']['ept'] = [opt[4:] for opt in summary_ord if opt.startswith('ept')]
+    default['ord_outputs']['psept'] = [opt[6:] for opt in summary_ord if opt.startswith('psept')]
+
+    # Handle legacy output
+    default['legacy_outputs'] = summary.get('legacy_output', None)
+
+    # oed field
+    default['oed_fields'] = summary.get('oed_fields', [])
+
+    return default
+
+
+@st.fragment
+def summary_settings_fragment(oed_fields, perspective):
+    if f'{perspective}_summaries' not in st.session_state:
+        st.session_state[f'{perspective}_summaries'] = []
+    original_summaries = st.session_state[f'{perspective}_summaries']
+    curr_summaries = copy(original_summaries)
+    oed_fields = oed_fields.get(perspective, None)
+    if oed_fields is not None and isinstance(oed_fields, dict):
+        oed_fields = list(oed_fields.keys())
+
+    selected = ViewSummarySettings(original_summaries, key=f'{perspective}_summaries_view',
+                                   selectable=True)
+
+    col1, col2, col3, *_ = st.columns(5)
+
+    level_container = st.container(border=True)
+
+    if f'adding_level_{perspective}' not in st.session_state:
+        st.session_state[f'adding_level_{perspective}'] = False
+    if f'editing_level_{perspective}' not in st.session_state:
+        st.session_state[f'editing_level_{perspective}'] = False
+
+    if col1.button('Add Level', key=f'{perspective}_summary_add_button',
+                   use_container_width=True):
+        st.session_state[f'adding_level_{perspective}'] = not st.session_state[f'adding_level_{perspective}']
+        st.session_state[f'{perspective}_summaries'] = original_summaries
+
+    if st.session_state[f'adding_level_{perspective}']:
+        with level_container:
+            curr_summary_settings = SummarySettingsFragment(oed_fields, perspective)
+            curr_summary_settings['id'] = max([s['id'] for s in curr_summaries] + [0]) + 1
+            submitted = st.button('Create Level')
+
+        if submitted:
+            st.session_state[f'adding_level_{perspective}'] = False
+            curr_summaries.append(curr_summary_settings)
+            st.session_state[f'{perspective}_summaries'] = curr_summaries
+            st.rerun(scope='fragment')
+
+    if col2.button('Delete Level', key=f'{perspective}_summary_delete_button',
+                   use_container_width=True, disabled=selected is None):
+        pos = [i for i, el in enumerate(curr_summaries) if el['id'] == selected][0]
+        curr_summaries.pop(pos)
+        st.session_state[f'{perspective}_summaries'] = curr_summaries
+        st.rerun(scope='fragment')
+
+    if col3.button('Edit Level', key=f'{perspective}_summary_edit_button',
+                   use_container_width=True, disabled=selected is None):
+        st.session_state[f'editing_level_{perspective}'] = not st.session_state[f'editing_level_{perspective}']
+        st.session_state[f'{perspective}_summaries'] = original_summaries
+
+    if st.session_state[f'editing_level_{perspective}']:
+        if selected is None:
+            st.session_state[f'editing_level_{perspective}'] = False
+            st.rerun(scope='fragment')
+
+        st.info('Editing level')
+        pos = [i for i, el in enumerate(curr_summaries) if el['id'] == selected][0]
+        selected_summary = curr_summaries[pos]
+        defaults = extract_default_from_level_settings(selected_summary)
+
+        with level_container:
+            updated_summary_settings = SummarySettingsFragment(oed_fields, perspective, defaults)
+            submit_edit = st.button('Save Edit')
+
+        if submit_edit:
+            curr_summaries.pop(pos)
+            updated_summary_settings['id'] = selected_summary['id']
+            st.session_state[f'editing_level_{perspective}'] = False
+            curr_summaries.append(updated_summary_settings)
+            st.session_state[f'{perspective}_summaries'] = curr_summaries
+            st.rerun(scope='fragment')
+
+def SummarySettingsFragment(oed_fields, perspective, default_outputs={}):
+    '''
+    Fragment to generate UI which creates summary settings.
+
+    Args:
+        oed_fields: List of OED group by field options.
+        perspective: perspective name (`gul`, `il`, `ri`)
+        default_outputs : dict with default options to preload form.
+
+    Returns:
+        dict: single summary setting instance.
+    '''
+    ord_output = ORDOutputFragment(perspective, default_outputs.get('ord_outputs', {})).display()
+    summaries_settings = {'ord_output' : ord_output}
+
+    legacy_outputs = False
+    if len(default_outputs.get('legacy_outputs', [])) > 0:
+        legacy_outputs = True
+    if st.checkbox("Enable legacy outputs", key=f'{perspective}_enable_legacy_check', value=legacy_outputs):
+        p_summaries = OutputFragment(perspective=perspective, default=default_outputs.get('legacy_outputs', [])).display()
+        summaries_settings |= p_summaries
+
+    if oed_fields:
+        p_summaries = OEDGroupFragment(perspective=perspective,
+                                       oed_options=oed_fields,
+                                       default=default_outputs.get('oed_fields', [])).display()
+        summaries_settings |= p_summaries
+    return summaries_settings
+
+
+class ORDOutputFragment:
+    '''
+    Generate selectboxes to select ORD output settings.
+
+    Args:
+        perspective: perspective name (`gul`, `il`, `ri`)
+        default : dictionary containing the default options.
+    '''
+    def __init__(self, perspective, default={}):
+        self.perspective = perspective
+        self.default = default
 
     def display(self):
-        perspective = self.params.get('perspective', 'gul')
-        oed_options = self.params.get('oed_fields', None)
-        if oed_options is None:
-            oed_options = ['PortNumber', 'CountryCode', 'LocNumber']
+        ord_options = {}
+        perspective = self.perspective
+        defaults = self.default
 
-        oed_options = sorted(filter(self.valid_field_filter, oed_options))
+        def output_type_multiselect(label, options, prefix, key=None, default=None):
+            selected_options = st.multiselect(label, options=options, key=key, default=default)
 
-        oed_fields = st.multiselect(f"{perspective.upper()} OED grouping:",
-                             oed_options,
-                             key=f'{id}_{perspective}_oed')
+            output_dict = {}
+            for opt in options:
+                output_dict[f'{prefix}_{opt}'] = opt in selected_options
+            return output_dict
 
-        output = {'oed_fields': oed_fields}
+        elt_plt_options = ['sample', 'quantile', 'moment']
 
-        return output
+        ord_options |= output_type_multiselect(label='Event Loss Table (ELT) Output', prefix='elt',
+                                               options=elt_plt_options,
+                                               default=defaults.get('elt', None),
+                                               key=f'{perspective}_elt_multiselect')
 
-    @staticmethod
-    def valid_field_filter(field):
-        if field in OEDGroupFragment.EXCLUDED_FIELDS:
-            return False
-        return True
+        ord_options |= output_type_multiselect(label='Period Loss Table (ELT) Output', prefix='plt',
+                                               options=elt_plt_options,
+                                               default=defaults.get('plt', None),
+                                               key=f'{perspective}_plt_multiselect')
+
+        ord_options |= output_type_multiselect(label='Average Loss Table (ALT) Output', prefix='alt',
+                                               options=['period', 'meanonly'],
+                                               default=defaults.get('alt', None),
+                                               key=f'{perspective}_alt_multiselect')
+
+        alct_enabled = ord_options.get('alt_period', False)
+        if alct_enabled:
+            alct_container = st.container(border=True)
+            alct_container.write('Average Loss Convergence Table (ALCT) Options')
+            ord_options['alct_convergence'] = alct_container.checkbox('Generate Convergence Table',
+                                                          key=f'{perspective}_alct_conv_check',
+                                                          value=defaults.get('alct_convergence', False))
+            ord_options['alct_confidence'] = alct_container.number_input('Confidence Level',
+                                                             min_value=0.0, max_value=1.0,
+                                                             key=f'{perspective}_alct_conf_numeric',
+                                                             value=defaults.get('alct_confidence', 0.95))
+
+        ept_output_options = [
+            'full_uncertainty_aep',
+            'full_uncertainty_oep',
+            'mean_sample_aep',
+            'mean_sample_oep',
+            'per_sample_mean_aep',
+            'per_sample_mean_oep'
+        ]
+        ord_options |= output_type_multiselect(label='Exceedance Probability Table (EPT) Output: ', prefix='ept',
+                                               options=ept_output_options,
+                                               default=defaults.get('ept', None),
+                                               key=f'{perspective}_ept_multiselect')
+
+        ord_options |= output_type_multiselect(label='Per Sample Exceedance Probability Table (PS EPT) Output:', prefix='psept',
+                                               options=['aep', 'oep'],
+                                               default=defaults.get('psep', None),
+                                               key=f'{perspective}_psep_multiselect')
+
+        return ord_options
 
 
+class OutputFragment:
+    '''
+    Fragment to select legacy outputs.
 
-class OutputFragment(FormFragment):
+    Args:
+        perspective: perspective name (`gul`, `il`, `ri`)
+        default (list[str]): List of default outputs
+    '''
+    def __init__(self, perspective, default=[]):
+        self.perspective = perspective
+        self.default = default
+
     def display(self):
-        perspective = self.params.get('perspective', 'gul')
-        default = self.params.get('default', [])
+        perspective = self.perspective
+        default = self.default
 
         options = [
             'eltcalc',
@@ -269,103 +535,90 @@ class OutputFragment(FormFragment):
 
         return output_dict
 
-class ORDOutputFragment(FormFragment):
-    def display(self):
-        ord_options = {}
-        perspective = self.params.get('perspective', 'gul')
 
-        def output_type_multiselect(label, options, prefix, key=None):
-            selected_options = st.multiselect(label, options=options, key=key)
-
-            output_dict = {}
-            for opt in options:
-                output_dict[f'{prefix}_{opt}'] = opt in selected_options
-            return output_dict
-
-        elt_plt_options = ['sample', 'quantile', 'moment']
-
-        ord_options |= output_type_multiselect(label='Event Loss Table (ELT) Output', prefix='elt',
-                                               options=elt_plt_options,
-                                               key=f'{perspective}_elt_multiselect')
-
-        ord_options |= output_type_multiselect(label='Period Loss Table (ELT) Output', prefix='plt',
-                                               options=elt_plt_options,
-                                               key=f'{perspective}_plt_multiselect')
-
-        ord_options |= output_type_multiselect(label='Average Loss Table (ALT) Output', prefix='alt',
-                                               options=['period', 'meanonly'],
-                                               key=f'{perspective}_alt_multiselect')
-
-        alct_enabled = ord_options.get('alt_period', False)
-        with st.expander('Average Loss Convergence Table (ALCT) Options'):
-            if alct_enabled:
-                ord_options['alct_convergence'] = st.checkbox('Generate Convergence Table',
-                                                              key=f'{perspective}_alct_conv_check')
-                ord_options['alct_confidence'] = st.number_input('Confidence Level',
-                                                                 value=0.95, min_value=0.0, max_value=1.0,
-                                                                 key=f'{perspective}_alct_conf_numeric')
-            else:
-                st.caption('Requires ALT `period` option.')
-
-        ept_output_options = [
-            'full_uncertainty_aep',
-            'full_uncertainty_oep',
-            'mean_sample_aep',
-            'mean_sample_oep',
-            'per_sample_mean_aep',
-            'per_sample_mean_oep'
-        ]
-        ord_options |= output_type_multiselect(label='Exceedance Probability Table (EPT) Output: ', prefix='ept',
-                                               options=ept_output_options,
-                                               key=f'{perspective}_ept_multiselect')
-
-        ord_options |= output_type_multiselect(label='Per Sample Exceedance Probability Table (PS EPT) Output:', prefix='psept',
-                                               options=['aep', 'oep'],
-                                               key=f'{perspective}_psept_multiselect')
-
-        return ord_options
-
-
-def merge_settings(settings1, settings2):
-    from copy import copy
-    settings1 = copy(settings1)
-
-    for key, value in settings2.items():
-        if key in settings1 and isinstance(settings1[key], dict) and isinstance(value, dict):
-            settings1[key] = merge_settings(settings1[key], value)
-        elif key in settings1 and isinstance(settings1[key], list) and isinstance(value, list):
-            settings1[key] += value
-        else:
-            settings1[key] = value
-    return settings1
-
-def merge_summaries(summaries1, summaries2):
-    summaries1 = list(sorted(summaries1, key= lambda x: x['id']))
-    summaries2 = list(sorted(summaries2, key= lambda x: x['id']))
-
-    i1, i2, output_summaries = 0, 0, []
-
-    while i1 < len(summaries1) and i2 < len(summaries2):
-        if summaries1[i1]['id'] == summaries2[i2]['id']:
-            output_summaries.append(summaries1[i1] | summaries2[i2])
-            i1 += 1
-            i2 += 1
-        elif summaries1[i1]['id'] < summaries2[i2]['id']:
-            output_summaries.append(summaries1[i1])
-            i1 += 1
-        else:
-            output_summaries.append(summaries2[i2])
-            i2 += 1
-
-    output_summaries.extend(summaries1[i1:])
-    output_summaries.extend(summaries2[i2:])
-
-    return output_summaries
-
-
-def create_analysis_settings(model, model_settings, oed_fields=None):
+class OEDGroupFragment(FormFragment):
     '''
-    Create a form to get user input for setting analysis settings.
+    Fragment to select OED group fields in the analysis settings form.
+
+    Note that the following fields are excluded:
+    `[ "BuildingTIV", "ContentsTIV", "OtherTIV", "BITIV", "OEDVersion" ]`
+
+    Args:
+        perspective: perspective name (`gul`, `il`, `ri`)
+        oed_options (list[str]): List of potential `oed_fields` to select from.
+            If `None` the following default groups are possible `['PortNumber',
+            'CountryCode', 'LocNumber']`.
+        defaults (list[str]): Default `oed_fields` to pre-fill.
+
+    '''
+    EXCLUDED_FIELDS = [ "BuildingTIV", "ContentsTIV", "OtherTIV", "BITIV", "OEDVersion" ]
+
+    def __init__(self, perspective, oed_options=None, default=[]):
+        if oed_options is None:
+            oed_options = ['PortNumber', 'CountryCode', 'LocNumber']
+
+        self.oed_options = oed_options
+        self.perspective = perspective
+        self.default = default
+
+    def display(self):
+        perspective = self.perspective
+        oed_options = self.oed_options
+        defaults = self.default
+
+        oed_options = sorted(filter(self.valid_field_filter, oed_options))
+
+        oed_fields = st.multiselect(f"{perspective.upper()} OED grouping:",
+                             oed_options,
+                             default=defaults,
+                             key=f'{perspective}_oed_select')
+
+        output = {'oed_fields': oed_fields}
+
+        return output
+
+    @staticmethod
+    def valid_field_filter(field):
+        if field in OEDGroupFragment.EXCLUDED_FIELDS:
+            return False
+        return True
+
+
+def clear_summaries_settings():
+    """Remove summaries settings from session state.
+    """
+    perspectives = ['gul', 'il', 'ri']
+    # Reset form if previously rendered
+    for p in perspectives:
+        setting_name = f'{p}_summaries'
+        if setting_name in st.session_state:
+            del st.session_state[setting_name]
+
+
+def save_settings(initial_settings, selected_settings):
+    perspectives = ['gul', 'il', 'ri']
+    for p in perspectives:
+        settings_name = f'{p}_summaries'
+
+        # Remove default summaries
+        if settings_name in initial_settings.keys():
+            initial_settings.pop(settings_name)
+
+        if settings_name in st.session_state:
+            selected_settings[settings_name] = st.session_state[settings_name]
+
+    settings = merge_settings(initial_settings, selected_settings)
+    clear_summaries_settings() # Remove settings from session state
+    st.write('Saving settings')
+    st.session_state['created_analysis_settings'] = settings
+
+def produce_analysis_settings(model, model_settings, oed_fields=None, initial_settings=None):
+    '''
+    Create a form to get user input for setting analysis settings. When the
+    user saves the settings the key `created_analysis_settings` in the
+    session_state is updated with the analysis settings.
+
+    The produced analysis settings can be retrieved by calling `consume_analysis_settings`.
 
     Parameters
     ----------
@@ -374,90 +627,75 @@ def create_analysis_settings(model, model_settings, oed_fields=None):
     model_settings : dict
             Model settings dictionary for given model.
     oed_fields : list[str]
-                 List of OED Fields to allow user to group by.
+                 List of OED Fields to allow user to group by. If `None`,
+                 attempt to infer the `oed_fields` from the `data_settings` in
+                 `model_settings`.
+    initial_settings : dict
+            Analysis settings to initialise the form with.
 
+    '''
+    clear_summaries_settings() # Run this once prior to loading fragment
+    create_analysis_settings_fragment(model, model_settings, oed_fields, initial_settings)
+
+
+def consume_analysis_settings():
+    '''
+    Retrieve the analysis settings produced from `produce_analysis_settings` from the session state.
     Returns
     -------
-    dict : Dictionary of settings for analysis, can be used in `client.upload_settings`
+    dict : Dictionary of the new analysis settings.
     '''
-    default = get_analyses_settings(model_name_id=model["model_id"], supplier_id=model["supplier_id"])
+    if 'created_analysis_settings' in st.session_state:
+        output = copy(st.session_state['created_analysis_settings'])
+        del st.session_state['created_analysis_settings']
+    else:
+        output = None
+    return output
 
-    if default:
-        with open(default[0], 'r') as f:
-            analysis_settings = json.load(f)
+@st.fragment
+def create_analysis_settings_fragment(model, model_settings, oed_fields=None, initial_settings=None):
+    '''Form fragment for creating analysis settings.
+    '''
+    perspectives = ['gul', 'il', 'ri']
+
+    if oed_fields is None:
+        oed_fields = model_settings.get('data_settings', {}).get('damage_group_fields', [])
+        oed_fields.extend(model_settings.get('data_settings', {}).get('hazard_group_fields', []))
+        oed_fields = {p : list(set(oed_fields)) for p in perspectives}
+
+    if initial_settings is not None:
+        analysis_settings = copy(initial_settings)
     else:
         analysis_settings = {
                     'model_settings': {},
                     'model_supplier_id': model["supplier_id"],
                     'model_name_id': model["model_id"],
                     'gul_output': True,
-                    'gul_summaries': [{
-                        'id': 1,
-                    }],
+                    'gul_summaries': [],
         }
 
-    perspectives = ['gul', 'il', 'ri']
 
     form_container = st.container(border=True)
     with form_container:
         selected_settings = {}
 
-        selected_settings |= ModelSettingsFragment(params={'model_settings': model_settings}).display()
-        selected_settings |= NumberSamplesFragment(params={'model_settings': model_settings,
-                                                           'analysis_settings': analysis_settings}).display()
+        selected_settings |= ModelSettingsFragment(model_settings=model_settings).display()
+        selected_settings |= NumberSamplesFragment(model_settings=model_settings,
+                                                   analysis_settings=analysis_settings).display()
         default_perspectives = [p for p in perspectives if analysis_settings.get(f'{p}_output', False)]
-        selected_settings |= PerspectivesFragment(params={'model_settings': model_settings,
-                                                          'default': default_perspectives}).display()
-
-        # Generate summaries
-        summaries = {f'{p}_summaries': [{'id': 1}] for p in perspectives}
-
-        # Load default outputs
-        default_dict = {}
-        supported_outputs = set([
-            'eltcalc', 'aalcalc', 'pltcalc', 'summarycalc'
-        ])
-        for p in perspectives:
-            settings_name = f'{p}_summaries'
-            default_summaries = analysis_settings.get(settings_name, None)
-
-            if default_summaries:
-                default_summaries = default_summaries[0]
-                default_outputs = supported_outputs & set(default_summaries.keys())
-                default_dict[p] = [output for output in default_outputs if default_summaries[output]]
+        selected_settings |= PerspectivesFragment(model_settings=model_settings,
+                                                  default=default_perspectives).display()
 
         p_tabs = st.tabs([p.upper() for p in perspectives])
         for p, tab in zip(perspectives, p_tabs):
             with tab:
                 st.write(f'### {p.upper()} Output Settings')
-                ord_output = ORDOutputFragment(params={'perspective': p}).display()
-                summaries[f'{p}_summaries'][0] |= {'ord_output' : ord_output}
 
-                if st.checkbox("Enable legacy outputs", key=f'{p}_enable_legacy_check'):
-                    p_summaries = OutputFragment(params={'perspective': p, 'default': default_dict.get(p, [])}).display()
-                    summaries[f'{p}_summaries'][0] |= p_summaries
+                if f'{p}_summaries' not in st.session_state:
+                    st.session_state[f'{p}_summaries'] = analysis_settings.get(f'{p}_summaries', [])
+                summary_settings_fragment(oed_fields, p)
 
-
-                if isinstance(oed_fields, dict):
-                    if oed_fields.get(p, None):
-                        p_summaries = OEDGroupFragment(params={'perspective': p,
-                                                               'oed_fields': oed_fields[p]}).display()
-                else:
-                    p_summaries = OEDGroupFragment(params={'perspective': p,
-                                                           'oed_fields': oed_fields}).display()
-
-                summaries[f'{p}_summaries'][0] |= p_summaries
-
-        submitted = st.button('Submit')
-
-    if submitted:
-        # Merge summaries settings
-        for p in perspectives:
-            settings_name = f'{p}_summaries'
-            default_summaries = analysis_settings.pop(settings_name, None)
-            if default_summaries is None:
-                selected_settings[settings_name] = summaries[settings_name]
-            else:
-                selected_settings[settings_name] = merge_summaries(default_summaries, summaries[settings_name])
-        settings = merge_settings(analysis_settings, selected_settings)
-        return settings
+        if st.button('Save Settings', on_click=save_settings,
+                     args=[analysis_settings, selected_settings],
+                     key="save_button_create_analysis"):
+            st.rerun()
