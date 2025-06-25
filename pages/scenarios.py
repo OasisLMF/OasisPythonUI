@@ -67,8 +67,8 @@ create_container = st.container(border=True)
 
 '## Run Analysis'
 'New analyses and previously executed analyses are shown in the table below.'
-'Previously executed analyses will have a status of 'Run Completed' and the outputs can be viewed by clicking the 'Show Output' button.'
-'New analyses will have a status of 'Ready' and the analysis can be executed by clicking on the button 'Run'.'
+"Previously executed analyses will have a status of 'Run Completed' and the outputs can be viewed by clicking the 'Show Output' button."
+"New analyses will have a status of 'Ready' and the analysis can be executed by clicking on the button 'Run'."
 'The ability to group output by country, portfolio and/or location depends on the level of data in the loaded portfolio.'
 
 run_container = st.container(border=True)
@@ -78,21 +78,22 @@ with create_container:
 
     '#### Scenario Selection'
     'Select an event scenarios by clicking the grey box on the left side of the table.'
-    'Currently, it is not possible to add your own scenarios directly; please describe any scenario you would like to add, here: https://github.com/OasisLMF/OasisPythonUI/issues' 
-    
+
     models = client_interface.models.get(df=True)
     display_cols = [ 'model_id', 'supplier_id' ]
 
     model_view = DataframeView(models, selectable='single', display_cols=display_cols)
     selected_model = model_view.display()
 
+    'Currently, it is not possible to add your own scenarios directly; please describe any scenario you would like to add as a Github issue [here](https://github.com/OasisLMF/OasisPythonUI/issues).'
+
     '#### Portfolio Selection'
     'A pre-loaded portfolio of buildings will be shown below, corresponding to the same area as the event footprint selected above.'
     'In the near future, buildings data from the Global Exposure Model will be available to select here.'
-    'After selecting a combination of scenario and exposure portfolios, click on 'Create analysis', give it a name, and create the analysis.'
+    "After selecting a combination of scenario and exposure portfolios, click on 'Create analysis', give it a name, and create the analysis."
     'The Scenario Details button provides a description of the scenario selected.'
     'The Exposure Map button will show the distribution of building TIV (total insured value) in the selected portfolio.'
-    
+
     # Prepare portfolios data
     portfolios = client_interface.portfolios.get(df=True)
 
@@ -275,7 +276,7 @@ with run_container:
 
         # Download button
         @st.dialog("Output", width="large")
-        
+
         def display_outputs(ci, analysis_id):
             st.markdown('# Analysis Summary')
             st.markdown('This section summarises the input data for this analysis, including the total values contained in the portfolio, and analysis / output settings.')
@@ -286,10 +287,10 @@ with run_container:
 
             st.markdown('# Results Summary')
             st.markdown('This section summarises the results.')
-            st.markdown('Ground Up Loss (gul') is the estimated direct cost of damage to the buildings in the selected portfolio due to the selected event scenario. 
-                This is the only  loss perspectiev enabled, and no insurance contracts are included in the analysis.')
-            st.markdown('Ground Up loss is shown as the event loss ('mean') for all locations and each location if 'group by' LocNumber is selected.')
-            st.markdown('In addition to the table of mean loss, the spatial distribution is shown under 'map' and a chart shown below.')
+            st.markdown('''Ground Up Loss (gul) is the estimated direct cost of damage to the buildings in the selected portfolio due to the selected event scenario.
+                This is the only  loss perspectiev enabled, and no insurance contracts are included in the analysis.''')
+            st.markdown("Ground Up loss is shown as the event loss ('mean') for all locations and each location if 'group by' LocNumber is selected.")
+            st.markdown("In addition to the table of mean loss, the spatial distribution is shown under 'map' and a chart shown below.")
             st.markdown('Sample results refer to outputs from running no sample - just one realisation of the event; Analytical results refer to running the number of samples (currently defaulting to 10 samples).')
 
             # Graphs from output
