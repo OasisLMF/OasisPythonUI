@@ -1,6 +1,7 @@
 {
   "pages" : [{"path": "pages/scenarios.py", "label": "Scenarios"},
-             {"path": "pages/analyses.py", "label": "Analyses"}
+             {"path": "pages/analyses.py", "label": "Analyses"},
+             {"path": "pages/scenariosGuide.py", "label": "User guide"}
   ],
   "post_login_page": "pages/analyses.py",
   "model_map": {
