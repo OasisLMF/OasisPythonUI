@@ -1,6 +1,34 @@
 import streamlit as st
 import os
 
+##########################################################################################
+# Header
+##########################################################################################
+
+ui_config = retrieve_ui_config()
+validate_page("User Guide")
+
+st.set_page_config(
+    page_title = "User Guide",
+    layout = "centered"
+)
+
+cols = st.columns([0.1, 0.8, 0.1])
+with cols[1]:
+    st.image("images/oasis_logo.png")
+
+
+##########################################################################################
+# Page
+##########################################################################################
+
+handle_login(ui_config.skip_login)
+
+SidebarNav()
+
+client_interface = st.session_state["client_interface"]
+client = client_interface.client
+
 cols = st.columns([0.1, 0.8, 0.1])
 
 # Title
