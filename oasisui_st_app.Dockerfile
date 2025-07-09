@@ -1,15 +1,18 @@
-FROM ubuntu:24.04
+FROM python:3.12-slim AS compile-image
 
-ENV PIP_BREAK_SYSTEM_PACKAGES=1
-RUN apt-get update && apt-get install -y git curl python3 python3-pip python3-dev \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update
+RUN apt-get install -y --no-install-recommends build-essential gcc
+
+# Install requirement
+COPY ./requirements.txt .
+RUN pip install --user -r requirements.txt
+
+FROM python:3.12-slim AS build-image
+COPY --from=compile-image /root/.local /root/.local
+ENV PATH=/root/.local/bin:$PATH
 
 # Set WORKDIR
 WORKDIR /usr/src/app
-
-# Install requirement
-COPY ./requirements.txt ./requirements.txt
-RUN pip install -r requirements.txt
 
 # Copy app files
 COPY ./images ./images
