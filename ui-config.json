@@ -1,8 +1,10 @@
 {
-  "pages" : [{"path": "pages/scenarios.py", "label": "Scenarios"},
-             {"path": "pages/analyses.py", "label": "Analyses"}
+  "pages" : [
+    {"path": "pages/scenarios.py", "label": "Scenarios"},
+    {"path": "pages/comparison.py", "label": "Comparison"},
+    {"path": "pages/scenariosGuide.py", "label": "User Guide"}
   ],
-  "post_login_page": "pages/analyses.py",
+  "post_login_page": "pages/scenarios.py",
   "model_map": {
   },
   "skip_login": true
