@@ -53,6 +53,8 @@ SidebarNav()
 client_interface = st.session_state["client_interface"]
 client = client_interface.client
 
+st.markdown("For more information on this tool and usage instructions please refer to the [User Guide](scenariosGuide).")
+
 '## Create Analysis'
 'To begin a scenario impact analysis, select one of the pre-loaded hazard scenarios (footprints) from the list below.'
 
