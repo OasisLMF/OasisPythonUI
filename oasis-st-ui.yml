@@ -11,6 +11,9 @@ services:
       - API_URL=http://server:8000
     volumes:
       - ./defaults/:/usr/src/app/defaults/
+      - type: bind
+        source: ./.streamlit/
+        target: /usr/src/app/.streamlit
     develop:
       watch:
         - action: sync
