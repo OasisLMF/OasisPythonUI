@@ -23,7 +23,6 @@ COPY ./modules ./modules
 COPY ./app.py ./app.py
 COPY ./pages ./pages
 COPY ./assets/ ./assets
-COPY ./ui-config.json ./ui-config.json
 
 # Run streamlit
 EXPOSE 8501
