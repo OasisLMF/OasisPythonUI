@@ -21,11 +21,8 @@ WORKDIR /usr/src/app
 COPY ./images ./images
 COPY ./modules ./modules
 COPY ./app.py ./app.py
-COPY ./defaults ./defaults
 COPY ./pages ./pages
 COPY ./assets/ ./assets
-COPY ./.streamlit ./.streamlit
-COPY ./ui-config.json ./ui-config.json
 
 # Run streamlit
 EXPOSE 8501

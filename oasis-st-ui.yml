@@ -1,14 +1,22 @@
 services:
   streamlit_ui:
+    restart: always
+    image: coreoasis/oasis_scenarios:latest
     container_name: oasis_st_ui
     build:
       dockerfile: ./oasisui_st_app.Dockerfile
     ports:
       - 8501:8501
-    #    networks:
-    #      - platform_network
     environment:
       - API_URL=http://server:8000
+    volumes:
+      - ./defaults/:/usr/src/app/defaults/
+      - type: bind
+        source: ./.streamlit/
+        target: /usr/src/app/.streamlit
+      - type: bind
+        source: ./ui-config.json
+        target: /usr/src/app/ui-config.json
     develop:
       watch:
         - action: sync
@@ -23,9 +31,6 @@ services:
         - action: sync
           path: ./ui-config.json
           target: ./usr/src/app/ui-config.json
-        - action: sync
-          path: ./defaults/
-          target: ./usr/src/app/defaults/
 
 # networks:
 #   platform_network:
