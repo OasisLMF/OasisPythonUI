@@ -1,4 +1,4 @@
-from modules.authorisation import validate_page, handle_login
+from modules.authorisation import quiet_login, validate_page, handle_login
 from oasis_data_manager.errors import OasisException
 import tarfile
 from io import BytesIO
@@ -47,9 +47,7 @@ with cols[1]:
 # Page
 ##########################################################################################
 
-handle_login(ui_config.skip_login)
-
-SidebarNav()
+SidebarNav(no_client=ui_config.skip_login)
 
 # Title
 st.title("Scenarios Tool - User Guide")
@@ -513,6 +511,5 @@ st.markdown("""
 This user guide provides a comprehensive overview of the Oasis Loss Modelling Framework Scenarios Tool. The demonstration videos on the Oasis LMF YouTube and the example files from the PiWind model can help supplement this written guide. For the most current information and detailed technical documentation, please refer to the official Oasis LMF documentation at https://oasislmf.github.io/
 """)
 
-
-
-
+if ui_config.skip_login:
+    quiet_login()

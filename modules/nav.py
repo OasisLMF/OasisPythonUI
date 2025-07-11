@@ -3,9 +3,9 @@ import streamlit as st
 
 ui_config = retrieve_ui_config()
 
-def SidebarNav():
+def SidebarNav(no_client=False):
     with st.sidebar:
-        if "client_interface" in st.session_state:
+        if "client_interface" in st.session_state or no_client:
             for page_config in ui_config.pages:
                 st.page_link(page_config['path'], label=page_config['label'])
         else:
