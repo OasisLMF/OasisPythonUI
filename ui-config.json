@@ -4,7 +4,7 @@
     {"path": "pages/scenarios.py", "label": "Scenarios"},
     {"path": "pages/comparison.py", "label": "Comparison"}
   ],
-  "post_login_page": "pages/scenarios.py",
+  "post_login_page": "pages/scenariosGuide.py",
   "model_map": {
   },
   "skip_login": true
