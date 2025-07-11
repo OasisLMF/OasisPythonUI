@@ -33,3 +33,7 @@ Password: password
 
 Note that if previous Oasis docker installations are present they will be
 removed during this installation.
+
+
+The public site is at https://ui.oasislmf-scenarios.com/
+Default scenarios in the tool are processed/hosted at https://github.com/OasisLMF/Scenarios 
