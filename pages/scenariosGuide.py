@@ -174,6 +174,7 @@ st.markdown("""
    - Scenario Name: Enter a descriptive name (e.g., "Ghana Flood 61")
    - Portfolio: Select from the available exposure sets for the scenario
    - Model: Select from the available model variants
+   - Vulnerability: In future versions of the tool, the vulnerability functions being applied in the analysis will be shown here (and could be selected).
    - Click on “Create Analysis”
 """)
 
@@ -331,7 +332,7 @@ Scenario comparisons could include:
 Note: this version of the workflow requires that the scenarios being compared are added to the [scenarios list](https://github.com/OasisLMF/scenario)
 and run through the Scenarios tab first. Changes directly to the hazard footprint, exposure, or vulnerability are not yet possible in this tool. 
 
-**Analysis Summary** provides a side-by-side review of the input data nad analysis settings in the two analyses.
+**Analysis Summary** provides a side-by-side review of the input data and analysis settings in the two analyses.
 
 **Loss Estimates** enables side-by-side visualisation of the loss estimates from both scenarios in chart, table and map form.  
 """)
