@@ -79,10 +79,10 @@ analysis_ids = [selected['id'][i] for i in range(2)]
 
 st.subheader("Analysis Summary")
 st.markdown("""
-This section summarises the analyses selected for comparison: the number and value of buildings in the portfolio; 
+This section summarises the analyses selected for comparison: the number and value of buildings in the portfolio;
 the hazard footprint selected, and the outputs available.
-Under 'output settings', 'gul' referes to ground up loss, before insurance contract terms apply; 'aalcal' denotes that the 
-Annual Average Loss has been estimated; 'eltcal' denotes that the per-event loss has been estimated.
+Under 'output settings', 'gul' referes to ground up loss, before insurance contract terms apply; 'aalcal' denotes that the
+Annual Average Loss has been estimated; 'eltcalc' denotes that the per-event loss has been estimated.
 """)
 
 expander = st.expander('Analysis Summary')
@@ -146,7 +146,7 @@ for p in perspectives:
         continue
 
     summaries = [s.get(f'{p}_summaries', [{}])[0] for s in settings]
-    names = selected['name'].tolist() # 'GUL OUTPUT' SHOULD BE MORE UNDERSTANDABLE FOR NON-EXPERT USERS BY USING TITLE 'GROUND UP LOSS' 
+    names = selected['name'].tolist() # 'GUL OUTPUT' SHOULD BE MORE UNDERSTANDABLE FOR NON-EXPERT USERS BY USING TITLE 'GROUND UP LOSS'
 
     supported_outputs = ['aalcalc', 'eltcalc', 'lec_output']
     no_outputs = True
@@ -168,27 +168,24 @@ for p in perspectives:
             output.set_oed_fields(p, oed_fields)
 
     if all([s.get('aalcalc', False) for s in summaries]):
-        expander = st.expander("Mean loss comparison chart") # REMOVE EXPANDER AND MAKE THE CHART APPEAR STRAIGHT AWAY
-        with expander:
-            generate_aalcalc_comparison_fragment(p, outputs, names)
+        st.write("### Mean loss comparison chart")
+        generate_aalcalc_comparison_fragment(p, outputs, names)
 
     if all([s.get('eltcalc', False) for s in summaries]):
-        expander = st.expander("Per-location loss estimates") # REMOVE EXPANDER AND MAKE THE CHART APPEAR STRAIGHT AWAY
-        with expander:
-            locations = [get_locations_file(id) for id in analysis_ids]
-            locations = merge_locations(*locations)
+        st.write("### Per-location loss estimates")
+        locations = [get_locations_file(id) for id in analysis_ids]
+        locations = merge_locations(*locations)
 
-            generate_eltcalc_comparison_fragment(p, outputs, names=names,
-                                                 locations=locations)
+        generate_eltcalc_comparison_fragment(p, outputs, names=names,
+                                             locations=locations)
 
     if all([s.get('lec_output', False) for s in summaries]):
-        expander = st.expander("LEC Output")
-        with expander:
-            lec_outputs_list = [s.get('leccalc', {}) for s in summaries]
-            lec_outputs = {}
-            keys = lec_outputs_list[0].keys()
-            for k in keys:
-                if all([lec.get(k, False) for lec in lec_outputs_list]):
-                    lec_outputs[k] = True
-            generate_leccalc_comparison_fragment(p, outputs, lec_outputs,
-                                                 names=names)
+        st.write("### LEC Output")
+        lec_outputs_list = [s.get('leccalc', {}) for s in summaries]
+        lec_outputs = {}
+        keys = lec_outputs_list[0].keys()
+        for k in keys:
+            if all([lec.get(k, False) for lec in lec_outputs_list]):
+                lec_outputs[k] = True
+        generate_leccalc_comparison_fragment(p, outputs, lec_outputs,
+                                             names=names)
