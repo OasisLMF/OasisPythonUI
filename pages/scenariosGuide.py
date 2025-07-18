@@ -71,7 +71,7 @@ st.markdown("""
 st.header("1. Introduction")
 st.markdown("*[back to top](#table-of-contents)*")
 st.markdown("""
-The Oasis Loss Modelling Framework (LMF) Scenarios Tool is a web-based application designed for catastrophe (or disaster) scenario impact analysis. 
+The Oasis Loss Modelling Framework (LMF) Scenarios Tool is a web-based application designed for catastrophe (or disaster) scenario impact analysis.
 As part of the open-source Oasis platform, it provides accessible tools to evaluate potential loss from selected disaster event scenarios.
 It can be used for demonstrating and conducting stress-testing for insurance regulatory or rating agency purposes, 'what-if' modelling of historical events, or
 worst-case scenario modelling of hypothetical events for (re)insurance, government, and academic use.
@@ -81,7 +81,7 @@ This tool uses hazard scenarios, or hazard footprints, as well as exposure data 
 st.subheader("Key Features")
 st.markdown("""
 - Uses the [Oasis LMF](https://oasislmf.org/) open-source platform analytical engine, with no installation or download required and with full transparency of methods
-- Web-based interface: Accessible through any modern web browser, free to use 
+- Web-based interface: Accessible through any modern web browser, free to use
 - Standardized data formats: Uses [Open Exposure Data (OED) and Open Results Data (ORD) standards](https://oasislmf.org/open-data-standards)
 - Comprehensive modelling: Supports multiple perils and modelling approaches
 - Flexible analysis: Monte Carlo simulation with customizable parameters
@@ -110,7 +110,7 @@ st.subheader("Accessing the Platform")
 st.markdown("""
 1. Navigate to [Oasis LMF Scenarios](https://ui.oasislmf-scenarios.com/scenarios) in your browser
 2. No installation or download required
-3. Upon first access, you'll be presented with the main dashboard. The interface is designed to be intuitive, but familiarizing yourself 
+3. Upon first access, you'll be presented with the main dashboard. The interface is designed to be intuitive, but familiarizing yourself
 with the key components will enhance your experience.
 """)
 
@@ -122,7 +122,7 @@ st.subheader("Scenarios: Analyse individual disaster scenarios")
 st.markdown("""
 The Scenarios dashboard provides an overview of your current scenarios and quick access to key functions:
 - Scenario Selection: Select scenarios from a default list maintained by Oasis. New scenarios can be added [on request](https://github.com/OasisLMF/Scenarios/issues)
-- Portfolio Selection: Select a portfolio of exposure to assess the disaster scenario against. The tool supports built asset data in OED format. THese may be 'flat file' where each location has the same value, or data derived from an exposure model. 
+- Portfolio Selection: Select a portfolio of exposure to assess the disaster scenario against. The tool supports built asset data in OED format. THese may be 'flat file' where each location has the same value, or data derived from an exposure model.
 - Create analysis: Give the analysis a name, view the distribution of hazard intensity and exposure value.
 - Run analysis: Select granularity of loss to analyse: total scenario loss (whole portfolio), per-country breakdown of loss, or per-location loss.
 - Output Viewer: Show a summary of the input scenario and exposure and a summary of ground up or economic loss in the form of a table, chart or map.
@@ -200,8 +200,8 @@ st.markdown("""
    - When running, your analysis will show the status “Running”
    - When Complete, the status will switch to “Run Completed”
 
-The analysis run will include 'analytical' and 'sample' options. 
-Under 'analytical', 1 version of the scenario analysis will be run. 
+The analysis run will include 'analytical' and 'sample' options.
+Under 'analytical', 1 version of the scenario analysis will be run.
 Under 'sample', 10 samples will be run, to account for the effect of modelling uncertainty on the estimated loss. This value cannot be changed in this version of the tool.
 """)
 
@@ -267,10 +267,10 @@ st.markdown("*[back to top](#table-of-contents)*")
 st.subheader("Available Results")
 
 st.markdown("""
-The scenarios workflow results present the mean loss of the selected scenario. This can be shown per-location, 
+The scenarios workflow results present the mean loss of the selected scenario. This can be shown per-location,
 per-country (for trans-boundary / cross-border scenarios) and as a scenario total loss.
 
-The 'analytical' and 'sample' results will be shown, to view the difference between single- and multiple-sample runs. 
+The 'analytical' and 'sample' results will be shown, to view the difference between single- and multiple-sample runs.
 
 The following loss perspectives can be run:
   - Ground-Up Loss (GUL): Losses before application of insurance terms - requires no (re)insurance terms in the portfolio.
@@ -282,7 +282,7 @@ st.subheader("Viewing Results")
 
 st.markdown("""
 Geographic Loss Maps:
-- Click "Maps" tab to view spatial distribution of scenario loss 
+- Click "Maps" tab to view spatial distribution of scenario loss
 - Use zoom controls to focus on specific areas
 - Click locations for detailed loss information
 """)
@@ -333,11 +333,11 @@ Scenario comparisons could include:
 - Loss under two representations of the same (e.g., historical) event, from two versions of a model or two different model providers
 
 Note: this version of the workflow requires that the scenarios being compared are added to the [scenarios list](https://github.com/OasisLMF/scenario)
-and run through the Scenarios tab first. Changes directly to the hazard footprint, exposure, or vulnerability are not yet possible in this tool. 
+and run through the Scenarios tab first. Changes directly to the hazard footprint, exposure, or vulnerability are not yet possible in this tool.
 
 **Analysis Summary** provides a side-by-side review of the input data and analysis settings in the two analyses.
 
-**Loss Estimates** enables side-by-side visualisation of the loss estimates from both scenarios in chart, table and map form.  
+**Loss Estimates** enables side-by-side visualisation of the loss estimates from both scenarios in chart, table and map form.
 """)
 
 
@@ -383,21 +383,21 @@ st.markdown("""
 
 
 # Limitations
-st.header("7. Limitations")
+st.header("8. Limitations")
 st.markdown("*[back to top](#table-of-contents)*")
 
 st.markdown("""
 Limitations of this tool include:
 
-- Users cannot directly upload or adjust their own scenarios, exposure portfolios or vulnerability functions in this version of the tool. 
-New files can be shared with Oasis and uploaded by the admin team if they are needed for demonstration purposes, for example (see [7. Troubleshooting](#7-troubleshooting)). 
+- Users cannot directly upload or adjust their own scenarios, exposure portfolios or vulnerability functions in this version of the tool.
+New files can be shared with Oasis and uploaded by the admin team if they are needed for demonstration purposes, for example (see [7. Troubleshooting](#7-troubleshooting)).
 Adjustments to scenario already included can be made by obtaining the hazard footprint from the Scenarios GitHub repository and sharing it back to Oasis for upload.
-- This version of the tool enables analysis using ground up exposure only - no re/insurance policy terms are handled in the tool. 
-- The number of simulations that can be run on a scenario are limited to prevent excessive computational burden. 
+- This version of the tool enables analysis using ground up exposure only - no re/insurance policy terms are handled in the tool.
+- The number of simulations that can be run on a scenario are limited to prevent excessive computational burden.
 """)
 
 # Attributions
-st.header("8. Attributions")
+st.header("9. Attributions")
 st.markdown("*[back to top](#table-of-contents)*")
 
 st.markdown("""
@@ -410,16 +410,16 @@ Many thanks to the following model vendors who have participated in this project
 """)
 
 # Disclaimer
-st.header("8. Disclaimer")
+st.header("10. Disclaimer")
 st.markdown("*[back to top](#table-of-contents)*")
 
 st.markdown("""
 All data and information within this repository fall under the BSD 3-Clause License.
 
-DISCLAIMER: No contributors to this repository, namely the third-party model providers, brokers, insurers or reinsurers take any 
-responsibility for the outputs produced from these scenarios or deterministic models. Although the providers of the scenarios have 
-ensured the hazard data captured within the footprint files is as accurate as possible, the event losses produced may vary from those 
-in the full stochastic model from the same vendor. These scenarios may also be accompanied by different (or simplified) vulnerability 
+DISCLAIMER: No contributors to this repository, namely the third-party model providers, brokers, insurers or reinsurers take any
+responsibility for the outputs produced from these scenarios or deterministic models. Although the providers of the scenarios have
+ensured the hazard data captured within the footprint files is as accurate as possible, the event losses produced may vary from those
+in the full stochastic model from the same vendor. These scenarios may also be accompanied by different (or simplified) vulnerability
 functions which will produce different losses and so do not reflect the company's "true" view of risk for these events.
 """)
 
