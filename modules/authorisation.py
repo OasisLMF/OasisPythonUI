@@ -35,7 +35,6 @@ def quiet_login():
         return
 
     if "user" in st.secrets and "password" in st.secrets:
-        st.write("Logging in quietly")
         try:
             st.session_state["client_interface"] = ClientInterface(username=st.secrets["user"], password=st.secrets["password"])
         except HTTPError as e:
