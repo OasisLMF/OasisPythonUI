@@ -61,7 +61,10 @@ st.markdown("""
 [4. Working with Scenarios](#4-working-with-scenarios)\\
 [5. Interpreting Results](#5-interpreting-results)\\
 [6. Scenario Comparison](#6-scenario-comparison)\\
-[7. Troubleshooting](#7-troubleshooting)
+[7. Troubleshooting](#7-troubleshooting)\\
+[8. Limitations](#8-limitations)\\
+[9. Attributions](#9-attributions)\\
+[10. Disclaimer](#10-disclaimer)
 """)
 
 # Introduction
@@ -378,6 +381,47 @@ st.markdown("""
 - GitHub repositories with example code and issues: https://github.com/OasisLMF
 """)
 
+
+# Limitations
+st.header("7. Limitations")
+st.markdown("*[back to top](#table-of-contents)*")
+
+st.markdown("""
+Limitations of this tool include:
+
+- Users cannot directly upload or adjust their own scenarios, exposure portfolios or vulnerability functions in this version of the tool. 
+New files can be shared with Oasis and uploaded by the admin team if they are needed for demonstration purposes, for example (see [7. Troubleshooting](#7-troubleshooting)). 
+Adjustments to scenario already included can be made by obtaining the hazard footprint from the Scenarios GitHub repository and sharing it back to Oasis for upload.
+- This version of the tool enables analysis using ground up exposure only - no re/insurance policy terms are handled in the tool. 
+- The number of simulations that can be run on a scenario are limited to prevent excessive computational burden. 
+""")
+
+# Attributions
+st.header("8. Attributions")
+st.markdown("*[back to top](#table-of-contents)*")
+
+st.markdown("""
+Many thanks to the following model vendors who have participated in this project and made their scenarios footprint files available:
+
+- Applied Research Associates (ARA)
+- Impact Forecasting
+- Insurance Partners Europe (IPE)
+- JBA Risk Management
+""")
+
+# Disclaimer
+st.header("8. Disclaimer")
+st.markdown("*[back to top](#table-of-contents)*")
+
+st.markdown("""
+All data and information within this repository fall under the BSD 3-Clause License.
+
+DISCLAIMER: No contributors to this repository, namely the third-party model providers, brokers, insurers or reinsurers take any 
+responsibility for the outputs produced from these scenarios or deterministic models. Although the providers of the scenarios have 
+ensured the hazard data captured within the footprint files is as accurate as possible, the event losses produced may vary from those 
+in the full stochastic model from the same vendor. These scenarios may also be accompanied by different (or simplified) vulnerability 
+functions which will produce different losses and so do not reflect the company's "true" view of risk for these events.
+""")
 
 if ui_config.skip_login:
     quiet_login()
