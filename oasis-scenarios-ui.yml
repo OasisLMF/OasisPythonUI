@@ -12,10 +12,13 @@ services:
     volumes:
       - ./defaults/:/usr/src/app/defaults/
       - type: bind
-        source: ./.streamlit/
-        target: /usr/src/app/.streamlit
+        source: ./.streamlit/config-remote.toml
+        target: /usr/src/app/.streamlit/config.toml
       - type: bind
-        source: ./ui-config.json
+        source: ./.streamlit/secrets.toml
+        target: /usr/src/app/.streamlit/secrets.toml
+      - type: bind
+        source: ./scenarios/ui-config.json
         target: /usr/src/app/ui-config.json
     develop:
       watch:
@@ -29,10 +32,5 @@ services:
           path: ./modules/
           target: ./usr/src/app/modules/
         - action: sync
-          path: ./ui-config.json
+          path: ./scenarios/ui-config.json
           target: ./usr/src/app/ui-config.json
-
-# networks:
-#   platform_network:
-#     name: oasisstui_default
-#     external: true

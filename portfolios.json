@@ -1,55 +1,16 @@
 {
   "piwind_small": {
     "portfolio_name": "piwind-small",
-    "location_f": "./OasisPiWind/tests/inputs/SourceLocOEDPiWind10.csv",
-    "accounts_f": "./OasisPiWind/tests/inputs/SourceAccOEDPiWind.csv",
-    "ri_info_f": "./OasisPiWind/tests/inputs/SourceReinsInfoOEDPiWind.csv",
-    "ri_scope_f": "./OasisPiWind/tests/inputs/SourceReinsScopeOEDPiWind.csv"
+    "location_fp": "./OasisPiWind/tests/inputs/SourceLocOEDPiWind10.csv",
+    "accounts_fp": "./OasisPiWind/tests/inputs/SourceAccOEDPiWind.csv",
+    "ri_info_fp": "./OasisPiWind/tests/inputs/SourceReinsInfoOEDPiWind.csv",
+    "ri_scope_fp": "./OasisPiWind/tests/inputs/SourceReinsScopeOEDPiWind.csv"
   },
   "piwind_large": {
     "portfolio_name": "piwind-large",
-    "location_f": "./OasisPiWind/tests/inputs/SourceLocOEDPiWind.csv",
-    "accounts_f": "./OasisPiWind/tests/inputs/SourceAccOEDPiWind.csv",
-    "ri_info_f": "./OasisPiWind/tests/inputs/SourceReinsInfoOEDPiWind.csv",
-    "ri_scope_f": "./OasisPiWind/tests/inputs/SourceReinsScopeOEDPiWind.csv"
-  },
-  "maeq": {
-    "portfolio_name": "maeq-test",
-    "location_f": "../Scenarios/ImpactForecasting/MAEQ/1.0.0/tests/MAEQ_100_oasis.csv",
-    "accounts_f": "../Scenarios/ImpactForecasting/MAEQ/1.0.0/tests/MAEQ_acc.csv"
-  },
-  "treq": {
-    "portfolio_name": "treq-test",
-    "location_f": "../Scenarios/ImpactForecasting/TREQ/1.0.0/tests/TREQ_P_test_loc_100.csv",
-    "accounts_f": "../Scenarios/ImpactForecasting/TREQ/1.0.0/tests/TREQ_acc.csv"
-  },
-  "euws": {
-    "portfolio_name": "euws-test",
-    "location_f": "../Scenarios/ImpactForecasting/EUWS/1.0.0/tests/EUWS_200_oasis.csv",
-    "accounts_f": "../Scenarios/ImpactForecasting/EUWS/1.0.0/tests/EUWS_acc.csv"
-  },
-  "tw_comp": {
-    "portfolio_name": "taiwan-comparison-test",
-    "location_f": "../Scenarios/JBA/Philippines-Taiwan/tests/inputs/locationTW_diff3.csv"
-  },
-  "ph_tw_flat": {
-    "portfolio_name": "philippines-taiwan-typhoon-flat",
-    "location_f": "../Scenarios/JBA/Philippines-Taiwan/tests/inputs/location.csv"
-  },
-  "us_flat": {
-    "portfolio_name": "us-hurricane-flat",
-    "location_f": "../Scenarios/ARA/US_Hurricane/tests/test_2/location.csv"
-  },
-  "ghana_flat": {
-    "portfolio_name": "ghana-flood-flat",
-    "location_f": "../Scenarios/JBA/Ghana/tests/inputs/location.csv"
-  },
-  "nepal_flat": {
-    "portfolio_name": "nepal-flood-flat",
-    "location_f": "../Scenarios/JBA/Nepal/tests/inputs/location.csv"
-  },
-  "france_flat_hail": {
-    "portfolio_name": "france-hail-flat",
-    "location_f": "../Scenarios/IPE/FranceHail/tests/inputs/location.csv"
+    "location_fp": "./OasisPiWind/tests/inputs/SourceLocOEDPiWind.csv",
+    "accounts_fp": "./OasisPiWind/tests/inputs/SourceAccOEDPiWind.csv",
+    "ri_info_fp": "./OasisPiWind/tests/inputs/SourceReinsInfoOEDPiWind.csv",
+    "ri_scope_fp": "./OasisPiWind/tests/inputs/SourceReinsScopeOEDPiWind.csv"
   }
 }

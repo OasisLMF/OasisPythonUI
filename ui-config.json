@@ -6,20 +6,6 @@
   ],
   "post_login_page": "pages/scenariosGuide.py",
   "model_map": {
-    "PiWind": ["piwind-small", "piwind-large"],
-    "MAEQ": ["maeq-test"],
-    "EUWS": ["euws-test"],
-    "TREQ": ["treq-test"],
-    "Philippines-Taiwan-Defended":   ["taiwan-comparison-test", "philippines-taiwan-typhoon-flat"],
-    "Philippines-Taiwan-Undefended": ["taiwan-comparison-test", "philippines-taiwan-typhoon-flat"],
-    "US-Hurricane": ["us-hurricane-flat"],
-    "Ghana-E635900": ["ghana-flood-flat"],
-    "Ghana-E689982": ["ghana-flood-flat"],
-    "Ghana-E760461": ["ghana-flood-flat"],
-    "Nepal-E151185": ["nepal-flood-flat"],
-    "Nepal-E432557": ["nepal-flood-flat"],
-    "Nepal-E505423": ["nepal-flood-flat"],
-    "France-Hail": ["france-hail-flat"]
   },
   "skip_login": true
 }

@@ -118,7 +118,7 @@ services:
      - filestore-OasisData:/shared-fs:rw
   maeq-worker:
     restart: always
-    image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER-latest}
+    image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
     build:
       context: .
       dockerfile: Dockerfile.model_worker
@@ -133,10 +133,10 @@ services:
       OASIS_RUN_MODE: v2
     volumes:
       - filestore-OasisData:/shared-fs:rw
-      - ../Scenarios/ImpactForecasting/MAEQ/1.0.0/:/home/worker/model
+      - ${SCENARIOS_PATH}/ImpactForecasting/MAEQ/1.0.0/:/home/worker/model
   euws-worker:
     restart: always
-    image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER-latest}
+    image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
     build:
       context: .
       dockerfile: Dockerfile.model_worker
@@ -151,10 +151,10 @@ services:
       OASIS_RUN_MODE: v2
     volumes:
       - filestore-OasisData:/shared-fs:rw
-      - ../Scenarios/ImpactForecasting/EUWS/1.0.0/:/home/worker/model
+      - ${SCENARIOS_PATH}/ImpactForecasting/EUWS/1.0.0/:/home/worker/model
   treq-worker:
     restart: always
-    image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER}
+    image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
     build:
       context: .
       dockerfile: Dockerfile.model_worker
@@ -169,7 +169,7 @@ services:
       OASIS_RUN_MODE: v2
     volumes:
       - filestore-OasisData:/shared-fs:rw
-      - ../Scenarios/ImpactForecasting/TREQ/1.0.0/:/home/worker/model
+      - ${SCENARIOS_PATH}/ImpactForecasting/TREQ/1.0.0/:/home/worker/model
   philippines_taiwan_defended-worker:
     restart: always
     image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
@@ -187,7 +187,7 @@ services:
      OASIS_RUN_MODE: v2
      OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
     volumes:
-     - ../Scenarios/JBA/Philippines-Taiwan/combined-defended/:/home/worker/model
+     - ${SCENARIOS_PATH}/JBA/Philippines-Taiwan/combined-defended/:/home/worker/model
      - filestore-OasisData:/shared-fs:rw
   philippines_taiwan_undefended-worker:
     restart: always
@@ -206,7 +206,7 @@ services:
      OASIS_RUN_MODE: v2
      OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
     volumes:
-     - ../Scenarios/JBA/Philippines-Taiwan/combined-undefended/:/home/worker/model
+     - ${SCENARIOS_PATH}/JBA/Philippines-Taiwan/combined-undefended/:/home/worker/model
      - filestore-OasisData:/shared-fs:rw
   ghana-E635900-worker:
     restart: always
@@ -225,7 +225,7 @@ services:
      OASIS_RUN_MODE: v2
      OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
     volumes:
-     - ../Scenarios/JBA/Ghana/E635900/combined/:/home/worker/model
+     - ${SCENARIOS_PATH}/JBA/Ghana/E635900/combined/:/home/worker/model
      - filestore-OasisData:/shared-fs:rw
   ghana-E689982-worker:
     restart: always
@@ -244,7 +244,7 @@ services:
      OASIS_RUN_MODE: v2
      OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
     volumes:
-     - ../Scenarios/JBA/Ghana/E689982/combined/:/home/worker/model
+     - ${SCENARIOS_PATH}/JBA/Ghana/E689982/combined/:/home/worker/model
      - filestore-OasisData:/shared-fs:rw
   ghana-E760461-worker:
     restart: always
@@ -263,7 +263,7 @@ services:
      OASIS_RUN_MODE: v2
      OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
     volumes:
-     - ../Scenarios/JBA/Ghana/E760461/combined/:/home/worker/model
+     - ${SCENARIOS_PATH}/JBA/Ghana/E760461/combined/:/home/worker/model
      - filestore-OasisData:/shared-fs:rw
   nepal-E151185-worker:
     restart: always
@@ -282,7 +282,7 @@ services:
      OASIS_RUN_MODE: v2
      OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
     volumes:
-     - ../Scenarios/JBA/Nepal/E151185/combined/:/home/worker/model
+     - ${SCENARIOS_PATH}/JBA/Nepal/E151185/combined/:/home/worker/model
      - filestore-OasisData:/shared-fs:rw
   nepal-E432557-worker:
     restart: always
@@ -301,7 +301,7 @@ services:
      OASIS_RUN_MODE: v2
      OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
     volumes:
-     - ../Scenarios/JBA/Nepal/E432557/combined/:/home/worker/model
+     - ${SCENARIOS_PATH}/JBA/Nepal/E432557/combined/:/home/worker/model
      - filestore-OasisData:/shared-fs:rw
   nepal-E505423-worker:
     restart: always
@@ -320,7 +320,7 @@ services:
      OASIS_RUN_MODE: v2
      OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
     volumes:
-     - ../Scenarios/JBA/Nepal/E505423/combined/:/home/worker/model
+     - ${SCENARIOS_PATH}/JBA/Nepal/E505423/combined/:/home/worker/model
      - filestore-OasisData:/shared-fs:rw
   us_hurricane-worker:
     restart: always
@@ -339,7 +339,7 @@ services:
      OASIS_RUN_MODE: v2
      OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
     volumes:
-     - ../Scenarios/ARA/US_Hurricane/:/home/worker/model
+     - ${SCENARIOS_PATH}/ARA/US_Hurricane/:/home/worker/model
      - filestore-OasisData:/shared-fs:rw
   france_hail-worker:
     restart: always
@@ -358,7 +358,7 @@ services:
      OASIS_RUN_MODE: v2
      OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
     volumes:
-     - ../Scenarios/IPE/FranceHail/:/home/worker/model
+     - ${SCENARIOS_PATH}/IPE/FranceHail/:/home/worker/model
      - filestore-OasisData:/shared-fs:rw
   server-db:
     restart: always
