@@ -3,10 +3,12 @@ set -e
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-export VERS_MDK=2.3.11
-export VERS_API=2.3.11
-export VERS_WORKER=2.3.11
-export VERS_UI=1.11.7
+export $(grep -v '^#' .env | xargs)
+
+export VERS_MDK=latest
+export VERS_API=latest
+export VERS_WORKER=latest
+export VERS_UI=latest
 export VERS_PIWIND='stable/2.3.x'
 
 export SERVER_IMG=coreoasis/api_server
@@ -59,11 +61,11 @@ git checkout $VERS_PIWIND
 cd $SCRIPT_DIR
 
 set +e
-docker pull ${WORKER_IMG}:${VERS_WORKER}
-docker pull ${SERVER_IMG}:${VERS_API}
+docker pull ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
+docker pull ${SERVER_IMG:-coreoasis/api_server}:${VERS_API:-latest}
+docker pull ${SCENARIOS_UI_IMG-coreoasis/oasis_scenarios}:${VERS_API:-latest}
 set -e
 
 # RUN OasisPlatform / OasisUI / Portainer
 docker compose -f $SCRIPT_DIR/oasis-platform.yml up -d --no-build
-docker compose -f $SCRIPT_DIR/oasis-st-ui.yml up -d --build
-docker compose -f $SCRIPT_DIR/portainer.yaml up -d
+docker compose -f $SCRIPT_DIR/oasis-st-ui.yml up -d
