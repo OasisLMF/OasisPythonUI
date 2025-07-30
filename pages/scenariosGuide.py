@@ -50,7 +50,7 @@ with cols[1]:
 SidebarNav(no_client=ui_config.skip_login)
 
 # Title
-st.title("Testing User Guide: Scenario analysis and comparison")
+st.title("User Guide: Scenario analysis and comparison")
 
 # Table of Contents
 st.header("Table of Contents")
