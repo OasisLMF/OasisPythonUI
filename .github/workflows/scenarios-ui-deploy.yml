@@ -6,9 +6,19 @@ on:
         required: true
         default: 'false'
         type: string
+      deploy-all:
+        required: true
+        default: 'false'
+        type: string
+      wipe:
+        required: true
+        default: 'false'
+        type: string
 
 env:
   DEPLOY_UI: 'false'
+  DEPLOY_ALL: 'false'
+  WIPE: 'false'
   UI_PATH: ./OasisPythonUI
 
 jobs:
@@ -19,6 +29,8 @@ jobs:
     - name: Set inputs
       run: |
          [[ -z "${{ inputs.deploy-ui }}" ]] || echo "DEPLOY_UI=${{ inputs.deploy-ui }}" >> $GITHUB_ENV
+         [[ -z "${{ inputs.deploy-all }}" ]] || echo "DEPLOY_ALL=${{ inputs.deploy-all }}" >> $GITHUB_ENV
+         [[ -z "${{ inputs.wipe }}" ]] || echo "WIPE=${{ inputs.wipe }}" >> $GITHUB_ENV
     - name: Checkout repo
       uses: actions/checkout@v4
     - name: Execute remote SSH commands using password
@@ -30,5 +42,5 @@ jobs:
         proxy_host: ${{ secrets.PROXY_HOST }}
         proxy_username: ${{ secrets.PROXY_USERNAME }}
         proxy_key: ${{ secrets.SCENARIOS_KEY }}
-        envs: DEPLOY_UI, UI_PATH
+        envs: DEPLOY_UI, UI_PATH, DEPLOY_ALL, WIPE
         script_path: scenarios/deploy_scenarios_ui.sh
