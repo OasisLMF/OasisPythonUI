@@ -44,7 +44,7 @@ services:
    volumes:
      - filestore-OasisData:/shared-fs:rw
    healthcheck:
-      test: curl --fail http:localhost:8000/healthcheck/ || exit
+      test: curl --fail http://localhost:8000/healthcheck/ || exit
       interval: 30s
       retries : 10
       start_period: 30s
