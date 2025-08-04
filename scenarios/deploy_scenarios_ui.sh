@@ -4,10 +4,19 @@ echo "DEPLOY_UI: $DEPLOY_UI"
 echo "DEPLOY_ALL: $DEPLOY_ALL"
 echo "UI_PATH: $UI_PATH"
 echo "WIPE: $WIPE"
+echo "UPDATE_SCENARIOS: $UPDATE_SCENARIOS"
+echo "MODELS_PATH: $MODELS_PATH"
 
 if [[ "$WIPE" = 'true' ]] && [[ "$DEPLOY_ALL" = 'false' ]]; then
   echo "WIPE without DEPLOY_ALL not allowed."
   exit 1
+fi
+
+if [[ "$UPDATE_SCENARIOS" = 'true' ]]; then
+  echo "Updating scenarios models directory."
+  git -C "$MODELS_PATH" pull
+  ( cd "$MODELS_PATH"; ./get_s3_data_reduced.sh ) # Get from public scenarios s3
+  echo "Updated";
 fi
 
 if [[ "$DEPLOY_UI" = 'true' ]] && [[ "$DEPLOY_ALL" != 'true' ]]; then
