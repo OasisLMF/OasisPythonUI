@@ -20,6 +20,7 @@ if [[ "$UPDATE_SCENARIOS" = 'true' ]]; then
 fi
 
 if [[ "$DEPLOY_UI" = 'true' ]] && [[ "$DEPLOY_ALL" != 'true' ]]; then
+  git -C "$UI_PATH" pull
   docker image pull coreoasis/oasis_scenarios
   docker compose -f "$UI_PATH/oasis-scenarios-ui.yml" up -d
 fi
