@@ -5,6 +5,7 @@ from io import BytesIO
 from pathlib import Path
 from requests.exceptions import HTTPError
 import streamlit as st
+from modules.logging import get_session_logger
 from modules.nav import SidebarNav
 from modules.config import retrieve_ui_config
 from modules.rerun import RefreshHandler
@@ -17,13 +18,11 @@ from modules.visualisation import OutputInterface
 import time
 from json import JSONDecodeError
 import json
-from modules.client import ClientInterface
-import logging
 
 from pages.components.output import generate_eltcalc_fragment, generate_leccalc_fragment, generate_pltcalc_fragment, model_summary, summarise_inputs, generate_aalcalc_fragment
-from pages.components.process import enrich_analyses, enrich_portfolios
+from pages.components.process import add_model_names_to_models, add_model_names_to_models_cached, enrich_analyses, enrich_portfolios
 
-logger = logging.getLogger(__name__)
+logger = get_session_logger()
 
 ##########################################################################################
 # Header
@@ -82,7 +81,9 @@ with create_container:
     'Select an event scenarios by clicking the grey box on the left side of the table.'
 
     models = client_interface.models.get(df=True)
-    display_cols = [ 'model_id', 'supplier_id' ]
+    models = models.set_index('id', drop=False)
+    models = add_model_names_to_models_cached(models, client_interface)
+    display_cols = [ 'model_name', 'supplier_id' ]
 
     model_view = DataframeView(models, selectable='single', display_cols=display_cols)
     selected_model = model_view.display()
@@ -203,6 +204,8 @@ with run_container:
         analyses = client_interface.analyses.get(df=True)
         portfolios = client_interface.portfolios.get(df=True)
         models = client_interface.models.get(df=True)
+        models = models.set_index('id', drop=False)
+        models = add_model_names_to_models_cached(models, client_interface)
 
         completed_statuses = ['RUN_COMPLETED', 'RUN_CANCELLED', 'RUN_ERROR']
         running_statuses = ['RUN_QUEUED', 'RUN_STARTED']
@@ -216,7 +219,7 @@ with run_container:
         analyses = analyses[analyses['status'].isin(valid_statuses)]
         analyses = enrich_analyses(analyses, portfolios, models).sort_values('id', ascending=False)
 
-        display_cols = ['name', 'portfolio_name', 'model_id', 'model_supplier', 'status']
+        display_cols = ['name', 'portfolio_name', 'model_name', 'model_supplier', 'status']
 
         analyses_view = DataframeView(analyses, display_cols=display_cols, selectable='single')
         selected = analyses_view.display()
