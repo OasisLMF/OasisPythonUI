@@ -7,6 +7,9 @@ echo "WIPE: $WIPE"
 echo "UPDATE_SCENARIOS: $UPDATE_SCENARIOS"
 echo "MODELS_PATH: $MODELS_PATH"
 
+# clear up space on device
+docker system prune --volumes
+
 if [[ "$WIPE" = 'true' ]] && [[ "$DEPLOY_ALL" = 'false' ]]; then
   echo "WIPE without DEPLOY_ALL not allowed."
   exit 1
@@ -42,3 +45,6 @@ if [[ "$DEPLOY_ALL" = 'true' ]]; then
   docker compose -f "$UI_PATH/oasis-scenarios-platform.yml" up -d --no-build
   docker compose -f "$UI_PATH/oasis-scenarios-ui.yml" up -d --no-build
 fi
+
+# run cleanup
+docker system prune --volumes
