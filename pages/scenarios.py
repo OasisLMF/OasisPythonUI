@@ -242,13 +242,17 @@ with run_container:
         msg = validations.get_message()
 
         columns = st.columns([0.25, 0.25, 0.25, 0.25])
+        columns = st.columns([0.5, 0.5])
 
+        run_started = False
         with columns[0]:
             if st.button('Run', disabled = not run_enabled, help=msg, use_container_width=True):
                 model_id = client_interface.models.get(selected['model'])['model_id']
                 analysis_settings = get_analyses_settings(model_name_id = model_id)[0]
+
                 with open(analysis_settings, 'r') as f:
                     analysis_settings = json.load(f)
+
                 if len(oed_group) > 0:
                     oed_group_codes = [group_to_code[g] for g in oed_group]
                     if analysis_settings.get('gul_output', False):
@@ -260,7 +264,8 @@ with run_container:
 
                 try:
                     client_interface.upload_settings(selected['id'], analysis_settings)
-                except (JSONDecodeError, HTTPError) as _:
+                except (JSONDecodeError, HTTPError) as e:
+                    logger.error(e)
                     st.error('Failed to upload settings')
 
                 try:
@@ -269,12 +274,16 @@ with run_container:
                     else:
                         client_interface.run(selected['id'])
 
-                    st.success("Run started.")
-                    time.sleep(0.5)
+                    run_started = True
 
-                    re_handler.start(selected['id'], completed_statuses)
                 except HTTPError as _:
                     st.error('Starting run failed.')
+
+        if run_started:
+            st.success("Run started.")
+            time.sleep(0.5)
+            run_started = False
+            re_handler.start(selected['id'], completed_statuses)
 
         # Download button
         @st.dialog("Output", width="large")
