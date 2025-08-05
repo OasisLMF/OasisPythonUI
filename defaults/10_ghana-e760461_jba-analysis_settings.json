@@ -5,7 +5,6 @@
                 "aalcalc": true,
                 "eltcalc": true,
                 "id": 1,
-                "oed_fields": ["LocNumber", "CountryCode"],
                 "return_period_file": false,
                 "lec_output": false,
                 "leccalc": {

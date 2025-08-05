@@ -230,7 +230,7 @@ with run_container:
             'Location': 'LocNumber'
         }
 
-        valid_statuses = ['NEW', 'READY', 'RUN_CANCELLED', 'RUN_ERROR']
+        valid_statuses = ['NEW', 'READY', 'RUN_CANCELLED', 'RUN_ERROR', 'RUN_COMPLETED']
         validations = ValidationGroup()
         validations.add_validation(NotNoneValidation('Analysis'), selected)
         validations.add_validation(KeyInValuesValidation('Status'), selected, 'status', valid_statuses)
@@ -307,10 +307,11 @@ with run_container:
             # Graphs from output
 
             @st.cache_data(show_spinner="Fetching output data...")
-            def get_output_file(analysis_id):
+            def get_output_file(analysis_id, modified_time): # don't use cache if analysis modified
                 return ci.analyses.get_file(analysis_id, 'output_file', df=True)
 
-            results_dict = get_output_file(analysis_id)
+            modified_time = ci.analyses.get(analysis_id).get('modified', None)
+            results_dict = get_output_file(analysis_id, modified_time)
             output_interface = OutputInterface(results_dict)
 
             for p in ['gul', 'il', 'ri']:
