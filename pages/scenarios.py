@@ -69,9 +69,8 @@ create_container = st.container(border=True)
 '## Run Analysis'
 'New analyses and previously executed analyses are shown in the table below.'
 "Previously executed analyses will have a status of 'Run Completed' and the outputs can be viewed by clicking the 'Show Output' button."
-"New analyses will have a status of 'Ready' and the analysis can be executed by clicking on the button 'Run'."
+"New analyses will have a status of 'Ready'. The group fields and number of samples analysis settings can be set and the analysis can be executed by clicking on the button 'Run'."
 'The ability to group output by country, portfolio and/or location depends on the level of data in the loaded portfolio.'
-'The number of samples per event can also be set prior to running the analysis.'
 
 run_container = st.container(border=True)
 
@@ -232,16 +231,20 @@ with run_container:
                 'model_name': 'Scenarios Footprint',
                 'supplier_id': 'Supplier'
                 }
+
         analyses_view = DataframeView(analyses, display_cols=display_cols, selectable='single',
                                       column_config=column_config)
         selected = analyses_view.display()
+
+        # Set subset of analysis settings
+        st.write("**Analysis Settings:**")
 
         cols = st.columns([0.5, 0.5])
 
         oed_group = cols[0].pills("Group Output by:",
                              [ "Portfolio", "Country", "Location"], selection_mode="multi")
 
-        number_of_samples = cols[1].number_input('Number of Samples:', min_value=1,
+        number_of_samples = cols[1].number_input('Number of Samples per event:', min_value=1,
                                             max_value=1000, value=10)
 
         group_to_code = {
@@ -310,12 +313,13 @@ with run_container:
         # Download button
         @st.dialog("Output", width="large")
 
-        def display_outputs(ci, analysis_id):
+        def display_outputs(ci, analysis_id, model_id):
             st.markdown('# Analysis Summary')
             st.markdown('This section summarises the input data for this analysis, including the total values contained in the portfolio, and analysis / output settings.')
             locations = ci.analyses.get_file(analysis_id, 'input_file', df=True)['location.csv']
-            a_settings = client.analyses.settings.get(analysis_id).json()
-            summarise_inputs(locations, a_settings)
+            a_settings = ci.analyses.settings.get(analysis_id)
+            model_settings = ci.models.settings.get(model_id)
+            summarise_inputs(locations, a_settings, model_settings)
 
 
             st.markdown('# Results Summary')
@@ -396,7 +400,7 @@ with run_container:
 
         with columns[1]:
             if st.button("Show Output", use_container_width=True, disabled = not download_enabled):
-                display_outputs(client_interface, selected["id"])
+                display_outputs(client_interface, selected["id"], selected['model'])
 
 
     if len(client_interface.analyses.get()) == 0:

@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 from math import log10
 
 from pages.components.display import DataframeView, MapView
+from pages.components.common import PERSPECTIVES_MAP
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +32,8 @@ def summarise_locations(locations):
 def summarise_model_settings(model_settings):
     return pd.DataFrame([pd.Series(model_settings)])
 
-def summarise_analysis_settings(analysis_settings):
-    summary = pd.Series()
+def summarise_analysis_settings(analysis_settings, model_settings=None):
+    summary = {}
 
     # add model details
     keys = ['model_name_id', 'model_supplier_id', 'number_of_samples']
@@ -41,10 +42,19 @@ def summarise_analysis_settings(analysis_settings):
         if val:
             summary[k] = val
 
+    # supplement with name
+    if model_settings and model_settings.get('name'):
+        summary['model_name_id'] = model_settings.get('name')
+
+    # rename keys
+    summary['Model Name'] = summary.pop('model_name_id')
+    summary['Supplier'] = summary.pop('model_supplier_id')
+    summary['Number of Samples'] = summary.pop('number_of_samples')
+
     # perspectives summary
     perspectives = ['gul', 'il', 'ri']
     active_perspectives = [p for p in perspectives if analysis_settings.get(f'{p}_output', False)]
-    summary['perspectives'] = active_perspectives
+    summary['perspectives'] = [PERSPECTIVES_MAP[p] for p in active_perspectives]
 
     return pd.DataFrame([summary])
 
@@ -176,7 +186,7 @@ def summarise_summary_level(summary_level_settings):
     curr_summary['level_id'] = summary_level_settings['id']
     return curr_summary
 
-def summarise_inputs(locations=None, analysis_settings=None, title_prefix='##'):
+def summarise_inputs(locations=None, analysis_settings=None, model_settings=None, title_prefix='##'):
     if locations is None and analysis_settings is None:
         st.info('No locations or analysis settings.')
 
@@ -188,7 +198,7 @@ def summarise_inputs(locations=None, analysis_settings=None, title_prefix='##'):
 
     if analysis_settings is not None:
         st.markdown(f'{title_prefix} Analysis Settings')
-        a_settings_summary = summarise_analysis_settings(analysis_settings)
+        a_settings_summary = summarise_analysis_settings(analysis_settings, model_settings)
         a_settings_summary = DataframeView(a_settings_summary)
         a_settings_summary.column_config['perspectives'] = st.column_config.ListColumn('Perspectives')
         a_settings_summary.display()
@@ -203,7 +213,7 @@ def summarise_inputs(locations=None, analysis_settings=None, title_prefix='##'):
     if analysis_settings is not None:
         st.markdown(f'{title_prefix} Output Settings')
         perspectives = ["gul", "il", "ri"]
-        tabs = st.tabs([p.upper() for p in perspectives])
+        tabs = st.tabs([PERSPECTIVES_MAP[p] for p in perspectives if analysis_settings.get(f"{p}_output")])
         for p, t in zip(perspectives, tabs):
             with t:
                 summaries = analysis_settings.get(f"{p}_summaries", None)
