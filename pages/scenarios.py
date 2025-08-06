@@ -71,6 +71,7 @@ create_container = st.container(border=True)
 "Previously executed analyses will have a status of 'Run Completed' and the outputs can be viewed by clicking the 'Show Output' button."
 "New analyses will have a status of 'Ready' and the analysis can be executed by clicking on the button 'Run'."
 'The ability to group output by country, portfolio and/or location depends on the level of data in the loaded portfolio.'
+'The number of samples per event can also be set prior to running the analysis.'
 
 run_container = st.container(border=True)
 
@@ -235,8 +236,13 @@ with run_container:
                                       column_config=column_config)
         selected = analyses_view.display()
 
-        oed_group = st.pills("Group output by:",
+        cols = st.columns([0.5, 0.5])
+
+        oed_group = cols[0].pills("Group Output by:",
                              [ "Portfolio", "Country", "Location"], selection_mode="multi")
+
+        number_of_samples = cols[1].number_input('Number of Samples:', min_value=1,
+                                            max_value=1000, value=10)
 
         group_to_code = {
             'Portfolio': 'PortNumber',
@@ -275,6 +281,8 @@ with run_container:
                         analysis_settings['il_summaries'][0]['oed_fields'] = oed_group_codes
                     if analysis_settings.get('ri_output', False):
                         analysis_settings['ri_summaries'][0]['oed_fields'] = oed_group_codes
+
+                analysis_settings['number_of_samples'] = number_of_samples
 
                 try:
                     client_interface.upload_settings(selected['id'], analysis_settings)
