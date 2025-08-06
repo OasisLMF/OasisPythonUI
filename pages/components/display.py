@@ -5,6 +5,11 @@ import streamlit as st
 import pydeck as pdk
 import plotly.express as px
 import geopandas
+from streamlit import column_config
+
+from modules.logging import get_session_logger
+
+logger = get_session_logger()
 
 class View:
     '''
@@ -46,7 +51,8 @@ class DataframeView(View):
     display_cols : list[str]
                    The names of the columns to display. By default displays all the columns.
     '''
-    def __init__(self, data=None, selectable=False, display_cols=None, hide_index=True):
+    def __init__(self, data=None, selectable=False, display_cols=None, hide_index=True,
+                 column_config=None):
         if data is None:
             data = pd.DataFrame(columns=display_cols)
         self.data = data
@@ -60,11 +66,18 @@ class DataframeView(View):
         self.display_cols = display_cols
 
         self.column_config = {col_name: None for col_name in data.columns}
+
+        if column_config is not None:
+            self.column_config.update(column_config)
+
         for c in display_cols:
+            if self.column_config.get(c, None) is not None:
+                continue
             if 'TIV' in c:
                 self.column_config[c] = st.column_config.TextColumn(c)
             else:
                 self.column_config[c] = st.column_config.TextColumn(self.format_column_heading(c))
+
 
     def display(self, max_rows=1000, key=None):
         '''
@@ -119,6 +132,7 @@ class DataframeView(View):
             data_styled = data_styled.style.format(format_status, subset=['status'])
             data_styled = data_styled.map(colour_status, subset=['status'])
 
+        logger.info(args)
         ret = st.dataframe(data_styled, **args)
 
         if n_rows > max_rows:

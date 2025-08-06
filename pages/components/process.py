@@ -1,5 +1,12 @@
 from oasis_data_manager.errors import OasisException
 import pandas as pd
+from requests.models import HTTPError
+import streamlit as st
+
+from modules.client import ClientInterface
+from modules.logging import get_session_logger
+
+logger = get_session_logger()
 
 def number_rows(portfolio_ids, client_interface, filename='location_file', col_name='number_rows'):
     data = {'id': [], col_name: []}
@@ -51,7 +58,10 @@ def enrich_analyses_with_portfolios(analyses, portfolios):
     return analyses
 
 def enrich_analyses_with_models(analyses, models):
-    models = models[['id', 'model_id', 'supplier_id']].rename(columns={'supplier_id': 'model_supplier'})
+    cols = ['id', 'model_id', 'supplier_id']
+    if 'model_name' in models:
+        cols += ['model_name']
+    models = models[cols].rename(columns={'supplier_id': 'model_supplier'})
     analyses = analyses.set_index('model').join(models.set_index('id')).reset_index(names='model')
 
     return analyses
@@ -66,3 +76,33 @@ def enrich_analyses(analyses, portfolios=None, models=None):
         analyses = enrich_analyses_with_models(analyses, models)
 
     return analyses
+
+
+@st.cache_data(ttl="1d", hash_funcs={ClientInterface: lambda ci: ci.client.api.tkn_access})
+def add_model_names_to_models_cached(models: pd.DataFrame,
+                                     ci: ClientInterface,
+                                     col_name='model_name'):
+    return add_model_names_to_models(models, ci, col_name)
+
+
+def add_model_names_to_models(models, ci, col_name='model_name'):
+    '''Add the model names to models. Note the model `id` should be the index of the models.
+
+    Args:
+        models (DataFrame): dataframe containing models endpoint output
+        ci (ClientInterface): intialised client interface
+        col_name (str) : column name for model names
+    '''
+    models[col_name] = ''
+    for model_id, _ in models.iterrows():
+        logger.info(model_id)
+        try:
+            models.at[model_id, col_name] = ci.models.settings.get(model_id).get('name', None)
+        except HTTPError as _:
+            models.at[model_id, col_name] = None
+            logger.warning(f'No settings for model_id: {model_id}')
+
+    models[col_name] = models[col_name].fillna(models['model_id'])
+
+    return models
+

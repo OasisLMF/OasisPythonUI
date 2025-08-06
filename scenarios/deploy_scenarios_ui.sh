@@ -8,7 +8,7 @@ echo "UPDATE_SCENARIOS: $UPDATE_SCENARIOS"
 echo "MODELS_PATH: $MODELS_PATH"
 
 # clear up space on device
-docker system prune --volumes
+docker system prune --volumes -f
 
 if [[ "$WIPE" = 'true' ]] && [[ "$DEPLOY_ALL" = 'false' ]]; then
   echo "WIPE without DEPLOY_ALL not allowed."
@@ -25,7 +25,7 @@ fi
 if [[ "$DEPLOY_UI" = 'true' ]] && [[ "$DEPLOY_ALL" != 'true' ]]; then
   git -C "$UI_PATH" pull
   docker image pull coreoasis/oasis_scenarios
-  docker compose -f "$UI_PATH/oasis-scenarios-ui.yml" up -d
+  docker compose -f "$UI_PATH/oasis-scenarios-ui.yml" up -d --no-build
 fi
 
 if [[ "$DEPLOY_ALL" = 'true' ]]; then
@@ -47,4 +47,4 @@ if [[ "$DEPLOY_ALL" = 'true' ]]; then
 fi
 
 # run cleanup
-docker system prune --volumes
+docker system prune --volumes -f
