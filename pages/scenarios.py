@@ -84,8 +84,12 @@ with create_container:
     models = models.set_index('id', drop=False)
     models = add_model_names_to_models_cached(models, client_interface)
     display_cols = [ 'model_name', 'supplier_id' ]
+    column_config = {
+            'model_name': 'Scenarios Footprint',
+            'supplier_id': 'Supplier'
+            }
 
-    model_view = DataframeView(models, selectable='single', display_cols=display_cols)
+    model_view = DataframeView(models, selectable='single', display_cols=display_cols, column_config=column_config)
     selected_model = model_view.display()
 
     'Currently, it is not possible to add your own scenarios directly; please describe any scenario you would like to add as a Github issue [here](https://github.com/OasisLMF/OasisPythonUI/issues).'
@@ -222,7 +226,13 @@ with run_container:
         display_cols = ['name', 'status', 'portfolio_name', 'model_name', 'model_supplier']
 
 
-        analyses_view = DataframeView(analyses, display_cols=display_cols, selectable='single')
+        column_config = {
+                'name': 'Analysis Name',
+                'model_name': 'Scenarios Footprint',
+                'supplier_id': 'Supplier'
+                }
+        analyses_view = DataframeView(analyses, display_cols=display_cols, selectable='single',
+                                      column_config=column_config)
         selected = analyses_view.display()
 
         oed_group = st.pills("Group output by:",
