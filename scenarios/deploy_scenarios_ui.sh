@@ -8,7 +8,7 @@ echo "UPDATE_SCENARIOS: $UPDATE_SCENARIOS"
 echo "MODELS_PATH: $MODELS_PATH"
 
 # clear up space on device
-docker system prune --volumes
+docker system prune --volumes -f
 
 if [[ "$WIPE" = 'true' ]] && [[ "$DEPLOY_ALL" = 'false' ]]; then
   echo "WIPE without DEPLOY_ALL not allowed."
@@ -47,4 +47,4 @@ if [[ "$DEPLOY_ALL" = 'true' ]]; then
 fi
 
 # run cleanup
-docker system prune --volumes
+docker system prune --volumes -f

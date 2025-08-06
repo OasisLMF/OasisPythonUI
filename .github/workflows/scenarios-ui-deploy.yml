@@ -29,7 +29,7 @@ env:
 
 jobs:
   deploy:
-    name: Testing
+    name: deploy
     runs-on: ubuntu-latest
     steps:
     - name: Set inputs
