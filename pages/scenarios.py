@@ -219,7 +219,8 @@ with run_container:
         analyses = analyses[analyses['status'].isin(valid_statuses)]
         analyses = enrich_analyses(analyses, portfolios, models).sort_values('id', ascending=False)
 
-        display_cols = ['name', 'portfolio_name', 'model_name', 'model_supplier', 'status']
+        display_cols = ['name', 'status', 'portfolio_name', 'model_name', 'model_supplier']
+
 
         analyses_view = DataframeView(analyses, display_cols=display_cols, selectable='single')
         selected = analyses_view.display()
