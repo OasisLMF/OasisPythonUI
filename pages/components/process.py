@@ -95,7 +95,6 @@ def add_model_names_to_models(models, ci, col_name='model_name'):
     '''
     models[col_name] = ''
     for model_id, _ in models.iterrows():
-        logger.info(model_id)
         try:
             models.at[model_id, col_name] = ci.models.settings.get(model_id).get('name', None)
         except HTTPError as _:

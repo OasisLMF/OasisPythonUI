@@ -69,7 +69,7 @@ create_container = st.container(border=True)
 '## Run Analysis'
 'New analyses and previously executed analyses are shown in the table below.'
 "Previously executed analyses will have a status of 'Run Completed' and the outputs can be viewed by clicking the 'Show Output' button."
-"New analyses will have a status of 'Ready'. The group fields and number of samples analysis settings can be set and the analysis can be executed by clicking on the button 'Run'."
+"New analyses will have a status of 'New'. The group fields and number of samples analysis settings can be set and the analysis can be executed by clicking on the button 'Run'."
 'The ability to group output by country, portfolio and/or location depends on the level of data in the loaded portfolio.'
 
 run_container = st.container(border=True)
@@ -149,9 +149,9 @@ with create_container:
                 resp = create_analysis_form(portfolios=[selected_portfolio.to_dict()], models=[selected_model.to_dict()])
                 if resp:
                     try:
-                        with st.spinner("Generating analysis..."):
-                            resp = client_interface.create_and_generate_analysis(resp['portfolio_id'], resp['model_id'], resp['name'])
-                        st.success('Created analysis')
+                        resp = client_interface.create_analysis(resp['portfolio_id'], resp['model_id'], resp['name'])
+
+                        st.success('Created analysis.')
                         time.sleep(0.5)
                         st.rerun()
                     except OasisException as e:
@@ -198,6 +198,7 @@ with create_container:
             model_details_dialog()
 
 with run_container:
+    # Initialise refresh handler
     re_handler = RefreshHandler(client_interface)
     run_every = re_handler.run_every()
 
@@ -212,14 +213,20 @@ with run_container:
         models = add_model_names_to_models_cached(models, client_interface)
 
         completed_statuses = ['RUN_COMPLETED', 'RUN_CANCELLED', 'RUN_ERROR']
-        running_statuses = ['RUN_QUEUED', 'RUN_STARTED']
+        running_statuses = ['RUN_QUEUED', 'RUN_STARTED', 'INPUTS_GENERATION_QUEUED',
+                          'INPUTS_GENERATION_STARTED',]
 
         running_analyses = analyses[analyses['status'].isin(running_statuses)]
         if not re_handler.is_refreshing() and not running_analyses.empty:
             for analysis_id in running_analyses['id']:
                 re_handler.start(analysis_id, completed_statuses)
 
-        valid_statuses = ['NEW', 'READY', 'RUN_QUEUED', 'RUN_STARTED', 'RUN_COMPLETED', 'RUN_CANCELLED', 'RUN_ERROR']
+        valid_statuses = ['NEW', 'INPUTS_GENERATION_QUEUED',
+                          'INPUTS_GENERATION_STARTED',
+                          'INPUTS_GENERATION_CANCELLED',
+                          'INPUTS_GENERATION_ERROR', 'READY', 'RUN_QUEUED',
+                          'RUN_STARTED', 'RUN_COMPLETED', 'RUN_CANCELLED',
+                          'RUN_ERROR']
         analyses = analyses[analyses['status'].isin(valid_statuses)]
         analyses = enrich_analyses(analyses, portfolios, models).sort_values('id', ascending=False)
 
