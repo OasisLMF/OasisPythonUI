@@ -11,8 +11,9 @@ services:
       - API_URL=http://server:8000
     volumes:
       - ./defaults/:/usr/src/app/defaults/
+      - ./scenarios/assets/:/usr/src/app/assets/
       - type: bind
-        source: ./.streamlit/config-remote.toml
+        source: ./.streamlit/config-local.toml
         target: /usr/src/app/.streamlit/config.toml
       - type: bind
         source: ./.streamlit/secrets.toml

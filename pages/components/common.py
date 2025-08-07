@@ -1,6 +1,9 @@
 """
 File containig some common methods for `pages/`.
 """
+import streamlit as st
+from urllib.parse import urlparse
+from pathlib import PurePosixPath
 
 PERSPECTIVES_MAP = {
         'gul': 'Group-up loss',
@@ -20,3 +23,8 @@ STATUS_COLORS = {
         'INPUTS_GENERATION_CANCELLED': 'darkred',
         'INPUTS_GENERATION_ERROR': 'darkred'
         }
+
+def get_page_path():
+    """Get the current page path from streamlit context.
+    """
+    return PurePosixPath(urlparse(st.context.url).path).parts[-1]

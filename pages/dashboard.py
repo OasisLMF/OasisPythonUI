@@ -6,6 +6,7 @@ from modules.authorisation import validate_page
 import pandas as pd
 import altair as alt
 
+from pages.components.footer import generate_footer
 from pages.components.output import generate_alt_fragment, generate_eltcalc_fragment, generate_qplt_fragment
 from pages.components.output import generate_leccalc_fragment, generate_melt_fragment, generate_mplt_fragment
 from pages.components.output import generate_pltcalc_fragment, generate_qelt_fragment, summarise_inputs
@@ -37,6 +38,7 @@ selected_analysis = st.selectbox("Select Analysis", options=analyses,
                         format_func= lambda x : x['name'], index=None)
 
 if selected_analysis is None:
+    generate_footer(ui_config)
     st.stop()
 
 analysis_id = selected_analysis['id']
@@ -154,3 +156,5 @@ with st.spinner("Loading visualisations..."):
             expander = st.expander("EPT Output")
             with expander:
                 generate_ept_fragment(p, vis)
+
+generate_footer(ui_config)

@@ -4,6 +4,7 @@ import logging
 
 def get_session_logger(log_level=logging.INFO):
     if 'logger' not in st.session_state:
+        logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
         logger = logging.getLogger(__name__)
         logger.addHandler(logging.StreamHandler())
         logger.setLevel(log_level)

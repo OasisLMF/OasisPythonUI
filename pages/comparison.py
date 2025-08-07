@@ -6,6 +6,7 @@ from modules.nav import SidebarNav
 from modules.config import retrieve_ui_config
 from modules.validation import LenValidation, NotNoneValidation, ValidationGroup
 from pages.components.display import DataframeView
+from pages.components.footer import generate_footer
 from pages.components.output import generate_aalcalc_comparison_fragment, generate_leccalc_comparison_fragment
 from pages.components.output import generate_eltcalc_comparison_fragment, summarise_inputs
 
@@ -71,6 +72,7 @@ validations.add_validation(len_validation, selected, 2)
 
 if not validations.is_valid():
     st.info(validations.message)
+    generate_footer(ui_config)
     st.stop()
 
 selected = pd.DataFrame(selected)
@@ -189,3 +191,5 @@ for p in perspectives:
                 lec_outputs[k] = True
         generate_leccalc_comparison_fragment(p, outputs, lec_outputs,
                                              names=names)
+
+generate_footer(ui_config)

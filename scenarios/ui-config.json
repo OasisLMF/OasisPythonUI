@@ -21,5 +21,12 @@
     "Nepal-E505423": ["nepal-flood-flat"],
     "France-Hail": ["france-hail-flat"]
   },
+  "footer" : {
+    "path": "assets/footer.md",
+    "pages": [
+      "scenarios",
+      "comparison"
+    ]
+  },
   "skip_login": true
 }

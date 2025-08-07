@@ -12,6 +12,7 @@ from modules.rerun import RefreshHandler
 from modules.settings import get_analyses_settings
 from pages.components.display import DataframeView, MapView
 from pages.components.create import create_analysis_form
+from pages.components.footer import generate_footer
 from pages.components.output import valid_locations
 from modules.validation import KeyInValuesValidation, NotNoneValidation, ValidationGroup, IsNoneValidation
 from modules.visualisation import OutputInterface
@@ -412,7 +413,10 @@ with run_container:
 
     if len(client_interface.analyses.get()) == 0:
         st.error("No analyses found.")
+        generate_footer(ui_config)
         st.stop()
     analysis_fragment()
     if run_every is not None:
         st.info('Analysis running.')
+
+generate_footer(ui_config)
