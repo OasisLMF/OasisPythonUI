@@ -124,11 +124,13 @@ with create_container:
     selected_model_id = selected_model['model_id'] if selected_model is not None else None
     if selected_model_id:
         portfolios = filter_valid_rows(portfolios, selected_model_id, model_map, "name")
-        portfolios = enrich_portfolios(portfolios, client_interface, disable=['acc'])
+        portfolios = enrich_portfolios(portfolios, client_interface, disable=['files'])
 
-        display_cols = ['name', 'number_locations']
+        display_cols = ['name', 'number_locations', 'number_accounts']
+        portfolios['number_accounts'] = portfolios['number_accounts'].fillna('No accounts file')
 
-        portfolio_view = DataframeView(portfolios, display_cols=display_cols, selectable='single')
+        portfolio_view = DataframeView(portfolios, display_cols=display_cols, selectable='single',
+                                       column_config=column_config)
         selected_portfolio = portfolio_view.display()
     else:
         st.info("Please select a model.")

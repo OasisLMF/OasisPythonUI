@@ -31,22 +31,38 @@ def number_locations(portfolio_ids, client_interface):
 def number_accounts(portfolio_ids, client_interface):
     return number_rows(portfolio_ids, client_interface, filename='accounts_file', col_name='number_accounts')
 
+def portfolio_files(portfolios):
+    enriched = portfolios['id'].to_frame()
+    st.write(portfolios)
+    enriched['contains_location'] = portfolios['location_file.stored'].notna()
+    enriched['contains_accounts'] = portfolios['accounts_file.stored'].notna()
+    enriched['contains_ri_info'] = portfolios['reinsurance_info_file.stored'].notna()
+    enriched['contains_ri_scope'] = portfolios['reinsurance_scope_file.stored'].notna()
+    return enriched
+
+
 def enrich_portfolios(portfolios, client_interface,
                       disable=[]):
-    enriched = None
+    """Enrich portfolios dataframe with additional columns. Each new column is given a key which can be disabled with the `disable` kwarg. The columns added and keys are listed below:
+
+    'loc': 'number_locations'
+    'acc': 'number_accounts'
+    'files': ['contains_location', 'contains_accounts', 'contains_ri_info', 'contains_ri_scope']
+    """
+    enriched = []
     if 'loc' not in disable:
         _n_loc_df = number_locations(portfolios[portfolios['location_file.stored'].notna()]['id'], client_interface)
-        enriched = _n_loc_df.set_index('id')
+        enriched.append(_n_loc_df.set_index('id'))
     if 'acc' not in disable:
         _n_acc_df = number_accounts(portfolios[portfolios['accounts_file.stored'].notna()]['id'], client_interface)
         _n_acc_df = _n_acc_df.set_index('id')
-        if enriched is None:
-            enriched = _n_acc_df
-        else:
-            enriched = enriched.join(_n_acc_df)
+        enriched.append(_n_acc_df)
 
-    if enriched is not None:
-        portfolios =  portfolios.set_index('id').join(enriched).reset_index(names='id')
+    if 'files' not in disable:
+        enriched.append(portfolio_files(portfolios).set_index('id'))
+
+    if enriched:
+        portfolios = portfolios.set_index('id').join(enriched).reset_index(names='id')
 
     return portfolios
 
