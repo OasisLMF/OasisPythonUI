@@ -128,14 +128,26 @@ def get_locations_file(ID):
 def merge_locations(locations_1, locations_2):
     if locations_1 is None or locations_2 is None:
         return None
-    locations_1 = locations_1[['LocNumber', 'Longitude', 'Latitude']]
-    locations_2 = locations_2[['LocNumber', 'Longitude', 'Latitude']]
+
+    filter_cols = {'LocNumber', 'Longitude', 'Latitude', 'CountryCode'}
+
+    filter_cols = filter_cols.intersection(locations_1.columns)
+    filter_cols = filter_cols.intersection(locations_2.columns)
+    filter_cols = list(filter_cols)
+
+    locations_1 = locations_1[filter_cols]
+    locations_2 = locations_2[filter_cols]
 
     locations = pd.merge(left=locations_1, right=locations_2, how='outer',
                          on='LocNumber', suffixes=('_left', '_right'))
-    locations['Latitude'] = locations[['Latitude_left', 'Latitude_right']].mean(axis=1)
-    locations['Longitude'] = locations[['Longitude_left', 'Longitude_right']].mean(axis=1)
-    locations = locations[['LocNumber', 'Latitude', 'Longitude']]
+
+    if 'Latitude' in filter_cols:
+        locations['Latitude'] = locations[['Latitude_left', 'Latitude_right']].mean(axis=1)
+    if 'Longitude' in filter_cols:
+        locations['Longitude'] = locations[['Longitude_left', 'Longitude_right']].mean(axis=1)
+    if 'CountryCode' in filter_cols:
+        locations['CountryCode'] = locations['CountryCode_left']
+    locations = locations[filter_cols]
     return locations
 
 perspectives = ['gul', 'il', 'ri']

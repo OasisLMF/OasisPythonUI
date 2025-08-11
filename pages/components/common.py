@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 from pathlib import PurePosixPath
 
 PERSPECTIVES_MAP = {
-        'gul': 'Group-up loss',
+        'gul': 'Ground-up loss',
         'il': 'Insured loss',
         'ri': 'Reinsured loss'
         }
