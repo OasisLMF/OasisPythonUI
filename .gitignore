@@ -5,6 +5,9 @@ OasisPiWind/
 .streamlit/secrets.toml
 .streamlit/secrets.sh
 
+# tmp
+tmp/
+
 # Act files
 .actrc
 *.env
