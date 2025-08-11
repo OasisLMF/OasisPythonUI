@@ -1244,11 +1244,9 @@ def shared_oed_fields(p, outputs):
     if not any(oed_fields):
         return []
 
-    output = set()
-    for fields in oed_fields:
-        if fields is not None:
-            output = set(fields) & output
-    return list(output)
+    oed_fields = [fields if fields is not None else [] for fields in oed_fields]
+
+    return list(set(oed_fields[0]).intersection(oed_fields[1]))
 
 def generate_aalcalc_comparison_fragment(p, outputs, names = None):
     results = [o.get(1, p, 'aalcalc') for o in outputs]
