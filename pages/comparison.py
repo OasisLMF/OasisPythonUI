@@ -5,6 +5,7 @@ import pandas as pd
 from modules.nav import SidebarNav
 from modules.config import retrieve_ui_config
 from modules.validation import LenValidation, NotNoneValidation, ValidationGroup
+from pages.components.common import PERSPECTIVES_MAP
 from pages.components.display import DataframeView
 from pages.components.footer import generate_footer
 from pages.components.output import generate_aalcalc_comparison_fragment, generate_leccalc_comparison_fragment
@@ -166,7 +167,7 @@ for p in perspectives:
     no_outputs = True
     for output in supported_outputs:
         if all([s.get(output, False) for s in summaries]):
-            st.write(f"## {p.upper()} Output")
+            st.write(f"## {PERSPECTIVES_MAP[p]} Output")
             no_outputs = False
             break
 

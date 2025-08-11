@@ -1,0 +1,22 @@
+,tile_number,tile_width_longitudes,example_area
+0,1,360.0,whole world
+1,4,180.0,
+2,16,90.0,subcontinental area
+3,64,45.0,largest country
+4,256,22.5,
+5,1024,11.25,large African country
+6,4096,5.625,large European country
+7,16384,2.813,"small country, US state"
+8,65536,1.406,
+9,262144,0.703,"wide area, large metropolitan area"
+10,1048576,0.352,metropolitan area
+11,4194304,0.176,city
+12,16777216,0.088,"town, or city district"
+13,67108864,0.044,"village, or suburb"
+14,268435456,0.022,
+15,1073741824,0.011,small road
+16,4294967296,0.005,street
+17,17179869184,0.003,"block, park, addresses"
+18,68719476736,0.001,"some buildings, trees"
+19,274877906944,0.0005,local highway and crossing details
+20,1099511627776,0.00025,A mid-sized building
