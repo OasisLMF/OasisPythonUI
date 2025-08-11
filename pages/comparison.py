@@ -127,6 +127,8 @@ def get_locations_file(ID):
 
 @st.cache_data
 def merge_locations(locations_1, locations_2):
+    '''Concatenate locations for comparison and add `loc_analysis_id` identifier.
+    '''
     if locations_1 is None or locations_2 is None:
         return None
 
@@ -139,16 +141,11 @@ def merge_locations(locations_1, locations_2):
     locations_1 = locations_1[filter_cols]
     locations_2 = locations_2[filter_cols]
 
-    locations = pd.merge(left=locations_1, right=locations_2, how='outer',
-                         on='LocNumber', suffixes=('_left', '_right'))
+    locations_1['loc_analysis_id'] = 1
+    locations_2['loc_analysis_id'] = 2
 
-    if 'Latitude' in filter_cols:
-        locations['Latitude'] = locations[['Latitude_left', 'Latitude_right']].mean(axis=1)
-    if 'Longitude' in filter_cols:
-        locations['Longitude'] = locations[['Longitude_left', 'Longitude_right']].mean(axis=1)
-    if 'CountryCode' in filter_cols:
-        locations['CountryCode'] = locations['CountryCode_left']
-    locations = locations[filter_cols]
+    locations = pd.concat([locations_1, locations_2])
+
     return locations
 
 perspectives = ['gul', 'il', 'ri']

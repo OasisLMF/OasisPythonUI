@@ -507,14 +507,17 @@ def eltcalc_table(eltcalc_result, perspective, oed_fields=None, show_cols=None,
         table_view.display()
 
 def eltcalc_map(map_df, locations, oed_fields=[], map_type=None,
-                intensity_col='mean'):
+                intensity_col='mean', group_fields=None):
     '''
     Generate MapView of output of eltcalc. Either `heatmap` or `choropleth` depending on portfolio.
     '''
-    map_df = map_df[[intensity_col] + oed_fields]
+    if group_fields is None:
+        group_fields = []
+
+    map_df = map_df[[intensity_col] + oed_fields + group_fields]
 
     if map_type == 'choropleth':
-        group_fields = ['CountryCode']
+        group_fields += ['CountryCode']
         map_df = elt_group_fields(map_df, group_fields, categorical_cols=oed_fields)
 
         mv = MapView(map_df, weight=intensity_col, map_type="choropleth")
@@ -522,7 +525,8 @@ def eltcalc_map(map_df, locations, oed_fields=[], map_type=None,
         return
 
     if map_type == 'heatmap':
-        group_fields = ['LocNumber']
+        group_fields += ['LocNumber']
+
         map_df = elt_group_fields(map_df, group_fields, categorical_cols=oed_fields)
 
         loc_reduced = locations[['LocNumber', 'Longitude', 'Latitude']]
@@ -1310,6 +1314,7 @@ def generate_eltcalc_comparison_fragment(perspective, outputs, names=None,
     for i in range(len(results)):
         results[i] = results[i][results[i]['type'] == selected_type]
         results[i]['name'] = names[i] if names[i] else f'Analysis {i+1}'
+        results[i]['loc_analysis_id'] = i + 1
 
 
     name_map = {i: names[i] for i in range(2)}
@@ -1351,4 +1356,4 @@ def generate_eltcalc_comparison_fragment(perspective, outputs, names=None,
             map_type = 'choropleth'
 
         eltcalc_map(result, locations, oed_fields, map_type=map_type,
-                    intensity_col='mean')
+                    intensity_col='mean', group_fields=['loc_analysis_id'])
