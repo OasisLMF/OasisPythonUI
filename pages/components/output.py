@@ -271,7 +271,7 @@ def model_summary(model, model_settings, detail_level="full"):
     Currently supports the following fields:
 
     ```
-    model_id : Name
+    name | model_id : Name
     supplier_id : Supplier
     model_settings
         description : Description
@@ -301,7 +301,7 @@ def model_summary(model, model_settings, detail_level="full"):
                   "minimal" only displays the model `Name`, `Supplier` and `Description`.
     """
     settings_list = [
-            {'parameter': 'Name', 'value': model.get('model_id', '')},
+            {'parameter': 'Name', 'value': model.get('model_name', model.get('model_id', ''))},
             {'parameter': 'Supplier', 'value': model.get('supplier_id', '')},
             {'parameter': 'Description', 'value': model_settings.get('description', '')},
            ]

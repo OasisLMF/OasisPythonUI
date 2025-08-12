@@ -191,7 +191,7 @@ with create_container:
         if st.button("Scenario Details", disabled=not enable_model_details,
                      help = validation.get_message(), use_container_width=True):
             try:
-                model_settings = client_interface.client.models.settings.get(selected_model['id']).json()
+                model_settings = client_interface.models.settings.get(selected_model['id'])
             except HTTPError as e:
                 logger.error(e)
                 model_settings = {}
