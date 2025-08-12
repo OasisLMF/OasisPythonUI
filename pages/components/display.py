@@ -8,6 +8,7 @@ import geopandas
 from streamlit import column_config
 
 from modules.logging import get_session_logger
+from pages.components.common import STATUS_COLORS
 
 logger = get_session_logger()
 
@@ -117,15 +118,7 @@ class DataframeView(View):
             return status.replace('_', ' ').title()
 
         def colour_status(status):
-            colour = 'black'
-            if status == 'READY':
-                colour = 'green'
-            elif status == 'RUN_STARTED':
-                colour = 'goldenrod'
-            elif status == 'RUN_COMPLETED':
-                colour = 'black'
-            elif status in ['RUN_CANCELLED', 'RUN_ERROR']:
-                colour = 'darkred'
+            colour = STATUS_COLORS.get(status, 'black')
             return f'color: {colour}'
 
         if self.status_style and 'status' in self.data.columns:

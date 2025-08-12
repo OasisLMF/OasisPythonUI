@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 from math import log10
 
 from pages.components.display import DataframeView, MapView
+from pages.components.common import PERSPECTIVES_MAP
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +32,8 @@ def summarise_locations(locations):
 def summarise_model_settings(model_settings):
     return pd.DataFrame([pd.Series(model_settings)])
 
-def summarise_analysis_settings(analysis_settings):
-    summary = pd.Series()
+def summarise_analysis_settings(analysis_settings, model_settings=None):
+    summary = {}
 
     # add model details
     keys = ['model_name_id', 'model_supplier_id', 'number_of_samples']
@@ -41,10 +42,19 @@ def summarise_analysis_settings(analysis_settings):
         if val:
             summary[k] = val
 
+    # supplement with name
+    if model_settings and model_settings.get('name'):
+        summary['model_name_id'] = model_settings.get('name')
+
+    # rename keys
+    summary['Model Name'] = summary.pop('model_name_id')
+    summary['Supplier'] = summary.pop('model_supplier_id')
+    summary['Number of Samples'] = summary.pop('number_of_samples')
+
     # perspectives summary
     perspectives = ['gul', 'il', 'ri']
     active_perspectives = [p for p in perspectives if analysis_settings.get(f'{p}_output', False)]
-    summary['perspectives'] = active_perspectives
+    summary['perspectives'] = [PERSPECTIVES_MAP[p] for p in active_perspectives]
 
     return pd.DataFrame([summary])
 
@@ -176,7 +186,7 @@ def summarise_summary_level(summary_level_settings):
     curr_summary['level_id'] = summary_level_settings['id']
     return curr_summary
 
-def summarise_inputs(locations=None, analysis_settings=None, title_prefix='##'):
+def summarise_inputs(locations=None, analysis_settings=None, model_settings=None, title_prefix='##'):
     if locations is None and analysis_settings is None:
         st.info('No locations or analysis settings.')
 
@@ -188,7 +198,7 @@ def summarise_inputs(locations=None, analysis_settings=None, title_prefix='##'):
 
     if analysis_settings is not None:
         st.markdown(f'{title_prefix} Analysis Settings')
-        a_settings_summary = summarise_analysis_settings(analysis_settings)
+        a_settings_summary = summarise_analysis_settings(analysis_settings, model_settings)
         a_settings_summary = DataframeView(a_settings_summary)
         a_settings_summary.column_config['perspectives'] = st.column_config.ListColumn('Perspectives')
         a_settings_summary.display()
@@ -203,7 +213,7 @@ def summarise_inputs(locations=None, analysis_settings=None, title_prefix='##'):
     if analysis_settings is not None:
         st.markdown(f'{title_prefix} Output Settings')
         perspectives = ["gul", "il", "ri"]
-        tabs = st.tabs([p.upper() for p in perspectives])
+        tabs = st.tabs([PERSPECTIVES_MAP[p] for p in perspectives if analysis_settings.get(f"{p}_output")])
         for p, t in zip(perspectives, tabs):
             with t:
                 summaries = analysis_settings.get(f"{p}_summaries", None)
@@ -497,14 +507,17 @@ def eltcalc_table(eltcalc_result, perspective, oed_fields=None, show_cols=None,
         table_view.display()
 
 def eltcalc_map(map_df, locations, oed_fields=[], map_type=None,
-                intensity_col='mean'):
+                intensity_col='mean', group_fields=None):
     '''
     Generate MapView of output of eltcalc. Either `heatmap` or `choropleth` depending on portfolio.
     '''
-    map_df = map_df[[intensity_col] + oed_fields]
+    if group_fields is None:
+        group_fields = []
+
+    map_df = map_df[[intensity_col] + oed_fields + group_fields]
 
     if map_type == 'choropleth':
-        group_fields = ['CountryCode']
+        group_fields += ['CountryCode']
         map_df = elt_group_fields(map_df, group_fields, categorical_cols=oed_fields)
 
         mv = MapView(map_df, weight=intensity_col, map_type="choropleth")
@@ -512,7 +525,8 @@ def eltcalc_map(map_df, locations, oed_fields=[], map_type=None,
         return
 
     if map_type == 'heatmap':
-        group_fields = ['LocNumber']
+        group_fields += ['LocNumber']
+
         map_df = elt_group_fields(map_df, group_fields, categorical_cols=oed_fields)
 
         loc_reduced = locations[['LocNumber', 'Longitude', 'Latitude']]
@@ -1234,11 +1248,9 @@ def shared_oed_fields(p, outputs):
     if not any(oed_fields):
         return []
 
-    output = set()
-    for fields in oed_fields:
-        if fields is not None:
-            output = set(fields) & output
-    return list(output)
+    oed_fields = [fields if fields is not None else [] for fields in oed_fields]
+
+    return list(set(oed_fields[0]).intersection(oed_fields[1]))
 
 def generate_aalcalc_comparison_fragment(p, outputs, names = None):
     results = [o.get(1, p, 'aalcalc') for o in outputs]
@@ -1302,6 +1314,7 @@ def generate_eltcalc_comparison_fragment(perspective, outputs, names=None,
     for i in range(len(results)):
         results[i] = results[i][results[i]['type'] == selected_type]
         results[i]['name'] = names[i] if names[i] else f'Analysis {i+1}'
+        results[i]['loc_analysis_id'] = i + 1
 
 
     name_map = {i: names[i] for i in range(2)}
@@ -1343,4 +1356,4 @@ def generate_eltcalc_comparison_fragment(perspective, outputs, names=None,
             map_type = 'choropleth'
 
         eltcalc_map(result, locations, oed_fields, map_type=map_type,
-                    intensity_col='mean')
+                    intensity_col='mean', group_fields=['loc_analysis_id'])

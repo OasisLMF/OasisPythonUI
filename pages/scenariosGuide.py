@@ -11,6 +11,7 @@ from modules.rerun import RefreshHandler
 from modules.settings import get_analyses_settings
 from pages.components.display import DataframeView, MapView
 from pages.components.create import create_analysis_form
+from pages.components.footer import generate_footer
 from pages.components.output import valid_locations
 from modules.validation import KeyInValuesValidation, NotNoneValidation, ValidationGroup, IsNoneValidation
 from modules.visualisation import OutputInterface
@@ -425,3 +426,5 @@ functions which will produce different losses and so do not reflect the company'
 
 if ui_config.skip_login:
     quiet_login()
+
+generate_footer(ui_config)

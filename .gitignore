@@ -5,6 +5,14 @@ OasisPiWind/
 .streamlit/secrets.toml
 .streamlit/secrets.sh
 
+# tmp
+tmp/
+
+# Act files
+.actrc
+*.env
+*.env
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

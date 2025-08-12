@@ -28,9 +28,9 @@
     "location_fp": "../Scenarios/ImpactForecasting/EUWS/1.0.0/tests/EUWS_200_oasis.csv",
     "accounts_fp": "../Scenarios/ImpactForecasting/EUWS/1.0.0/tests/EUWS_acc.csv"
   },
-  "tw_comp": {
-    "portfolio_name": "taiwan-comparison-test",
-    "location_fp": "../Scenarios/JBA/Philippines-Taiwan/tests/inputs/locationTW_diff3.csv"
+  "ph_comp": {
+    "portfolio_name": "phillippines-taiwan-comparison-test",
+    "location_fp": "../Scenarios/JBA/Philippines-Taiwan/tests/inputs/location_comparison.csv"
   },
   "ph_tw_flat": {
     "portfolio_name": "philippines-taiwan-typhoon-flat",

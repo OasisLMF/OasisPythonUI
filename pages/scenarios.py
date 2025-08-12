@@ -12,6 +12,7 @@ from modules.rerun import RefreshHandler
 from modules.settings import get_analyses_settings
 from pages.components.display import DataframeView, MapView
 from pages.components.create import create_analysis_form
+from pages.components.footer import generate_footer
 from pages.components.output import valid_locations
 from modules.validation import KeyInValuesValidation, NotNoneValidation, ValidationGroup, IsNoneValidation
 from modules.visualisation import OutputInterface
@@ -69,7 +70,7 @@ create_container = st.container(border=True)
 '## Run Analysis'
 'New analyses and previously executed analyses are shown in the table below.'
 "Previously executed analyses will have a status of 'Run Completed' and the outputs can be viewed by clicking the 'Show Output' button."
-"New analyses will have a status of 'Ready' and the analysis can be executed by clicking on the button 'Run'."
+"New analyses will have a status of 'New'. The group fields and number of samples analysis settings can be set and the analysis can be executed by clicking on the button 'Run'."
 'The ability to group output by country, portfolio and/or location depends on the level of data in the loaded portfolio.'
 
 run_container = st.container(border=True)
@@ -123,11 +124,13 @@ with create_container:
     selected_model_id = selected_model['model_id'] if selected_model is not None else None
     if selected_model_id:
         portfolios = filter_valid_rows(portfolios, selected_model_id, model_map, "name")
-        portfolios = enrich_portfolios(portfolios, client_interface, disable=['acc'])
+        portfolios = enrich_portfolios(portfolios, client_interface, disable=['files'])
 
-        display_cols = ['name', 'number_locations']
+        display_cols = ['name', 'number_locations', 'number_accounts']
+        portfolios['number_accounts'] = portfolios['number_accounts'].fillna('No accounts file')
 
-        portfolio_view = DataframeView(portfolios, display_cols=display_cols, selectable='single')
+        portfolio_view = DataframeView(portfolios, display_cols=display_cols, selectable='single',
+                                       column_config=column_config)
         selected_portfolio = portfolio_view.display()
     else:
         st.info("Please select a model.")
@@ -149,9 +152,9 @@ with create_container:
                 resp = create_analysis_form(portfolios=[selected_portfolio.to_dict()], models=[selected_model.to_dict()])
                 if resp:
                     try:
-                        with st.spinner("Generating analysis..."):
-                            resp = client_interface.create_and_generate_analysis(resp['portfolio_id'], resp['model_id'], resp['name'])
-                        st.success('Created analysis')
+                        resp = client_interface.create_analysis(resp['portfolio_id'], resp['model_id'], resp['name'])
+
+                        st.success('Created analysis.')
                         time.sleep(0.5)
                         st.rerun()
                     except OasisException as e:
@@ -198,6 +201,7 @@ with create_container:
             model_details_dialog()
 
 with run_container:
+    # Initialise refresh handler
     re_handler = RefreshHandler(client_interface)
     run_every = re_handler.run_every()
 
@@ -212,14 +216,20 @@ with run_container:
         models = add_model_names_to_models_cached(models, client_interface)
 
         completed_statuses = ['RUN_COMPLETED', 'RUN_CANCELLED', 'RUN_ERROR']
-        running_statuses = ['RUN_QUEUED', 'RUN_STARTED']
+        running_statuses = ['RUN_QUEUED', 'RUN_STARTED', 'INPUTS_GENERATION_QUEUED',
+                          'INPUTS_GENERATION_STARTED',]
 
         running_analyses = analyses[analyses['status'].isin(running_statuses)]
         if not re_handler.is_refreshing() and not running_analyses.empty:
             for analysis_id in running_analyses['id']:
                 re_handler.start(analysis_id, completed_statuses)
 
-        valid_statuses = ['NEW', 'READY', 'RUN_QUEUED', 'RUN_STARTED', 'RUN_COMPLETED', 'RUN_CANCELLED', 'RUN_ERROR']
+        valid_statuses = ['NEW', 'INPUTS_GENERATION_QUEUED',
+                          'INPUTS_GENERATION_STARTED',
+                          'INPUTS_GENERATION_CANCELLED',
+                          'INPUTS_GENERATION_ERROR', 'READY', 'RUN_QUEUED',
+                          'RUN_STARTED', 'RUN_COMPLETED', 'RUN_CANCELLED',
+                          'RUN_ERROR']
         analyses = analyses[analyses['status'].isin(valid_statuses)]
         analyses = enrich_analyses(analyses, portfolios, models).sort_values('id', ascending=False)
 
@@ -231,12 +241,21 @@ with run_container:
                 'model_name': 'Scenarios Footprint',
                 'supplier_id': 'Supplier'
                 }
+
         analyses_view = DataframeView(analyses, display_cols=display_cols, selectable='single',
                                       column_config=column_config)
         selected = analyses_view.display()
 
-        oed_group = st.pills("Group output by:",
+        # Set subset of analysis settings
+        st.write("**Analysis Settings:**")
+
+        cols = st.columns([0.5, 0.5])
+
+        oed_group = cols[0].pills("Group Output by:",
                              [ "Portfolio", "Country", "Location"], selection_mode="multi")
+
+        number_of_samples = cols[1].number_input('Number of Samples per event:', min_value=1,
+                                            max_value=1000, value=10)
 
         group_to_code = {
             'Portfolio': 'PortNumber',
@@ -276,6 +295,8 @@ with run_container:
                     if analysis_settings.get('ri_output', False):
                         analysis_settings['ri_summaries'][0]['oed_fields'] = oed_group_codes
 
+                analysis_settings['number_of_samples'] = number_of_samples
+
                 try:
                     client_interface.upload_settings(selected['id'], analysis_settings)
                 except (JSONDecodeError, HTTPError) as e:
@@ -302,12 +323,13 @@ with run_container:
         # Download button
         @st.dialog("Output", width="large")
 
-        def display_outputs(ci, analysis_id):
+        def display_outputs(ci, analysis_id, model_id):
             st.markdown('# Analysis Summary')
             st.markdown('This section summarises the input data for this analysis, including the total values contained in the portfolio, and analysis / output settings.')
             locations = ci.analyses.get_file(analysis_id, 'input_file', df=True)['location.csv']
-            a_settings = client.analyses.settings.get(analysis_id).json()
-            summarise_inputs(locations, a_settings)
+            a_settings = ci.analyses.settings.get(analysis_id)
+            model_settings = ci.models.settings.get(model_id)
+            summarise_inputs(locations, a_settings, model_settings)
 
 
             st.markdown('# Results Summary')
@@ -388,12 +410,15 @@ with run_container:
 
         with columns[1]:
             if st.button("Show Output", use_container_width=True, disabled = not download_enabled):
-                display_outputs(client_interface, selected["id"])
+                display_outputs(client_interface, selected["id"], selected['model'])
 
 
     if len(client_interface.analyses.get()) == 0:
         st.error("No analyses found.")
+        generate_footer(ui_config)
         st.stop()
     analysis_fragment()
     if run_every is not None:
         st.info('Analysis running.')
+
+generate_footer(ui_config)

@@ -14,6 +14,7 @@ from pages.components.create import consume_analysis_settings, create_analysis_f
 from pages.components.display import DataframeView
 import logging
 
+from pages.components.footer import generate_footer
 from pages.components.logs import display_traceback_file
 from pages.components.process import enrich_analyses
 from pages.components.output import summarise_inputs
@@ -411,3 +412,5 @@ def analysis_fragment():
 analysis_fragment()
 if run_every is not None:
     st.info('Analysis running.')
+
+generate_footer(ui_config)

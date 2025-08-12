@@ -3,9 +3,10 @@ from oasislmf.platform_api.client import APIClient
 import tempfile
 import os
 from requests import HTTPError
-import logging
 
-logger = logging.getLogger(__name__)
+from modules.logging import get_session_logger
+
+logger = get_session_logger()
 
 class JsonEndpointInterface:
     '''
@@ -178,8 +179,9 @@ class ClientInterface:
         '''Create the analysis and run input generation.
         '''
         resp = self.create_analysis(portfolio_id, model_id, analysis_name)
-        resp = self.client.run_generate(resp["id"])
-        return resp
+        resp = self.generate(resp["id"])
+
+        return resp.json()
 
     def upload_settings(self, analysis_id, analysis_settings):
         self.client.upload_settings(analysis_id, analysis_settings)
@@ -188,6 +190,11 @@ class ClientInterface:
         '''Run the analysis specified by `analysis_id`.
         '''
         return self.client.analyses.run(analysis_id)
+
+    def generate(self, analysis_id):
+        '''Run input generation of `analysis_id`.
+        '''
+        return self.client.analyses.generate(analysis_id)
 
     def generate_and_run(self, analysis_id):
         '''Generate input files and run the analysis specified by `analysis_id`.

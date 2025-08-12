@@ -31,6 +31,7 @@ class UIConfig():
         self.post_login_page = config.get('post_login_page')
         self.model_map = config.get('model_map', {})
         self.skip_login = config.get('skip_login', False)
+        self.footer = config.get('footer', None)
 
 
 def retrieve_ui_config():

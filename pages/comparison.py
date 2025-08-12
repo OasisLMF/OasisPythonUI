@@ -5,7 +5,9 @@ import pandas as pd
 from modules.nav import SidebarNav
 from modules.config import retrieve_ui_config
 from modules.validation import LenValidation, NotNoneValidation, ValidationGroup
+from pages.components.common import PERSPECTIVES_MAP
 from pages.components.display import DataframeView
+from pages.components.footer import generate_footer
 from pages.components.output import generate_aalcalc_comparison_fragment, generate_leccalc_comparison_fragment
 from pages.components.output import generate_eltcalc_comparison_fragment, summarise_inputs
 
@@ -71,6 +73,7 @@ validations.add_validation(len_validation, selected, 2)
 
 if not validations.is_valid():
     st.info(validations.message)
+    generate_footer(ui_config)
     st.stop()
 
 selected = pd.DataFrame(selected)
@@ -124,16 +127,25 @@ def get_locations_file(ID):
 
 @st.cache_data
 def merge_locations(locations_1, locations_2):
+    '''Concatenate locations for comparison and add `loc_analysis_id` identifier.
+    '''
     if locations_1 is None or locations_2 is None:
         return None
-    locations_1 = locations_1[['LocNumber', 'Longitude', 'Latitude']]
-    locations_2 = locations_2[['LocNumber', 'Longitude', 'Latitude']]
 
-    locations = pd.merge(left=locations_1, right=locations_2, how='outer',
-                         on='LocNumber', suffixes=('_left', '_right'))
-    locations['Latitude'] = locations[['Latitude_left', 'Latitude_right']].mean(axis=1)
-    locations['Longitude'] = locations[['Longitude_left', 'Longitude_right']].mean(axis=1)
-    locations = locations[['LocNumber', 'Latitude', 'Longitude']]
+    filter_cols = {'LocNumber', 'Longitude', 'Latitude', 'CountryCode'}
+
+    filter_cols = filter_cols.intersection(locations_1.columns)
+    filter_cols = filter_cols.intersection(locations_2.columns)
+    filter_cols = list(filter_cols)
+
+    locations_1 = locations_1[filter_cols]
+    locations_2 = locations_2[filter_cols]
+
+    locations_1['loc_analysis_id'] = 1
+    locations_2['loc_analysis_id'] = 2
+
+    locations = pd.concat([locations_1, locations_2])
+
     return locations
 
 perspectives = ['gul', 'il', 'ri']
@@ -152,7 +164,7 @@ for p in perspectives:
     no_outputs = True
     for output in supported_outputs:
         if all([s.get(output, False) for s in summaries]):
-            st.write(f"## {p.upper()} Output")
+            st.write(f"## {PERSPECTIVES_MAP[p]} Output")
             no_outputs = False
             break
 
@@ -189,3 +201,5 @@ for p in perspectives:
                 lec_outputs[k] = True
         generate_leccalc_comparison_fragment(p, outputs, lec_outputs,
                                              names=names)
+
+generate_footer(ui_config)
