@@ -30,6 +30,8 @@ def create_analysis_form(portfolios, models):
         return f"{portfolio['name']}"
 
     def format_model(model):
+        if "model_name" in model:
+            return model['model_name']
         return f"{model['model_id']} {model['run_mode']} {model['supplier_id']}"
 
     with st.form("create_analysis_form", clear_on_submit=True, enter_to_submit=False):

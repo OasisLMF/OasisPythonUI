@@ -6,7 +6,6 @@ from modules.nav import SidebarNav
 from modules.config import retrieve_ui_config
 from modules.validation import LenValidation, NotNoneValidation, ValidationGroup
 from pages.components.common import PERSPECTIVES_MAP
-from pages.components.display import DataframeView
 from pages.components.footer import generate_footer
 from pages.components.output import generate_aalcalc_comparison_fragment, generate_leccalc_comparison_fragment
 from pages.components.output import generate_eltcalc_comparison_fragment, summarise_inputs
