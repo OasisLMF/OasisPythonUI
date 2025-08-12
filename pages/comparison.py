@@ -78,6 +78,7 @@ if not validations.is_valid():
 selected = pd.DataFrame(selected)
 
 analysis_ids = [selected['id'][i] for i in range(2)]
+model_ids = [selected['model'][i] for i in range(2)]
 
 st.subheader("Analysis Summary")
 st.markdown("""
@@ -98,24 +99,27 @@ def get_analysis_inputs(ID):
 def get_analysis_outputs(ID):
     return client_interface.analyses.get_file(ID, 'output_file', df=True)
 
-settings = []
+analysis_settings = []
+model_settings = []
 with cols[0]:
     st.write(f"## {selected['name'][0]}")
     with st.spinner("Loading data..."):
         inputs = get_analysis_inputs(analysis_ids[0])
-        settings.append(client.analyses.settings.get(analysis_ids[0]).json())
+        analysis_settings.append(client.analyses.settings.get(analysis_ids[0]).json())
+        model_settings.append(client_interface.models.settings.get(model_ids[0]))
 
     with st.spinner('Loading analysis summary...'):
-        summarise_inputs(inputs.get('location.csv', None), settings[0], title_prefix='###')
+        summarise_inputs(inputs.get('location.csv', None), analysis_settings[0], model_settings[0], title_prefix='###')
 
 with cols[1]:
     st.write(f"## {selected['name'][1]}")
     with st.spinner("Loading data..."):
         inputs = get_analysis_inputs(analysis_ids[1])
-        settings.append(client.analyses.settings.get(analysis_ids[1]).json())
+        analysis_settings.append(client.analyses.settings.get(analysis_ids[1]).json())
+        model_settings.append(client_interface.models.settings.get(model_ids[1]))
 
     with st.spinner('Loading analysis summary...'):
-        summarise_inputs(inputs.get('location.csv', None), settings[1], title_prefix='###')
+        summarise_inputs(inputs.get('location.csv', None), analysis_settings[1], model_settings[1], title_prefix='###')
 
 @st.cache_data
 def get_locations_file(ID):
@@ -153,10 +157,10 @@ st.write("# Loss estimates")
 'This section enables comparison of the scenario loss from each of the analyses.'
 
 for p in perspectives:
-    if not all([s.get(f'{p}_output', False) for s in settings]):
+    if not all([s.get(f'{p}_output', False) for s in analysis_settings]):
         continue
 
-    summaries = [s.get(f'{p}_summaries', [{}])[0] for s in settings]
+    summaries = [s.get(f'{p}_summaries', [{}])[0] for s in analysis_settings]
     names = selected['name'].tolist() # 'GUL OUTPUT' SHOULD BE MORE UNDERSTANDABLE FOR NON-EXPERT USERS BY USING TITLE 'GROUND UP LOSS'
 
     supported_outputs = ['aalcalc', 'eltcalc', 'lec_output']
