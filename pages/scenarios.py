@@ -93,6 +93,11 @@ with create_container:
     model_view = DataframeView(models, selectable='single', display_cols=display_cols, column_config=column_config)
     selected_model = model_view.display()
 
+    if selected_model is not None:
+        st.write(selected_model)
+        templates = client_interface.models.setting_templates.get(selected_model["id"])
+        st.write(templates)
+
     'Currently, it is not possible to add your own scenarios directly; please describe any scenario you would like to add as a Github issue [here](https://github.com/OasisLMF/OasisPythonUI/issues).'
 
     '#### Portfolio Selection'

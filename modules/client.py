@@ -18,6 +18,22 @@ class JsonEndpointInterface:
     def get(self, ID=None):
         return self.endpoint.get(ID=ID).json()
 
+class SettingsTemplateInterface:
+    '''
+    Class for handling interactions with the SettingsTemplateEndpoint of the Oasis APIClient
+    '''
+    def __init__(self, client):
+        self.endpoint = getattr(client, 'setting_templates', None)
+        self.content = getattr(self.endpoint, 'content', None)
+
+        if self.endpoint is None:
+            logger.error("Settings template endpoint does not exist")
+
+    def get(self, model_pk, ID=None):
+        self.endpoint.get(model_pk, ID)
+
+    def get_contents(self, model_pk, ID):
+        self.content.get(model_pk, ID)
 
 class EndpointInterface:
     '''
@@ -57,6 +73,7 @@ class ModelsEndpointInterface(EndpointInterface):
     def __init__(self, client):
         super().__init__(client, endpoint_name='models')
         self.settings = JsonEndpointInterface(self.endpoint, endpoint_name='settings')
+        self.setting_templates = SettingsTemplateInterface(self.endpoint)
 
 
 class AnalysesEndpointInterface(EndpointInterface):
