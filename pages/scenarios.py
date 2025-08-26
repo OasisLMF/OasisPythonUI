@@ -94,9 +94,11 @@ with create_container:
     selected_model = model_view.display()
 
     if selected_model is not None:
-        st.write(selected_model)
         templates = client_interface.models.setting_templates.get(selected_model["id"])
+        template_id = max([t['id'] for t in templates])
         st.write(templates)
+        st.write(template_id)
+        st.write(client_interface.models.setting_templates.get_contents(selected_model["id"], template_id))
 
     'Currently, it is not possible to add your own scenarios directly; please describe any scenario you would like to add as a Github issue [here](https://github.com/OasisLMF/OasisPythonUI/issues).'
 
@@ -285,11 +287,21 @@ with run_container:
         run_started = False
         with columns[0]:
             if st.button('Run', disabled = not run_enabled, help=msg, use_container_width=True):
-                model_id = client_interface.models.get(selected['model'])['model_id']
-                analysis_settings = get_analyses_settings(model_name_id = model_id)[0]
+                try:
+                    # Load from platform
+                    templates = client_interface.models.setting_templates.get(selected['model'])
+                    template_id = max([t['id'] for t in templates])
+                    analysis_settings = client_interface.models.setting_templates.get_contents(selected['model'], template_id)
+                    logger.info(f"Loaded analysis settings for model {selected['model']}")
+                except (OasisException, HTTPError):
+                    logger.error(f"Failed to load template from platform for model {model_id}")
 
-                with open(analysis_settings, 'r') as f:
-                    analysis_settings = json.load(f)
+                    # Load from defaults/
+                    model_name_id = client_interface.models.get(selected['model'])['model_id']
+                    analysis_settings = get_analyses_settings(model_name_id = model_name_id)[0]
+
+                    with open(analysis_settings, 'r') as f:
+                        analysis_settings = json.load(f)
 
                 if len(oed_group) > 0:
                     oed_group_codes = [group_to_code[g] for g in oed_group]
