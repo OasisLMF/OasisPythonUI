@@ -30,10 +30,10 @@ class SettingsTemplateInterface:
             logger.error("Settings template endpoint does not exist")
 
     def get(self, model_pk, ID=None):
-        self.endpoint.get(model_pk, ID)
+        return self.endpoint.get(model_pk, ID).json()
 
     def get_contents(self, model_pk, ID):
-        self.content.get(model_pk, ID)
+        return self.content.get(model_pk, ID).json()
 
 class EndpointInterface:
     '''
