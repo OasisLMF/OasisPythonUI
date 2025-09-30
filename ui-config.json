@@ -2,7 +2,8 @@
   "pages" : [
     {"path": "pages/scenariosGuide.py", "label": "User Guide"},
     {"path": "pages/scenarios.py", "label": "Scenarios"},
-    {"path": "pages/comparison.py", "label": "Comparison"}
+    {"path": "pages/comparison.py", "label": "Comparison"},
+    {"path": "pages/analyses.py", "label": "Analyses"}
   ],
   "post_login_page": "pages/scenariosGuide.py",
   "model_map": {
