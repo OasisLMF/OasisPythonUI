@@ -96,7 +96,7 @@ oasis-data-manager==0.1.5
     # via
     #   oasislmf
     #   ods-tools
-oasislmf==2.4.5
+oasislmf==2.4.8
     # via -r requirements.in
 ods-tools==4.0.2
     # via oasislmf

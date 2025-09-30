@@ -13,6 +13,9 @@ services:
       - ./defaults/:/usr/src/app/defaults/
       - ./scenarios/assets/:/usr/src/app/scenarios/assets/
       - type: bind
+        source: ./scripts/
+        target: /usr/src/app/scripts/
+      - type: bind
         source: ./.streamlit/config-local.toml
         target: /usr/src/app/.streamlit/config.toml
       - type: bind
@@ -35,3 +38,6 @@ services:
         - action: sync
           path: ./scenarios/ui-config.json
           target: ./usr/src/app/ui-config.json
+        - action: sync
+          path: ./scripts/
+          target: ./usr/src/app/scripts/

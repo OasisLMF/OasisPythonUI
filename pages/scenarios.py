@@ -215,7 +215,7 @@ with run_container:
         models = models.set_index('id', drop=False)
         models = add_model_names_to_models_cached(models, client_interface)
 
-        completed_statuses = ['RUN_COMPLETED', 'RUN_CANCELLED', 'RUN_ERROR']
+        completed_statuses = ['RUN_COMPLETED', 'RUN_CANCELLED', 'RUN_ERROR', 'INPUTS_GENERATION_ERROR']
         running_statuses = ['RUN_QUEUED', 'RUN_STARTED', 'INPUTS_GENERATION_QUEUED',
                           'INPUTS_GENERATION_STARTED',]
 
@@ -263,7 +263,7 @@ with run_container:
             'Location': 'LocNumber'
         }
 
-        valid_statuses = ['NEW', 'READY', 'RUN_CANCELLED', 'RUN_ERROR', 'RUN_COMPLETED']
+        valid_statuses = ['NEW', 'READY', 'INPUTS_GENERATION_ERROR', 'RUN_CANCELLED', 'RUN_ERROR', 'RUN_COMPLETED']
         validations = ValidationGroup()
         validations.add_validation(NotNoneValidation('Analysis'), selected)
         validations.add_validation(KeyInValuesValidation('Status'), selected, 'status', valid_statuses)
@@ -280,11 +280,22 @@ with run_container:
         run_started = False
         with columns[0]:
             if st.button('Run', disabled = not run_enabled, help=msg, use_container_width=True):
-                model_id = client_interface.models.get(selected['model'])['model_id']
-                analysis_settings = get_analyses_settings(model_name_id = model_id)[0]
+                try:
+                    # Load from platform
+                    templates = client_interface.models.setting_templates.get(selected['model'])
+                    template_id = max([t['id'] for t in templates])
+                    analysis_settings = client_interface.models.setting_templates.get_contents(selected['model'], template_id)
+                    logger.info(f"Loaded analysis settings for model {selected['model']}")
+                except (OasisException, HTTPError):
+                    model_name_id = client_interface.models.get(selected['model'])['model_id']
 
-                with open(analysis_settings, 'r') as f:
-                    analysis_settings = json.load(f)
+                    logger.error(f"Failed to load template from platform for model {model_name_id}")
+
+                    # Load from defaults/
+                    analysis_settings = get_analyses_settings(model_name_id = model_name_id)[0]
+
+                    with open(analysis_settings, 'r') as f:
+                        analysis_settings = json.load(f)
 
                 if len(oed_group) > 0:
                     oed_group_codes = [group_to_code[g] for g in oed_group]
@@ -304,7 +315,7 @@ with run_container:
                     st.error('Failed to upload settings')
 
                 try:
-                    if selected['status'] == 'NEW':
+                    if selected['status'] in ['NEW', 'INPUTS_GENERATION_ERROR']:
                         client_interface.generate_and_run(selected['id'])
                     else:
                         client_interface.run(selected['id'])

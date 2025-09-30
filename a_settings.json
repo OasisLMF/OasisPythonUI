@@ -1,0 +1,6 @@
+[
+  {
+    "model_name_id": "PiWind",
+    "settings_path": "./defaults/1_piwind_oasislmf-analysis_settings.json"
+  }
+]
