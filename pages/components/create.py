@@ -199,6 +199,31 @@ class PerspectivesFragment:
 
         return outputs
 
+
+class JoinSummaryInfoFragment:
+    '''Form fragment to set the join_summary_info flag.
+
+    Args:
+        default (list) : List of active perspectives.
+    '''
+    def __init__(self, default=[]):
+        self.default = default
+
+    def display(self):
+        default = self.default
+
+        outputs = {}
+        opt = st.checkbox(
+            "Join Summary Info",
+            help="Joins summary info to output files",
+            value = False,  # TODO: can I check oasislmf.json here
+            disabled = False  # TODO: same for here
+        )
+
+        outputs[f'join_summary_info'] = opt
+        return outputs
+
+
 class NumberSamplesFragment:
     '''Form fragment to set the number of samples in the analysis settings.
 
@@ -687,6 +712,7 @@ def create_analysis_settings_fragment(model, model_settings, oed_fields=None, in
         default_perspectives = [p for p in perspectives if analysis_settings.get(f'{p}_output', False)]
         selected_settings |= PerspectivesFragment(model_settings=model_settings,
                                                   default=default_perspectives).display()
+        selected_settings |= JoinSummaryInfoFragment(default=default_perspectives).display()
 
         p_tabs = st.tabs([p.upper() for p in perspectives])
         for p, tab in zip(perspectives, p_tabs):
