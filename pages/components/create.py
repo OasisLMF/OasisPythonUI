@@ -204,19 +204,18 @@ class JoinSummaryInfoFragment:
     '''Form fragment to set the join_summary_info flag.
 
     Args:
-        default (list) : List of active perspectives.
+        analysis_settings (dict)
     '''
-    def __init__(self, default=[]):
-        self.default = default
+    def __init__(self, analysis_settings={}):
+        self.analysis_settings = analysis_settings
 
     def display(self):
-        default = self.default
-
+        default_value = self.analysis_settings.get("join_summary_info", False)
         outputs = {}
         opt = st.checkbox(
             "Join Summary Info",
             help="Joins summary info to output files",
-            value = False,
+            value = default_value,
             disabled = False
         )
 
@@ -712,7 +711,7 @@ def create_analysis_settings_fragment(model, model_settings, oed_fields=None, in
         default_perspectives = [p for p in perspectives if analysis_settings.get(f'{p}_output', False)]
         selected_settings |= PerspectivesFragment(model_settings=model_settings,
                                                   default=default_perspectives).display()
-        selected_settings |= JoinSummaryInfoFragment(default=default_perspectives).display()
+        selected_settings |= JoinSummaryInfoFragment(analysis_settings=analysis_settings).display()
 
         p_tabs = st.tabs([p.upper() for p in perspectives])
         for p, tab in zip(perspectives, p_tabs):
