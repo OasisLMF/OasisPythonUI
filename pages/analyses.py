@@ -129,7 +129,7 @@ def analysis_summary_expander(selected):
 
         @st.cache_data
         def convert_df(df):
-            return df.to_csv().encode("utf-8")
+            return df.to_csv(index=False).encode("utf-8")
 
         with inputs_tab:
             input_file_list = sorted(list(inputs.keys()))
