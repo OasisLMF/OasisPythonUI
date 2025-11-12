@@ -216,8 +216,8 @@ class JoinSummaryInfoFragment:
         opt = st.checkbox(
             "Join Summary Info",
             help="Joins summary info to output files",
-            value = False,  # TODO: can I check oasislmf.json here
-            disabled = False  # TODO: same for here
+            value = False,
+            disabled = False
         )
 
         outputs[f'join_summary_info'] = opt
