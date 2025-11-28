@@ -37,7 +37,7 @@ if [[ $(docker volume ls | grep OasisData -c) -gt 1 || -d $SCRIPT_DIR/$GIT_PIWIN
 
         printf "Deleting docker container:\n"
         set +e
-        docker compose -f $SCRIPT_DIR/oasis-platform.yml -f $SCRIPT_DIR/oasis-st-ui.yml down --remove-orphans
+        docker compose -f $SCRIPT_DIR/oasis-platform.yml -f $SCRIPT_DIR/oasis-ui.yml down --remove-orphans
         set -e
         printf "Deleting docker data: \n"
         rm -rf $SCRIPT_DIR/$GIT_PIWIND
@@ -63,9 +63,9 @@ cd $SCRIPT_DIR
 set +e
 docker pull ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
 docker pull ${SERVER_IMG:-coreoasis/api_server}:${VERS_API:-latest}
-docker pull ${SCENARIOS_UI_IMG-coreoasis/oasis_scenarios}:${VERS_API:-latest}
+docker pull ${PYTHONUI_IMG-coreoasis/oasispythonui_app}:${VERS_API:-latest}
 set -e
 
 # RUN OasisPlatform / OasisUI / Portainer
 docker compose -f $SCRIPT_DIR/oasis-platform.yml up -d --no-build
-docker compose -f $SCRIPT_DIR/oasis-st-ui.yml up -d
+docker compose -f $SCRIPT_DIR/oasis-ui.yml up -d
