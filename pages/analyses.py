@@ -179,6 +179,10 @@ def analysis_summary_expander(selected):
 
 def run_analysis(re_handler):
     analyses = client_interface.analyses.get(df=True)
+    if analyses.empty:
+        st.info("No analyses.")
+        return
+
     portfolios = client_interface.portfolios.get(df=True)
     models = client_interface.models.get(df=True)
 

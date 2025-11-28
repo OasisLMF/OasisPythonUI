@@ -154,10 +154,10 @@ class PortfoliosEndpointInterface(EndpointInterface):
         ri_scope_f= prepare_upload_f('reinsurance_scope_file', reinsurance_scope_file)
 
         self.client.upload_inputs(portfolio_name = name,
-                             location_f = location_f,
-                             accounts_f = accounts_f,
-                             ri_info_f = ri_info_f,
-                             ri_scope_f = ri_scope_f)
+                             location_fp = location_f,
+                             accounts_fp = accounts_f,
+                             ri_info_fp = ri_info_f,
+                             ri_scope_fp = ri_scope_f)
 
 
 

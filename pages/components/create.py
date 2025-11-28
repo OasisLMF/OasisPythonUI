@@ -23,7 +23,7 @@ def create_analysis_form(portfolios, models):
         return False
 
     if list_empty(portfolios) or list_empty(models):
-        st.write("Ensure portfolios and models are loaded")
+        st.info("Ensure portfolios and models are loaded.")
         return None
 
     def format_portfolio(portfolio):

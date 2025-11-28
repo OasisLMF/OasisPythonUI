@@ -1,8 +1,7 @@
 services:
-  streamlit_ui:
+  pythonui:
     restart: always
-    image: coreoasis/oasis_scenarios:latest
-    container_name: oasis_st_ui
+    image: coreoasis/oasispythonui_app:latest
     build:
       dockerfile: ./oasisui_st_app.Dockerfile
     ports:
