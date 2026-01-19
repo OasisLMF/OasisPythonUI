@@ -1,0 +1,8 @@
+users:
+  - username: admin
+    password: password
+    admin: true
+
+  - username: user
+    password: password
+    admin: false

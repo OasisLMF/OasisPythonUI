@@ -1,4 +1,4 @@
-oasislmf
+oasislmf @ git+https://github.com/OasisLMF/OasisLMF.git@main
 streamlit
 plotly
 pandas

@@ -41,6 +41,8 @@ services:
        condition: service_healthy
       broker:
         condition: service_healthy
+      keycloak:
+        condition: service_healthy
     environment:
       <<: *shared-env
       STARTUP_RUN_MIGRATIONS: "true"
@@ -64,6 +66,8 @@ services:
       celery-db:
         condition: service_healthy
       broker:
+        condition: service_healthy
+      keycloak:
         condition: service_healthy
     ports:
       - 8001:8001
@@ -216,3 +220,51 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+  keycloak-realm-render:
+    image: alpine:3.19
+    volumes:
+      - ./oidc/keycloak:/scripts
+    working_dir: /scripts
+    command: sh -c "apk add --no-cache bash perl yq util-linux && bash gen-users.sh"
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0.6-0
+    restart: always
+    command:
+      - start
+      - --import-realm
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+      keycloak-realm-render:
+        condition: service_completed_successfully
+    ports:
+      - 8080:8080
+    environment:
+      # Admin user
+      KEYCLOAK_ADMIN: keycloak
+      KEYCLOAK_ADMIN_PASSWORD: password
+      # Logging
+      KC_LOGLEVEL: DEBUG
+      # HTTP / proxy behavior
+      KC_HTTP_RELATIVE_PATH: /auth
+      KC_PROXY: edge
+      KC_PROXY_ADDRESS_FORWARDING: "true"
+      KC_HOSTNAME_STRICT: "false"
+      # Realm import
+      KC_IMPORT: /opt/keycloak/data/import/oasis-realm.json
+      # Database config
+      KC_DB: postgres
+      KC_DB_URL_HOST: keycloak-db
+      KC_DB_URL_PORT: 5432
+      KC_DB_URL_DATABASE: keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: password
+    volumes:
+      - ./oidc/keycloak/rendered/oasis-realm.json:/opt/keycloak/data/import/oasis-realm.json:ro
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - 'exec 3<>/dev/tcp/localhost/8080; echo -e "GET /auth/realms/master HTTP/1.1\r\nhost: localhost\r\nConnection: close\r\n\r\n" >&3; grep "HTTP/1.1 200 OK" <&3'
+      interval: 10s
+      timeout: 5s
+      retries: 30

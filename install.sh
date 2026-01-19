@@ -3,11 +3,27 @@ set -e
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+
+# Uninstall only
+if [[ "$1" == "--uninstall" || "$1" == "-u" ]]; then
+    echo "Uninstalling Oasis platform (docker compose down only)..."
+
+    set +e
+    docker compose -f $SCRIPT_DIR/portainer.yaml down --remove-orphans
+    docker compose -f $SCRIPT_DIR/oasis-platform.yml down --remove-orphans
+    docker compose -f $SCRIPT_DIR/oasis-ui.yml down --remove-orphans
+    set -e
+
+    echo "Uninstall complete."
+    exit 0
+fi
+
+
 export $(grep -v '^#' .env | xargs)
 
 export VERS_MDK=latest
-export VERS_API=latest
-export VERS_WORKER=latest
+export VERS_API=dev
+export VERS_WORKER=dev
 export VERS_UI=latest
 export VERS_PIWIND='stable/2.3.x'
 
@@ -61,11 +77,12 @@ git checkout $VERS_PIWIND
 cd $SCRIPT_DIR
 
 set +e
-docker pull ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
-docker pull ${SERVER_IMG:-coreoasis/api_server}:${VERS_API:-latest}
+docker pull ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER}
+docker pull ${SERVER_IMG:-coreoasis/api_server}:${VERS_API}
 docker pull ${PYTHONUI_IMG-coreoasis/oasispythonui_app}:${VERS_API:-latest}
 set -e
 
 # RUN OasisPlatform / OasisUI / Portainer
 docker compose -f $SCRIPT_DIR/oasis-platform.yml up -d --no-build
+docker compose -f $SCRIPT_DIR/oasis-ui.yml build --no-cache
 docker compose -f $SCRIPT_DIR/oasis-ui.yml up -d
