@@ -1,7 +1,7 @@
 FROM python:3.12-slim AS compile-image
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends build-essential gcc git \
+    && apt-get install -y --no-install-recommends build-essential gcc \
     && rm -rf /var/lib/apt/lists/*
 
 # Install requirement

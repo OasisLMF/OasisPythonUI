@@ -9,9 +9,9 @@ if [[ "$1" == "--uninstall" || "$1" == "-u" ]]; then
     echo "Uninstalling Oasis platform (docker compose down only)..."
 
     set +e
-    docker compose -f $SCRIPT_DIR/portainer.yaml down --remove-orphans
-    docker compose -f $SCRIPT_DIR/oasis-platform.yml down --remove-orphans
-    docker compose -f $SCRIPT_DIR/oasis-ui.yml down --remove-orphans
+    docker compose -f $SCRIPT_DIR/portainer.yaml down --remove-orphans -v
+    docker compose -f $SCRIPT_DIR/oasis-platform.yml down --remove-orphans -v
+    docker compose -f $SCRIPT_DIR/oasis-ui.yml down --remove-orphans -v
     set -e
 
     echo "Uninstall complete."
@@ -22,8 +22,8 @@ fi
 export $(grep -v '^#' .env | xargs)
 
 export VERS_MDK=latest
-export VERS_API=dev
-export VERS_WORKER=dev
+export VERS_API=latest
+export VERS_WORKER=latest
 export VERS_UI=latest
 export VERS_PIWIND='stable/2.3.x'
 
@@ -49,11 +49,11 @@ if [[ $(docker volume ls | grep OasisData -c) -gt 1 || -d $SCRIPT_DIR/$GIT_PIWIN
     done
 
     if [[ "$WIPE" == 1 ]]; then
-        docker compose -f $SCRIPT_DIR/portainer.yaml down --remove-orphans
+        docker compose -f $SCRIPT_DIR/portainer.yaml down --remove-orphans -v
 
         printf "Deleting docker container:\n"
         set +e
-        docker compose -f $SCRIPT_DIR/oasis-platform.yml -f $SCRIPT_DIR/oasis-ui.yml down --remove-orphans
+        docker compose -f $SCRIPT_DIR/oasis-platform.yml -f $SCRIPT_DIR/oasis-ui.yml down --remove-orphans -v
         set -e
         printf "Deleting docker data: \n"
         rm -rf $SCRIPT_DIR/$GIT_PIWIND
@@ -77,8 +77,8 @@ git checkout $VERS_PIWIND
 cd $SCRIPT_DIR
 
 set +e
-docker pull ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER}
-docker pull ${SERVER_IMG:-coreoasis/api_server}:${VERS_API}
+docker pull ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
+docker pull ${SERVER_IMG:-coreoasis/api_server}:${VERS_API:-latest}
 docker pull ${PYTHONUI_IMG-coreoasis/oasispythonui_app}:${VERS_API:-latest}
 set -e
 
