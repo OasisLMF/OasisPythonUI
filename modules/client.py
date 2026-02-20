@@ -8,20 +8,24 @@ from modules.logging import get_session_logger
 
 logger = get_session_logger()
 
+
 class JsonEndpointInterface:
     '''
     Abstract class for handling a endpoint of the Oasis APIClient restricted to json output.
     '''
+
     def __init__(self, client, endpoint_name='portfolios'):
         self.endpoint = getattr(client, endpoint_name)
 
     def get(self, ID=None):
         return self.endpoint.get(ID=ID).json()
 
+
 class SettingsTemplateInterface:
     '''
     Class for handling interactions with the SettingsTemplateEndpoint of the Oasis APIClient
     '''
+
     def __init__(self, client):
         self.endpoint = getattr(client, 'setting_templates', None)
         self.content = getattr(self.endpoint, 'content', None)
@@ -35,11 +39,13 @@ class SettingsTemplateInterface:
     def get_contents(self, model_pk, ID):
         return self.content.get(model_pk, ID).json()
 
+
 class EndpointInterface:
     '''
     Abstract class for handling a endpoint of the Oasis APIClient. Includes
     handling both file and json endpoints.
     '''
+
     def __init__(self, client, endpoint_name='portfolios'):
         self.endpoint = getattr(client, endpoint_name)
 
@@ -55,7 +61,7 @@ class EndpointInterface:
     def get_file(self, ID, filename, df=False):
         file_available = self.get(ID).get(filename, None)
         if file_available is None:
-            logger.error(f'File not available. Analysis ID: {ID }Filename: {filename}')
+            logger.error(f'File not available. Analysis ID: {ID}Filename: {filename}')
             return None
 
         data = getattr(self.endpoint, filename)
@@ -70,6 +76,7 @@ class ModelsEndpointInterface(EndpointInterface):
     '''
     Interface for models endpoint of the Oasis APIClient.
     '''
+
     def __init__(self, client):
         super().__init__(client, endpoint_name='models')
         self.settings = JsonEndpointInterface(self.endpoint, endpoint_name='settings')
@@ -80,6 +87,7 @@ class AnalysesEndpointInterface(EndpointInterface):
     '''
     Interface for analyses endpoint of the Oasis APIClient.
     '''
+
     def __init__(self, client):
         super().__init__(client, endpoint_name='analyses')
         self.settings = JsonEndpointInterface(self.endpoint, endpoint_name='settings')
@@ -112,6 +120,7 @@ class PortfoliosEndpointInterface(EndpointInterface):
     '''
     Interface for portfolios endpoint of the Oasis APIClient.
     '''
+
     def __init__(self, client):
         super().__init__(client, "portfolios")
         self.client = client
@@ -128,8 +137,8 @@ class PortfoliosEndpointInterface(EndpointInterface):
     def get_reinsurance_scope_file(self, ID, df=False):
         return self.get_file(ID, "reinsurance_scope_file", df)
 
-    def create(self, name, location_file = None, accounts_file = None,
-               reinsurance_info_file = None, reinsurance_scope_file = None):
+    def create(self, name, location_file=None, accounts_file=None,
+               reinsurance_info_file=None, reinsurance_scope_file=None):
         '''
         Create a portfolio using the `UploadedFile` objects created when using the `st.file_uploader`.
 
@@ -151,14 +160,13 @@ class PortfoliosEndpointInterface(EndpointInterface):
         location_f = prepare_upload_f('location_file', location_file)
         accounts_f = prepare_upload_f('accounts_file', accounts_file)
         ri_info_f = prepare_upload_f('reinsurance_info_file', reinsurance_info_file)
-        ri_scope_f= prepare_upload_f('reinsurance_scope_file', reinsurance_scope_file)
+        ri_scope_f = prepare_upload_f('reinsurance_scope_file', reinsurance_scope_file)
 
-        self.client.upload_inputs(portfolio_name = name,
-                             location_fp = location_f,
-                             accounts_fp = accounts_f,
-                             ri_info_fp = ri_info_f,
-                             ri_scope_fp = ri_scope_f)
-
+        self.client.upload_inputs(portfolio_name=name,
+                                  location_fp=location_f,
+                                  accounts_fp=accounts_f,
+                                  ri_info_fp=ri_info_f,
+                                  ri_scope_fp=ri_scope_f)
 
 
 class ClientInterface:
@@ -171,11 +179,16 @@ class ClientInterface:
         analyses: Interface for managing analyses.
         models: Interface for managing models.
     '''
-    def __init__(self, client=None, username=None, password=None):
+
+    def __init__(self, client=None, auth_type=None, username=None, password=None, access_token=None, refresh_token=None, client_id=None, client_secret=None):
         api_url = os.environ.get('API_URL', 'http://localhost:8000')
 
-        if username is not None and password is not None:
-            client = APIClient(username=username, password=password, api_url=api_url)
+        if auth_type == "token" or (access_token is not None and refresh_token is not None):
+            client = APIClient(api_url=api_url, auth_type="token", access_token=access_token, refresh_token=refresh_token)
+        elif auth_type == "oidc":
+            client = APIClient(api_url=api_url, auth_type="oidc", client_id=client_id, client_secret=client_secret)
+        elif username is not None and password is not None:
+            client = APIClient(api_url=api_url, auth_type="simple", username=username, password=password)
 
         assert client is not None, 'Client not set'
 
@@ -184,11 +197,10 @@ class ClientInterface:
         self.analyses = AnalysesEndpointInterface(client)
         self.models = ModelsEndpointInterface(client)
 
-
     def create_analysis(self, portfolio_id, model_id, analysis_name):
-        resp = self.client.create_analysis(portfolio_id = portfolio_id,
-                                    model_id = model_id,
-                                    analysis_name = analysis_name)
+        resp = self.client.create_analysis(portfolio_id=portfolio_id,
+                                           model_id=model_id,
+                                           analysis_name=analysis_name)
 
         return resp
 

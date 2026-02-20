@@ -1,0 +1,17 @@
+# Authentik User Definitions
+# These users will be created via Authentik blueprint during initialization
+# Matches OasisPlatform Kubernetes values.yaml: authentik.oasisRestApi.users
+
+users:
+  - username: admin
+    password: password
+    admin: true
+
+  - username: user
+    password: password
+    admin: false
+
+  # Uncomment to add more users:
+  # - username: analyst
+  #   password: password
+  #   admin: false

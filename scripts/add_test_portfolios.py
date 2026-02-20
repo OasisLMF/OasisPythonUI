@@ -8,6 +8,7 @@ from utils import initialise_client, parse_initialise_args
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
+
 def add_portfolio(client, input_args):
     existing_names = [r['name'] for r in client.portfolios.get().json()]
     logger.info('Adding portfolios...')
@@ -17,6 +18,7 @@ def add_portfolio(client, input_args):
     else:
         logger.info(f'Adding {input_args["portfolio_name"]}')
         client.upload_inputs(**input_args)
+
 
 def main():
     parser = argparse.ArgumentParser(description='Script to add portfolios')
@@ -53,5 +55,6 @@ def main():
         input_args = config[p]
         add_portfolio(client, input_args)
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     main()

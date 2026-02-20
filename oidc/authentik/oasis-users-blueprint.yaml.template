@@ -9,4 +9,4 @@
     is_active: true
     password: ___PASSWORD___
     groups:
-    ___GROUPS___
+___GROUPS___

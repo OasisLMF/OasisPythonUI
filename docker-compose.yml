@@ -1,0 +1,310 @@
+volumes:
+  server-db-data:
+  celery-db-data:
+  filestore-data:
+
+# ============================================================================
+# Shared Environment Variables
+# ============================================================================
+
+x-shared-env: &shared-env
+  # Debug and basic config
+  OASIS_DEBUG: ${OASIS_DEBUG:-1}
+  OASIS_URL_SUB_PATH: 0
+
+  # Hostname configuration (matches Minikube ingress)
+  INGRESS_EXTERNAL_HOST: ${OASIS_UI_HOSTNAME:-localhost}
+  INGRESS_INTERNAL_HOST: traefik
+
+  # Authentication configuration
+  OASIS_SERVER_API_AUTH_TYPE: ${API_AUTH_TYPE:-simple}
+  OASIS_SERVER_ALLOWED_OIDC_AUTH_PROVIDERS: ${OASIS_SERVER_ALLOWED_OIDC_AUTH_PROVIDERS}
+
+  # Database connections
+  OASIS_SERVER_DB_ENGINE: django.db.backends.postgresql
+  OASIS_SERVER_DB_HOST: ${OASIS_SERVER_DB_HOST}
+  OASIS_SERVER_DB_PORT: ${OASIS_SERVER_DB_PORT}
+  OASIS_SERVER_DB_NAME: ${OASIS_SERVER_DB_NAME}
+  OASIS_SERVER_DB_USER: ${OASIS_SERVER_DB_USER}
+  OASIS_SERVER_DB_PASS: ${OASIS_SERVER_DB_PASS}
+
+  OASIS_CELERY_DB_ENGINE: db+postgresql+psycopg
+  OASIS_CELERY_DB_HOST: ${OASIS_CELERY_DB_HOST}
+  OASIS_CELERY_DB_PORT: ${OASIS_CELERY_DB_PORT}
+  OASIS_CELERY_DB_NAME: ${OASIS_CELERY_DB_NAME}
+  OASIS_CELERY_DB_USER: ${OASIS_CELERY_DB_USER}
+  OASIS_CELERY_DB_PASS: ${OASIS_CELERY_DB_PASS}
+
+  # Broker and channel layer
+  OASIS_CELERY_BROKER_URL: ${OASIS_CELERY_BROKER_URL}
+  OASIS_SERVER_CHANNEL_LAYER_HOST: ${REDIS_HOST}
+  OASIS_SERVER_CHANNEL_LAYER_PORT: ${REDIS_PORT:-6379}
+  OASIS_SERVER_CHANNEL_LAYER_SSL: "false"
+
+  # Task queues
+  OASIS_TASK_CONTROLLER_QUEUE: task-controller
+  OASIS_INPUT_GENERATION_CONTROLLER_QUEUE: task-controller
+  OASIS_LOSSES_GENERATION_CONTROLLER_QUEUE: task-controller
+
+  # Service account credentials (set dynamically by install.sh)
+  OASIS_SERVICE_USERNAME_OR_ID: ${OASIS_SERVICE_USERNAME_OR_ID}
+  OASIS_SERVICE_PASSWORD_OR_SECRET: ${OASIS_SERVICE_PASSWORD_OR_SECRET}
+  OASIS_USE_OIDC: ${OASIS_USE_OIDC}
+
+  # OIDC configuration (only used when API_AUTH_TYPE != simple)
+  OASIS_SERVER_OIDC_ENDPOINT: ${OASIS_SERVER_OIDC_ENDPOINT:-}
+  OASIS_SERVER_OIDC_CLIENT_NAME: ${OASIS_SERVER_OIDC_CLIENT_NAME:-}
+  OASIS_SERVER_OIDC_CLIENT_SECRET: ${OASIS_SERVER_OIDC_CLIENT_SECRET:-}
+  OASIS_SERVER_OIDC_SERVICE_CLIENT_NAME: ${OASIS_SERVER_OIDC_SERVICE_CLIENT_NAME:-}
+  OASIS_SERVER_OIDC_SERVICE_CLIENT_SECRET: ${OASIS_SERVER_OIDC_SERVICE_CLIENT_SECRET:-}
+
+x-volumes: &shared-volumes
+  - filestore-data:/shared-fs:rw
+
+# ============================================================================
+# Services
+# ============================================================================
+
+services:
+  traefik:
+    restart: always
+    image: traefik:v2.11
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:8443"
+      - "--ping=true"
+      - "--api.insecure=true"
+    ports:
+      - "80:80"
+      - "443:8443"
+      - "8090:8080"
+    volumes:
+      - ${DOCKER_SOCK:-/var/run/docker.sock}:/var/run/docker.sock:ro
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    restart: always
+    image: ${SERVER_IMG:-coreoasis/api_server}:${VERS_API:-latest}
+    command: ["./wsgi/run-wsgi.sh"]
+    ports:
+      - "8000:8000"
+      - "51970:51970"
+    labels:
+      - "traefik.enable=true"
+      # HTTP router
+      - "traefik.http.routers.server-api.rule=PathPrefix(`/api`)"
+      - "traefik.http.routers.server-api.entrypoints=web"
+      - "traefik.http.routers.server-api.middlewares=strip-api"
+      # HTTPS router (OIDC callback from IdP uses https redirect_uri)
+      - "traefik.http.routers.server-api-secure.rule=PathPrefix(`/api`)"
+      - "traefik.http.routers.server-api-secure.entrypoints=websecure"
+      - "traefik.http.routers.server-api-secure.tls=true"
+      - "traefik.http.routers.server-api-secure.middlewares=strip-api"
+      # Shared middleware and service
+      - "traefik.http.middlewares.strip-api.stripprefix.prefixes=/api"
+      - "traefik.http.services.server-api.loadbalancer.server.port=8000"
+    environment:
+      <<: *shared-env
+      STARTUP_RUN_MIGRATIONS: "true"
+      OASIS_PORTFOLIO_UPLOAD_VALIDATION: ${OASIS_PORTFOLIO_UPLOAD_VALIDATION:-0}
+    volumes: *shared-volumes
+    depends_on:
+      server-db:
+        condition: service_healthy
+      celery-db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+      channel-layer:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8000/healthcheck/"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  server-websocket:
+    restart: always
+    image: ${SERVER_IMG:-coreoasis/api_server}:${VERS_API:-latest}
+    command: ["./asgi/run-asgi.sh"]
+    ports:
+      - "8001:8001"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.server-ws.rule=PathPrefix(`/ws`)"
+      - "traefik.http.middlewares.strip-ws.stripprefix.prefixes=/ws"
+      - "traefik.http.routers.server-ws.middlewares=strip-ws"
+      - "traefik.http.services.server-ws.loadbalancer.server.port=8001"
+    environment:
+      <<: *shared-env
+    volumes: *shared-volumes
+    depends_on:
+      server-db:
+        condition: service_healthy
+      celery-db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+      channel-layer:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import socket; s=socket.socket(); s.settimeout(5); s.connect(('localhost', 8001)); s.close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  v2-worker-monitor:
+    restart: always
+    image: ${SERVER_IMG:-coreoasis/api_server}:${VERS_API:-latest}
+    command: ["celery", "-A", "src.server.oasisapi.celery_app_v2", "worker", "--loglevel=INFO", "-Q", "celery-v2"]
+    environment:
+      <<: *shared-env
+    volumes: *shared-volumes
+    depends_on:
+      server-db:
+        condition: service_healthy
+      celery-db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+
+  v2-task-controller:
+    restart: always
+    image: ${SERVER_IMG:-coreoasis/api_server}:${VERS_API:-latest}
+    command: ["celery", "-A", "src.server.oasisapi.celery_app_v2", "worker", "--loglevel=INFO", "-Q", "task-controller"]
+    environment:
+      <<: *shared-env
+    volumes: *shared-volumes
+    depends_on:
+      server-db:
+        condition: service_healthy
+      celery-db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+
+  celery-beat-v2:
+    restart: always
+    image: ${SERVER_IMG:-coreoasis/api_server}:${VERS_API:-latest}
+    command: ["celery", "-A", "src.server.oasisapi.celery_app_v2", "beat", "--loglevel=INFO"]
+    environment:
+      <<: *shared-env
+    volumes: *shared-volumes
+    depends_on:
+      server-db:
+        condition: service_healthy
+      celery-db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+
+  model-registration:
+    restart: "no"
+    image: ${SERVER_IMG:-coreoasis/api_server}:${VERS_API:-latest}
+    command: ["python3", "/scripts/model_registration.py"]
+    environment:
+      <<: *shared-env
+      OASIS_API_URL: "http://server:8000"
+      OASIS_MODEL_SUPPLIER_ID: OasisLMF
+      OASIS_MODEL_ID: PiWind
+      OASIS_MODEL_VERSION_ID: v2
+      OASIS_RUN_MODE: v2
+      OASIS_MODEL_DATA_DIRECTORY: /model/meta-data
+    volumes:
+      - ./OasisPiWind/:/model:ro
+      - ./scripts:/scripts:ro
+    depends_on:
+      server:
+        condition: service_healthy
+
+  piwind-worker:
+    restart: always
+    image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
+    environment:
+      <<: *shared-env
+      OASIS_MODEL_SUPPLIER_ID: OasisLMF
+      OASIS_MODEL_ID: PiWind
+      OASIS_MODEL_VERSION_ID: v2
+      OASIS_RUN_MODE: v2
+      OASIS_OASISLMF_VERSION: ${OASIS_OASISLMF_VERSION}
+      OASIS_ODS_VERSION: ${OASIS_ODS_VERSION}
+      OASIS_ODM_VERSION: ${OASIS_ODM_VERSION}
+      OASIS_OED_SCHEMA_INFO: ${OASIS_OED_SCHEMA_INFO}
+    volumes:
+      - ./OasisPiWind/:/home/worker/model
+      - filestore-data:/shared-fs:rw
+    depends_on:
+      celery-db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+      model-registration:
+        condition: service_completed_successfully
+
+  server-db:
+    restart: always
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${OASIS_SERVER_DB_NAME}
+      POSTGRES_USER: ${OASIS_SERVER_DB_USER}
+      POSTGRES_PASSWORD: ${OASIS_SERVER_DB_PASS}
+    volumes:
+      - server-db-data:/var/lib/postgresql/data:rw
+    ports:
+      - "33307:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${OASIS_SERVER_DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  celery-db:
+    restart: always
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${OASIS_CELERY_DB_NAME}
+      POSTGRES_USER: ${OASIS_CELERY_DB_USER}
+      POSTGRES_PASSWORD: ${OASIS_CELERY_DB_PASS}
+    volumes:
+      - celery-db-data:/var/lib/postgresql/data:rw
+    ports:
+      - "33306:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${OASIS_CELERY_DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  broker:
+    restart: always
+    image: rabbitmq:3.11-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  channel-layer:
+    restart: always
+    image: valkey/valkey:8.1-alpine3.21
+    ports:
+      - "${REDIS_PORT}:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

@@ -1,0 +1,109 @@
+volumes:
+  authentik-db-data:
+
+services:
+  model-registration:
+    depends_on:
+      authentik-server:
+        condition: service_healthy
+      authentik-worker:
+        condition: service_healthy
+
+  authentik-db:
+    restart: always
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${AUTHENTIK_DB_NAME}
+      POSTGRES_USER: ${AUTHENTIK_DB_USER}
+      POSTGRES_PASSWORD: ${AUTHENTIK_DB_PASSWORD}
+    volumes:
+      - authentik-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AUTHENTIK_DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  authentik-server:
+    restart: always
+    image: ghcr.io/goauthentik/server:2025.6.4
+    command: server
+    ports:
+      - "${AUTHENTIK_PORT:-9000}:9000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authentik.rule=PathPrefix(`/authentik`)"
+      - "traefik.http.services.authentik.loadbalancer.server.port=9000"
+      - "traefik.http.routers.authentik.entrypoints=web"
+      - "traefik.http.routers.authentik-secure.rule=PathPrefix(`/authentik`)"
+      - "traefik.http.routers.authentik-secure.entrypoints=websecure"
+      - "traefik.http.routers.authentik-secure.tls=true"
+      - "traefik.http.routers.authentik-secure.service=authentik"
+    environment:
+      # Bootstrap configuration
+      AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD}
+      AUTHENTIK_BOOTSTRAP_EMAIL: ${AUTHENTIK_BOOTSTRAP_EMAIL}
+      AUTHENTIK_BOOTSTRAP_TOKEN: ${AUTHENTIK_BOOTSTRAP_TOKEN}
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
+
+      # Database configuration
+      AUTHENTIK_POSTGRESQL__HOST: authentik-db
+      AUTHENTIK_POSTGRESQL__PORT: 5432
+      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_DB_NAME}
+      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_DB_USER}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_DB_PASSWORD}
+
+      # Redis configuration (reuses main channel-layer)
+      AUTHENTIK_REDIS__HOST: channel-layer
+      AUTHENTIK_REDIS__PORT: 6379
+
+      # Authentik configuration
+      AUTHENTIK_LOG_LEVEL: info
+      AUTHENTIK_WEB__PATH: /authentik/
+      AUTHENTIK_DISABLE_UPDATE_CHECK: "true"
+    depends_on:
+      authentik-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "ak healthcheck || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 90s
+
+  authentik-worker:
+    restart: always
+    image: ghcr.io/goauthentik/server:2025.6.4
+    command: worker
+    environment:
+      # Bootstrap configuration
+      AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD}
+      AUTHENTIK_BOOTSTRAP_EMAIL: ${AUTHENTIK_BOOTSTRAP_EMAIL}
+      AUTHENTIK_BOOTSTRAP_TOKEN: ${AUTHENTIK_BOOTSTRAP_TOKEN}
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
+
+      # Database configuration
+      AUTHENTIK_POSTGRESQL__HOST: authentik-db
+      AUTHENTIK_POSTGRESQL__PORT: 5432
+      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_DB_NAME}
+      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_DB_USER}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_DB_PASSWORD}
+
+      # Redis configuration
+      AUTHENTIK_REDIS__HOST: channel-layer
+      AUTHENTIK_REDIS__PORT: 6379
+
+      # Authentik configuration
+      AUTHENTIK_LOG_LEVEL: info
+      AUTHENTIK_DISABLE_UPDATE_CHECK: "true"
+    volumes:
+      - ./oidc/authentik/generated/oasis-blueprint.yaml:/blueprints/oasis-blueprint.yaml:ro
+    depends_on:
+      authentik-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "ak healthcheck || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
