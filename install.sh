@@ -259,10 +259,10 @@ echo "    API:         http://${OASIS_UI_HOSTNAME}/api/"
 echo "    API Docs:    http://${OASIS_UI_HOSTNAME}/api/swagger/"
 
 if [ "$API_AUTH_TYPE" = "keycloak" ]; then
-    echo "    Keycloak:    http://${OASIS_UI_HOSTNAME}/auth/admin"
+    echo "    Keycloak:    http://${OASIS_UI_HOSTNAME}/auth/admin/"
     echo "                 (${KEYCLOAK_ADMIN_USER} / ${KEYCLOAK_ADMIN_PASSWORD})"
 elif [ "$API_AUTH_TYPE" = "authentik" ]; then
-    echo "    Authentik:   http://${OASIS_UI_HOSTNAME}/authentik/if/admin"
+    echo "    Authentik:   http://${OASIS_UI_HOSTNAME}/authentik/"
     echo "                 (akadmin / ${AUTHENTIK_BOOTSTRAP_PASSWORD})"
 fi
 
