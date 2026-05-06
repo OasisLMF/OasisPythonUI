@@ -1,0 +1,53 @@
+services:
+  pythonui:
+    restart: always
+    image: ${PYTHONUI_IMG}:${VERS_UI}
+    build:
+      dockerfile: ./oasisui_st_app.Dockerfile
+    ports:
+      - "8501:8501"
+    labels:
+      - "traefik.enable=true"
+      # HTTP router (normal UI access)
+      - "traefik.http.routers.pythonui.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.pythonui.entrypoints=web"
+      - "traefik.http.routers.pythonui.priority=1"
+      # HTTPS router (OIDC callback redirects to /?session_token=... on HTTPS)
+      - "traefik.http.routers.pythonui-secure.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.pythonui-secure.entrypoints=websecure"
+      - "traefik.http.routers.pythonui-secure.tls=true"
+      - "traefik.http.routers.pythonui-secure.priority=1"
+      # Shared service
+      - "traefik.http.services.pythonui.loadbalancer.server.port=8501"
+    environment:
+      - API_URL=http://server:8000
+      - API_AUTH_TYPE=${API_AUTH_TYPE}
+      - OASIS_HOSTNAME=${OASIS_UI_HOSTNAME}
+      - OASIS_PROTOCOL=${OASIS_PROTOCOL:-http}
+    volumes:
+      - ./defaults/:/usr/src/app/defaults/
+      - ./ui-config.json:/usr/src/app/ui-config.json:ro
+      - ./.streamlit/:/usr/src/app/.streamlit:ro
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      server:
+        condition: service_healthy
+    develop:
+      watch:
+        - action: sync
+          path: ./app.py
+          target: /usr/src/app/app.py
+        - action: sync
+          path: ./pages/
+          target: /usr/src/app/pages/
+        - action: sync
+          path: ./modules/
+          target: /usr/src/app/modules/
+        - action: sync
+          path: ./ui-config.json
+          target: /usr/src/app/ui-config.json

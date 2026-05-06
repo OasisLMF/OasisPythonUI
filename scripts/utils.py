@@ -11,6 +11,7 @@ LOG_LEVEL = logging.INFO
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=LOG_LEVEL)
 
+
 def parse_initialise_args(**kwargs):
     max_retries = 1
     if kwargs.get('retry'):
@@ -27,18 +28,26 @@ def initialise_client(max_retries=1, retry_interval=5):
     Initialise APIClient with retries whilst waiting for the server to come online.
     '''
     logger.info("Initialising client")
-    api_url = os.environ.get('API_URL', 'http://localhost:8000')
-    user = st.secrets.get('user', 'admin')
-    password = st.secrets.get('password', 'password')
+    api_url = os.environ.get('API_URL', 'http://ui.oasis.local/api')
+    auth_type = st.secrets.get('auth_type', 'simple')
+    if auth_type == "simple":
+        user = st.secrets.get('user', 'admin')
+        password = st.secrets.get('password', 'password')
+    else:  # Use service client_credentials auth for OIDC
+        client_id = st.secrets.get('client_id', 'oasis-service')
+        client_secret = st.secrets.get('client_secret', 'serviceNotSoSecret')
 
     retry_count = 0
 
     while True:
         try:
-            client =  APIClient(api_url=api_url, username=user, password=password)
+            if auth_type == "simple":
+                client = APIClient(api_url=api_url, username=user, password=password, auth_type="simple")
+            else:
+                client = APIClient(api_url=api_url, client_id=client_id, client_secret=client_secret, auth_type="oidc")
             break
         except (ConnectionError, OasisException) as e:
-            logger.error(f'Retry: {retry_count+1}/{max_retries}.\nFailed to load client: {e}')
+            logger.error(f'Retry: {retry_count + 1}/{max_retries}.\nFailed to load client: {e}')
 
         retry_count += 1
 

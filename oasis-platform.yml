@@ -1,6 +1,8 @@
 volumes:
   server-db-OasisData:
   celery-db-OasisData:
+  keycloak-db-OasisData:
+  authentik-db-OasisData:
   filestore-OasisData:
 x-shared-env: &shared-env
   OASIS_DEBUG: 1
@@ -26,78 +28,97 @@ x-volumes: &shared-volumes
   - filestore-OasisData:/shared-fs:rw
 services:
   server:
-   restart: always
-   image: ${SERVER_IMG:-coreoasis/api_server}:${VERS_API:-latest}
-   command: ["./wsgi/run-wsgi.sh"]
-   ports:
-     - 8000:8000
-     - 51970:51970
-   links:
-     - server-db
-     - celery-db
-     - broker
-   environment:
-     <<: *shared-env
-     STARTUP_RUN_MIGRATIONS: "true"
-     OASIS_ADMIN_USER: admin
-     OASIS_ADMIN_PASS: catmodels
-   volumes:
-     - filestore-OasisData:/shared-fs:rw
-   healthcheck:
+    restart: always
+    image: ${SERVER_IMG:-coreoasis/api_server}:${VERS_API:-latest}
+    command: ["./wsgi/run-wsgi.sh"]
+    ports:
+      - 8000:8000
+      - 51970:51970
+    depends_on:
+      server-db:
+        condition: service_healthy
+      celery-db:
+       condition: service_healthy
+      broker:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    environment:
+      <<: *shared-env
+      STARTUP_RUN_MIGRATIONS: "true"
+      OASIS_ADMIN_USER: admin
+      OASIS_ADMIN_PASS: catmodels
+    volumes:
+      - filestore-OasisData:/shared-fs:rw
+    healthcheck:
       test: curl --fail http:localhost:8000/healthcheck/ || exit
       interval: 30s
       retries : 10
       start_period: 30s
       timeout: 10s
   server_websocket:
-   restart: always
-   image: ${SERVER_IMG:-coreoasis/api_server}:${VERS_API:-latest}
-   command: ["./asgi/run-asgi.sh"]
-   links:
-     - server-db
-     - celery-db
-     - broker
-   ports:
-     - 8001:8001
-   environment:
-     <<: *shared-env
-   volumes:
-     - filestore-OasisData:/shared-fs:rw
+    restart: always
+    image: ${SERVER_IMG:-coreoasis/api_server}:${VERS_API:-latest}
+    command: ["./asgi/run-asgi.sh"]
+    depends_on:
+      server-db:
+        condition: service_healthy
+      celery-db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    ports:
+      - 8001:8001
+    environment:
+      <<: *shared-env
+    volumes:
+      - filestore-OasisData:/shared-fs:rw
   v2-worker-monitor:
-   restart: always
-   image: ${SERVER_IMG:-coreoasis/api_server}:${VERS_API:-latest}
-   command: [celery, -A, 'src.server.oasisapi.celery_app_v2', worker, --loglevel=INFO,  -Q, celery-v2]
-   links:
-     - server-db
-     - celery-db
-     - broker
-   environment:
-     <<: *shared-env
-   volumes:
-     - filestore-OasisData:/shared-fs:rw
+    restart: always
+    image: ${SERVER_IMG:-coreoasis/api_server}:${VERS_API:-latest}
+    command: [celery, -A, 'src.server.oasisapi.celery_app_v2', worker, --loglevel=INFO,  -Q, celery-v2]
+    depends_on:
+      server-db:
+        condition: service_healthy
+      celery-db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    environment:
+      <<: *shared-env
+    volumes:
+      - filestore-OasisData:/shared-fs:rw
   v2-task-controller:
-   restart: always
-   image: ${SERVER_IMG:-coreoasis/api_server}:${VERS_API:-latest}
-   command: [celery, -A, 'src.server.oasisapi.celery_app_v2', worker, --loglevel=INFO, -Q, task-controller]
-   links:
-     - server-db
-     - celery-db
-     - broker
-   environment:
-     <<: *shared-env
-   volumes:
-     - filestore-OasisData:/shared-fs:rw
+    restart: always
+    image: ${SERVER_IMG:-coreoasis/api_server}:${VERS_API:-latest}
+    command: [celery, -A, 'src.server.oasisapi.celery_app_v2', worker, --loglevel=INFO, -Q, task-controller]
+    depends_on:
+      server-db:
+        condition: service_healthy
+      celery-db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    environment:
+      <<: *shared-env
+    volumes:
+      - filestore-OasisData:/shared-fs:rw
   celery-beat_v2:
-   restart: always
-   image: ${SERVER_IMG:-coreoasis/api_server}:${VERS_API:-latest}
-   command: [celery, -A, src.server.oasisapi.celery_app_v2, beat, --loglevel=INFO]
-   links:
-     - server-db
-     - celery-db
-     - broker
-   environment:
-     <<: *shared-env
-   volumes: *shared-volumes
+    restart: always
+    image: ${SERVER_IMG:-coreoasis/api_server}:${VERS_API:-latest}
+    command: [celery, -A, src.server.oasisapi.celery_app_v2, beat, --loglevel=INFO]
+    depends_on:
+      server-db:
+        condition: service_healthy
+      celery-db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    environment:
+      <<: *shared-env
+    volumes: *shared-volumes
   piwind-worker:
     restart: always
     image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
@@ -105,17 +126,17 @@ services:
       context: .
       dockerfile: Dockerfile.model_worker
     links:
-     - celery-db
-     - broker:mybroker
+      - celery-db
+      - broker:mybroker
     environment:
-     <<: *shared-env
-     OASIS_MODEL_SUPPLIER_ID: OasisLMF
-     OASIS_MODEL_ID: PiWind
-     OASIS_MODEL_VERSION_ID: 'v2'
-     OASIS_RUN_MODE: v2
+      <<: *shared-env
+      OASIS_MODEL_SUPPLIER_ID: OasisLMF
+      OASIS_MODEL_ID: PiWind
+      OASIS_MODEL_VERSION_ID: 'v2'
+      OASIS_RUN_MODE: v2
     volumes:
-     - ./OasisPiWind/:/home/worker/model
-     - filestore-OasisData:/shared-fs:rw
+      - ./OasisPiWind/:/home/worker/model
+      - filestore-OasisData:/shared-fs:rw
   server-db:
     restart: always
     image: postgres
@@ -126,7 +147,12 @@ services:
     volumes:
       - server-db-OasisData:/var/lib/postgresql:rw
     ports:
-      - 33307:3306
+      - 33307:5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oasis -d oasis"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
   celery-db:
     restart: always
     image: postgres
@@ -138,6 +164,11 @@ services:
       - celery-db-OasisData:/var/lib/postgresql:rw
     ports:
       - 33306:5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U celery -d celery"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
   broker:
     restart: always
     image: rabbitmq:3.8.14-management
@@ -147,8 +178,93 @@ services:
     ports:
       - 5672:5672
       - 15672:15672
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
   channel-layer:
     restart: always
     image: redis:5.0.7
     ports:
       - 6379:6379
+  keycloak-db:
+    restart: always
+    image: postgres
+    environment:
+      - POSTGRES_DB=keycloak
+      - POSTGRES_USER=keycloak
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - keycloak-db-OasisData:/var/lib/postgresql:rw
+    ports:
+      - 33308:5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  authentik-db:
+    restart: always
+    image: postgres
+    environment:
+      - POSTGRES_DB=authentik
+      - POSTGRES_USER=authentik
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - authentik-db-OasisData:/var/lib/postgresql:rw
+    ports:
+      - 33309:5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U authentik -d authentik"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  keycloak-realm-render:
+    image: alpine:3.19
+    volumes:
+      - ./oidc/keycloak:/scripts
+    working_dir: /scripts
+    command: sh -c "apk add --no-cache bash perl yq util-linux && bash gen-users.sh"
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0.6-0
+    restart: always
+    command:
+      - start
+      - --import-realm
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+      keycloak-realm-render:
+        condition: service_completed_successfully
+    ports:
+      - 8080:8080
+    environment:
+      # Admin user
+      KEYCLOAK_ADMIN: keycloak
+      KEYCLOAK_ADMIN_PASSWORD: password
+      # Logging
+      KC_LOGLEVEL: DEBUG
+      # HTTP / proxy behavior
+      KC_HTTP_RELATIVE_PATH: /auth
+      KC_PROXY: edge
+      KC_PROXY_ADDRESS_FORWARDING: "true"
+      KC_HOSTNAME_STRICT: "false"
+      # Realm import
+      KC_IMPORT: /opt/keycloak/data/import/oasis-realm.json
+      # Database config
+      KC_DB: postgres
+      KC_DB_URL_HOST: keycloak-db
+      KC_DB_URL_PORT: 5432
+      KC_DB_URL_DATABASE: keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: password
+    volumes:
+      - ./oidc/keycloak/rendered/oasis-realm.json:/opt/keycloak/data/import/oasis-realm.json:ro
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - 'exec 3<>/dev/tcp/localhost/8080; echo -e "GET /auth/realms/master HTTP/1.1\r\nhost: localhost\r\nConnection: close\r\n\r\n" >&3; grep "HTTP/1.1 200 OK" <&3'
+      interval: 10s
+      timeout: 5s
+      retries: 30

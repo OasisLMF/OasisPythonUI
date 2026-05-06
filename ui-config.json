@@ -8,5 +8,5 @@
   "post_login_page": "pages/scenariosGuide.py",
   "model_map": {
   },
-  "skip_login": true
+  "skip_login": false
 }

@@ -6,6 +6,8 @@ toolbarMode = "minimal"
 [server]
 fileWatcherType = "none"
 headless = true
+enableXsrfProtection = false
+enableCORS = false
 
 [browser]
 gatherUsageStats = false

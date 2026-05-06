@@ -1,0 +1,17 @@
+# Keycloak User Definitions
+# These users will be created in the Keycloak realm during initialization
+# Matches OasisPlatform Kubernetes values.yaml: keycloak.oasisRestApi.users
+
+users:
+  - username: admin
+    password: password
+    admin: true
+
+  # Uncomment to add more users:
+  # - username: user
+  #   password: password
+  #   admin: false
+  #
+  # - username: analyst
+  #   password: password
+  #   admin: false
