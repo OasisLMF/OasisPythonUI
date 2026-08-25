@@ -206,49 +206,6 @@ services:
       broker:
         condition: service_healthy
 
-  model-registration:
-    restart: "no"
-    image: ${SERVER_IMG:-coreoasis/api_server}:${VERS_API:-latest}
-    command: ["python3", "/scripts/model_registration.py"]
-    environment:
-      <<: *shared-env
-      OASIS_API_URL: "http://server:8000"
-      OASIS_MODEL_SUPPLIER_ID: OasisLMF
-      OASIS_MODEL_ID: PiWind
-      OASIS_MODEL_VERSION_ID: v2
-      OASIS_RUN_MODE: v2
-      OASIS_MODEL_DATA_DIRECTORY: /model/meta-data
-    volumes:
-      - ./OasisPiWind/:/model:ro
-      - ./scripts:/scripts:ro
-    depends_on:
-      server:
-        condition: service_healthy
-
-  piwind-worker:
-    restart: always
-    image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
-    environment:
-      <<: *shared-env
-      OASIS_MODEL_SUPPLIER_ID: OasisLMF
-      OASIS_MODEL_ID: PiWind
-      OASIS_MODEL_VERSION_ID: v2
-      OASIS_RUN_MODE: v2
-      OASIS_OASISLMF_VERSION: ${OASIS_OASISLMF_VERSION}
-      OASIS_ODS_VERSION: ${OASIS_ODS_VERSION}
-      OASIS_ODM_VERSION: ${OASIS_ODM_VERSION}
-      OASIS_OED_SCHEMA_INFO: ${OASIS_OED_SCHEMA_INFO}
-    volumes:
-      - ./OasisPiWind/:/home/worker/model
-      - filestore-data:/shared-fs:rw
-    depends_on:
-      celery-db:
-        condition: service_healthy
-      broker:
-        condition: service_healthy
-      model-registration:
-        condition: service_completed_successfully
-
   server-db:
     restart: always
     image: postgres:15-alpine
