@@ -15,6 +15,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 MODEL_SET_ARG=""
 BUILD_UI=false
+PULL_UI=true
 UNINSTALL=false
 
 usage() {
@@ -27,6 +28,7 @@ Usage: ./install.sh [options]
                             optionally a get-<models>.sh script to deploy the
                             model in the root directory.
   --build-ui                Rebuild the UI docker container.
+  --no-pull                 Do not pull the UI container from docker.
   -u, --uninstall           Bring the stack down and delete its volumes.
   -h, --help                Show this message.
 USAGE
@@ -43,6 +45,7 @@ while [ $# -gt 0 ]; do
     case "$1" in
         -m|--model-set)   require_value "$1" "${2:-}"; MODEL_SET_ARG="$2"; shift 2 ;;
         --build-ui)    BUILD_UI=true; shift ;;
+        --no-pull)     PULL_UI=false; shift ;;
         -u|--uninstall) UNINSTALL=true; shift ;;
         -h|--help)     usage; exit 0 ;;
         *)             echo "ERROR: unknown option '$1'" >&2; usage >&2; exit 1 ;;
@@ -201,7 +204,7 @@ fi
 # Build compose file list
 # ============================================================================
 
-COMPOSE_FILES="-f $SCRIPT_DIR/docker-compose.yml -f $SCRIPT_DIR/docker-compose.ui.yml"
+COMPOSE_FILES="-f $SCRIPT_DIR/docker-compose.yml -f $MODEL_COMPOSE_FILE -f $SCRIPT_DIR/docker-compose.ui.yml"
 
 if [ "$API_AUTH_TYPE" = "keycloak" ]; then
     COMPOSE_FILES="$COMPOSE_FILES -f $SCRIPT_DIR/docker-compose.keycloak.yml"
@@ -226,8 +229,6 @@ else
     echo "  -> No get-$MODEL_NAME.sh, expecting the $MODEL_NAME model data to be in place"
 fi
 echo ""
-
-exit 0
 
 # ============================================================================
 # Check for previous install
@@ -267,13 +268,14 @@ echo ""
 if [ "$BUILD_UI" = true ]; then
     echo "  -> Building UI image"
     docker compose $COMPOSE_FILES build --no-cache pythonui
-else
-    echo "  -> Using UI image ${PYTHONUI_IMG:-coreoasis/oasispythonui_app}:${VERS_UI:-latest}"
+elif [ "$PULL_UI" = true ]; then
+    echo "  -> Pulling UI image ${PYTHONUI_IMG:-coreoasis/oasispythonui_app}:${VERS_UI:-latest}"
     set +e
     docker pull "${PYTHONUI_IMG:-coreoasis/oasispythonui_app}:${VERS_UI:-latest}"
     set -e
 fi
 
+echo "  -> Using UI image ${PYTHONUI_IMG:-coreoasis/oasispythonui_app}:${VERS_UI:-latest}"
 
 # ============================================================================
 # Deploy services
