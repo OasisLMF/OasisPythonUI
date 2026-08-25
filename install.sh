@@ -10,17 +10,63 @@ set -e
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # ============================================================================
+# Options
+# ============================================================================
+
+MODEL_COMPOSE_ARG=""
+BUILD_UI=false
+UNINSTALL=false
+
+usage() {
+    cat <<'USAGE'
+Usage: ./install.sh [options]
+
+  -m, --models <name|file>  Model set to deploy: a name resolved to
+                            docker-compose.models.<name>.yml, or a path to a
+                            compose file. Defaults to MODEL_COMPOSE in .env,
+                            falling back to 'piwind'.
+      --build-ui            Rebuild the UI docker container.
+  -u, --uninstall           Bring the stack down and delete its volumes.
+  -h, --help                Show this message.
+USAGE
+}
+
+require_value() {
+    if [ -z "$2" ]; then
+        echo "ERROR: $1 needs a value" >&2
+        exit 1
+    fi
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -m|--models)   require_value "$1" "${2:-}"; MODEL_COMPOSE_ARG="$2"; shift 2 ;;
+        --build-ui)    BUILD_UI=true; shift ;;
+        -u|--uninstall) UNINSTALL=true; shift ;;
+        -h|--help)     usage; exit 0 ;;
+        *)             echo "ERROR: unknown option '$1'" >&2; usage >&2; exit 1 ;;
+    esac
+done
+
+# ============================================================================
 # Uninstall mode
 # ============================================================================
 
-if [[ "$1" == "--uninstall" || "$1" == "-u" ]]; then
+if [ "$UNINSTALL" = true ]; then
     echo "Uninstalling Oasis platform (docker compose down only)..."
+
+    # Every model set, so model workers come down whichever one was deployed
+    MODEL_FILES=()
+    for model_file in "$SCRIPT_DIR"/docker-compose.models.*.yml; do
+        [ -f "$model_file" ] && MODEL_FILES+=(-f "$model_file")
+    done
 
     set +e
     docker compose -f "$SCRIPT_DIR/docker-compose.yml" \
         -f "$SCRIPT_DIR/docker-compose.ui.yml" \
         -f "$SCRIPT_DIR/docker-compose.keycloak.yml" \
         -f "$SCRIPT_DIR/docker-compose.authentik.yml" \
+        "${MODEL_FILES[@]}" \
         down --remove-orphans -v 2>/dev/null
     # Also try old files in case of migration
     docker compose -f "$SCRIPT_DIR/oasis-platform.yml" \
@@ -197,19 +243,31 @@ echo "--- Pulling images ---"
 set +e
 docker pull "${SERVER_IMG:-coreoasis/api_server}:${VERS_API:-latest}"
 docker pull "${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}"
-docker pull "${PYTHONUI_IMG:-coreoasis/oasispythonui_app}:${VERS_UI:-latest}"
 set -e
 
 echo ""
+
+# ============================================================================
+# Build UI if necessary
+# ============================================================================
+
+if [ "$BUILD_UI" = true ]; then
+    echo "  -> Building UI image"
+    docker compose $COMPOSE_FILES build --no-cache pythonui
+else
+    echo "  -> Using UI image ${PYTHONUI_IMG:-coreoasis/oasispythonui_app}:${VERS_UI:-latest}"
+    set +e
+    docker pull "${PYTHONUI_IMG:-coreoasis/oasispythonui_app}:${VERS_UI:-latest}"
+    set -e
+fi
+
+exit 0
 
 # ============================================================================
 # Deploy services
 # ============================================================================
 
 echo "--- Deploying services ---"
-
-# Build UI
-docker compose $COMPOSE_FILES build --no-cache pythonui
 
 # Start all services
 docker compose $COMPOSE_FILES up -d
