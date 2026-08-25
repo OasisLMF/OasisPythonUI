@@ -252,8 +252,8 @@ fi
 echo "--- Pulling images ---"
 
 set +e
-docker pull "${SERVER_IMG:-coreoasis/api_server}:${VERS_API:-latest}" --ignore-pull-failures
-docker pull "${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}" --ignore-pull-failures
+docker pull --ignore-pull-failures "${SERVER_IMG:-coreoasis/api_server}:${VERS_API:-latest}"
+docker pull --ignore-pull-failures "${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}"
 set -e
 
 echo ""
@@ -268,7 +268,7 @@ if [ "$BUILD_UI" = true ]; then
 else
     echo "  -> Pulling UI image ${PYTHONUI_IMG:-coreoasis/oasispythonui_app}:${VERS_UI:-latest}"
     set +e
-    docker pull "${PYTHONUI_IMG:-coreoasis/oasispythonui_app}:${VERS_UI:-latest}" --ignore-pull-failures
+    docker pull --ignore-pull-failures "${PYTHONUI_IMG:-coreoasis/oasispythonui_app}:${VERS_UI:-latest}"
     set -e
 fi
 

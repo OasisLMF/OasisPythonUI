@@ -221,7 +221,7 @@ def run_analysis(re_handler):
     left, middle, right = st.columns(3, vertical_alignment='center')
     left.markdown("2) Generate Inputs:")
 
-    if middle.button("Generate", use_container_width=True, disabled=not validations.is_valid()):
+    if middle.button("Generate", width='stretch', disabled=not validations.is_valid()):
         try:
             client.analyses.generate(selected['id'])
             st.success('Input generation started.')
@@ -290,7 +290,7 @@ def run_analysis(re_handler):
     validations.add_validation(NotNoneValidation('Analysis'), selected)
     validations.add_validation(KeyInValuesValidation('Status'), selected, 'status', ['READY', 'NEW', 'RUN_ERROR', 'RUN_CANCELLED', 'RUN_COMPLETED'])
     if middle.button("Upload Settings File", disabled=not validations.is_valid(),
-                   use_container_width=True):
+                   width='stretch'):
         upload_settings_file(selected)
 
     # Set settings button
@@ -302,7 +302,7 @@ def run_analysis(re_handler):
     if not enable_button:
         msg = validations.message
     if right.button("Set Analysis Settings", disabled=not enable_button, help=msg,
-                     use_container_width=True):
+                     width='stretch'):
         set_analysis_settings(selected)
 
     created_analysis_settings = consume_analysis_settings()
@@ -341,7 +341,7 @@ def run_analysis(re_handler):
     if not run_enabled:
         msg = validations.message
 
-    if middle.button("Run", use_container_width=True, disabled=not run_enabled, help=msg):
+    if middle.button("Run", width='stretch', disabled=not run_enabled, help=msg):
         try:
             client_interface.run(selected['id'])
 
@@ -359,7 +359,7 @@ def run_analysis(re_handler):
     validation = NotNoneValidation('Selected analysis')
     button_enabled = validation.is_valid(selected)
 
-    if left.button("Delete", use_container_width=True, disabled = not button_enabled, help=validation.message):
+    if left.button("Delete", width='stretch', disabled = not button_enabled, help=validation.message):
         try:
             client.analyses.delete(selected['id'])
             st.rerun()
@@ -375,7 +375,7 @@ def run_analysis(re_handler):
     if not run_enabled:
         msg = validations.message
 
-    if middle.button("Logs", use_container_width=True, disabled=not run_enabled, help=msg):
+    if middle.button("Logs", width='stretch', disabled=not run_enabled, help=msg):
         @st.dialog("Log", width='large')
         def error_log_dialog(analysis_id):
             input_gen_traceback = client_interface.analyses.get_traceback(analysis_id, 'input_generation')

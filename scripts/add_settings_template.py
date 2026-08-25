@@ -12,12 +12,12 @@ logging.basicConfig(level=LOG_LEVEL)
 def add_model_analysis_settings(client, model_id, analysis_settings_path):
     models = client.models.search({'model_id': str(model_id)}).json()
     if not models:
-        logger.warn(f"model id: {model_id} not found")
+        logger.warning(f"model id: {model_id} not found")
         return
 
     analysis_settings_path = Path(analysis_settings_path)
     if not analysis_settings_path.is_file():
-        logger.warn(f"analysis settings file for model_id {model_id} not found")
+        logger.warning(f"analysis settings file for model_id {model_id} not found")
         return
 
     with open(analysis_settings_path, "r") as f:

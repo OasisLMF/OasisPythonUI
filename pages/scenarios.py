@@ -147,7 +147,7 @@ with create_container:
     cols = st.columns([0.25, 0.25, 0.25, 0.25])
 
     with cols[0]:
-        with st.popover("Create Analysis", disabled=not enable_popover, help=msg,  use_container_width=True):
+        with st.popover("Create Analysis", disabled=not enable_popover, help=msg,  width='stretch'):
             if enable_popover:
                 resp = create_analysis_form(portfolios=[selected_portfolio.to_dict()], models=[selected_model.to_dict()])
                 if resp:
@@ -165,7 +165,7 @@ with create_container:
         enable_map_button = validation.is_valid(selected_portfolio)
 
         if st.button("Exposure Map", disabled=not enable_map_button,
-                     help=validation.get_message(), use_container_width=True):
+                     help=validation.get_message(), width='stretch'):
             @st.dialog("Locations Map", width='large')
             def show_locations_map():
                 with st.spinner('Loading map...'):
@@ -189,7 +189,7 @@ with create_container:
         enable_model_details = validation.is_valid(selected_model)
 
         if st.button("Scenario Details", disabled=not enable_model_details,
-                     help = validation.get_message(), use_container_width=True):
+                     help = validation.get_message(), width='stretch'):
             try:
                 model_settings = client_interface.models.settings.get(selected_model['id'])
             except HTTPError as e:
@@ -279,7 +279,7 @@ with run_container:
 
         run_started = False
         with columns[0]:
-            if st.button('Run', disabled = not run_enabled, help=msg, use_container_width=True):
+            if st.button('Run', disabled = not run_enabled, help=msg, width='stretch'):
                 try:
                     # Load from platform
                     templates = client_interface.models.setting_templates.get(selected['model'])
@@ -420,7 +420,7 @@ with run_container:
         download_enabled = validations.is_valid()
 
         with columns[1]:
-            if st.button("Show Output", use_container_width=True, disabled = not download_enabled):
+            if st.button("Show Output", width='stretch', disabled = not download_enabled):
                 display_outputs(client_interface, selected["id"], selected['model'])
 
 
