@@ -1,7 +1,7 @@
 services:
   pythonui:
     restart: always
-    image: ${PYTHONUI_IMG}:${VERS_UI}
+    image: ${PYTHONUI_IMG-coreoasis/oasispythonui_app}:${VERS_UI-latest}
     build:
       dockerfile: ./oasisui_st_app.Dockerfile
     ports:

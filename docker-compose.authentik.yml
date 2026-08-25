@@ -2,7 +2,7 @@ volumes:
   authentik-db-data:
 
 services:
-  model-registration:
+  server:
     depends_on:
       authentik-server:
         condition: service_healthy
