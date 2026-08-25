@@ -13,7 +13,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 # Options
 # ============================================================================
 
-MODEL_COMPOSE_ARG=""
+MODEL_SET_ARG=""
 BUILD_UI=false
 UNINSTALL=false
 
@@ -21,11 +21,12 @@ usage() {
     cat <<'USAGE'
 Usage: ./install.sh [options]
 
-  -m, --models <name|file>  Model set to deploy: a name resolved to
-                            docker-compose.models.<name>.yml, or a path to a
-                            compose file. Defaults to MODEL_COMPOSE in .env,
-                            falling back to 'piwind'.
-      --build-ui            Rebuild the UI docker container.
+  -m, --model-set           Name of model set to deploy, defaults to
+                            'piwind'. Expects to find
+                            `docker-compose.models.<models>.yml file and
+                            optionally a get-<models>.sh script to deploy the
+                            model in the root directory.
+  --build-ui                Rebuild the UI docker container.
   -u, --uninstall           Bring the stack down and delete its volumes.
   -h, --help                Show this message.
 USAGE
@@ -40,7 +41,7 @@ require_value() {
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        -m|--models)   require_value "$1" "${2:-}"; MODEL_COMPOSE_ARG="$2"; shift 2 ;;
+        -m|--model-set)   require_value "$1" "${2:-}"; MODEL_SET_ARG="$2"; shift 2 ;;
         --build-ui)    BUILD_UI=true; shift ;;
         -u|--uninstall) UNINSTALL=true; shift ;;
         -h|--help)     usage; exit 0 ;;
@@ -96,6 +97,7 @@ set -a
 source "$SCRIPT_DIR/.env"
 set +a
 
+
 # ============================================================================
 # Auto-detect Docker socket if not set
 # ============================================================================
@@ -110,11 +112,25 @@ elif [ ! -S "$DOCKER_SOCK" ]; then
     export DOCKER_SOCK=/var/run/docker.sock
 fi
 
+# ============================================================================
+# Resolve the model compose files
+# ============================================================================
+
+MODEL_SET_NAME="${MODEL_SET_ARG:-${MODEL_SET:-piwind}}"
+MODEL_COMPOSE_FILE="$SCRIPT_DIR/docker-compose.models.$MODEL_SET_NAME.yml"
+MODEL_SETUP_SCRIPT="$SCRIPT_DIR/get-$MODEL_SET_NAME.sh"
+if [ ! -f "$MODEL_COMPOSE_FILE" ]; then
+    echo "ERROR: no model set '$MODEL_SET_NAME': $(basename "$MODEL_COMPOSE_FILE") not found"
+    echo ""
+    exit 1
+fi
+
 echo "========================================"
 echo " OasisPythonUI Installer"
 echo "========================================"
 echo ""
 echo "  Auth type:     $API_AUTH_TYPE"
+echo "  Model set:     $MODEL_SET_NAME"
 echo "  Hostname:      $OASIS_UI_HOSTNAME"
 echo "  Protocol:      $OASIS_PROTOCOL"
 echo "  Docker socket: $DOCKER_SOCK"
@@ -198,23 +214,20 @@ fi
 echo "  -> Compose files: $COMPOSE_FILES"
 echo ""
 
-# ============================================================================
-# Clone PiWind model (if not present)
-# ============================================================================
 
-GIT_PIWIND=OasisPiWind
+# ============================================================================
+# Get model data
+# ============================================================================
+echo "--- Retrieving Model Data ---"
 
-if [ ! -d "$SCRIPT_DIR/$GIT_PIWIND/.git" ]; then
-    echo "--- Cloning PiWind model ---"
-    mkdir -p "$SCRIPT_DIR/$GIT_PIWIND"
-    cd "$SCRIPT_DIR/$GIT_PIWIND"
-    git clone --depth 1 --branch "${VERS_PIWIND}" "https://github.com/OasisLMF/$GIT_PIWIND.git" .
-    cd "$SCRIPT_DIR"
-    echo ""
+if [ -f "$MODEL_SETUP_SCRIPT" ]; then
+    bash "$MODEL_SETUP_SCRIPT"
 else
-    echo "  -> PiWind model already cloned"
-    echo ""
+    echo "  -> No get-$MODEL_NAME.sh, expecting the $MODEL_NAME model data to be in place"
 fi
+echo ""
+
+exit 0
 
 # ============================================================================
 # Check for previous install
@@ -261,7 +274,6 @@ else
     set -e
 fi
 
-exit 0
 
 # ============================================================================
 # Deploy services
