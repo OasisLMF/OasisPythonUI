@@ -22,7 +22,7 @@
     "France-Hail": ["france-hail-flat"]
   },
   "footer" : {
-    "path": "scenarios/assets/footer.md",
+    "path": "ui_assets/footer.md",
     "pages": [
       "scenarios",
       "comparison"

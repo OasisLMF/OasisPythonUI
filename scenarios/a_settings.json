@@ -1,58 +1,58 @@
 [
   {
     "model_name_id": "PiWind",
-    "settings_path": "./defaults/1_piwind_oasislmf-analysis_settings.json"
+    "settings_path": "./scenarios/defaults/1_piwind_oasislmf-analysis_settings.json"
   },
   {
     "model_name_id": "EUWS",
-    "settings_path": "./defaults/3_euws_impact-forecasting-analysis_settings.json"
+    "settings_path": "./scenarios/defaults/3_euws_impact-forecasting-analysis_settings.json"
   },
   {
     "model_name_id": "MAEQ",
-    "settings_path": "./defaults/2_maeq_impact-forecasting-analysis_settings.json"
+    "settings_path": "./scenarios/defaults/2_maeq_impact-forecasting-analysis_settings.json"
   },
   {
     "model_name_id": "Philippines-Taiwan-Undefended",
-    "settings_path": "./defaults/6_philippines-taiwan-undefended_jba-analysis_settings.json"
+    "settings_path": "./scenarios/defaults/6_philippines-taiwan-undefended_jba-analysis_settings.json"
   },
   {
     "model_name_id": "Philippines-Taiwan-Defended",
-    "settings_path": "./defaults/5_philippines-taiwan-defended_jba-analysis_settings.json"
+    "settings_path": "./scenarios/defaults/5_philippines-taiwan-defended_jba-analysis_settings.json"
   },
   {
     "model_name_id": "France-Hail",
-    "settings_path": "./defaults/14_france-hail_ipe-analysis_settings.json"
+    "settings_path": "./scenarios/defaults/14_france-hail_ipe-analysis_settings.json"
   },
   {
     "model_name_id": "Nepal-E432557",
-    "settings_path": "./defaults/12_nepal-e432557_jba-analysis_settings.json"
+    "settings_path": "./scenarios/defaults/12_nepal-e432557_jba-analysis_settings.json"
   },
   {
     "model_name_id": "Ghana-E760461",
-    "settings_path": "./defaults/10_ghana-e760461_jba-analysis_settings.json"
+    "settings_path": "./scenarios/defaults/10_ghana-e760461_jba-analysis_settings.json"
   },
   {
     "model_name_id": "Ghana-E635900",
-    "settings_path": "./defaults/8_ghana-e635900_jba-analysis_settings.json"
+    "settings_path": "./scenarios/defaults/8_ghana-e635900_jba-analysis_settings.json"
   },
   {
     "model_name_id": "Nepal-E151185",
-    "settings_path": "./defaults/11_nepal-e151185_jba-analysis_settings.json"
+    "settings_path": "./scenarios/defaults/11_nepal-e151185_jba-analysis_settings.json"
   },
   {
     "model_name_id": "Nepal-E505423",
-    "settings_path": "./defaults/13_nepal-e505423_jba-analysis_settings.json"
+    "settings_path": "./scenarios/defaults/13_nepal-e505423_jba-analysis_settings.json"
   },
   {
     "model_name_id": "Ghana-E689982",
-    "settings_path": "./defaults/9_ghana-e689982_jba-analysis_settings.json"
+    "settings_path": "./scenarios/defaults/9_ghana-e689982_jba-analysis_settings.json"
   },
   {
     "model_name_id": "TREQ",
-    "settings_path": "./defaults/4_treq_impact-forecasting-analysis_settings.json"
+    "settings_path": "./scenarios/defaults/4_treq_impact-forecasting-analysis_settings.json"
   },
   {
     "model_name_id": "US-Hurricane",
-    "settings_path": "./defaults/7_us-hurricane_ara-analysis_settings.json"
+    "settings_path": "./scenarios/defaults/7_us-hurricane_ara-analysis_settings.json"
   }
 ]
