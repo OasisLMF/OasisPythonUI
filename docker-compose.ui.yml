@@ -28,6 +28,7 @@ services:
       - ${UI_DEFAULTS:-./defaults/}:/usr/src/app/defaults/
       - ${UI_CONFIG:-./ui-config.json}:/usr/src/app/ui-config.json:ro
       - ${UI_STREAMLIT:-./.streamlit/}:/usr/src/app/.streamlit:ro
+      - ${UI_ASSETS:-./ui_assets/}:/usr/src/app/ui_assets:ro
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')"]
       interval: 30s
