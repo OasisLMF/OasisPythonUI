@@ -1,0 +1,21 @@
+{
+
+	"source_tag": "MDK",
+	"analysis_tag": 1,
+	"model_name_id": "maeq",
+	"model_supplier_id": "ImpactForecasting",
+	"number_of_samples": 100,
+	"model_settings": {
+		"event_set": ""
+	 },
+        "gul_output": true,
+	"gul_summaries": [
+	            {
+	            	"id": 1,
+                    "ord_output": {
+                      "elt_moment": true
+                    }
+	            }
+	        ],
+        "gul_threshold": 0
+}

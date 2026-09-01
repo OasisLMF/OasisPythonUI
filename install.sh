@@ -10,17 +10,64 @@ set -e
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # ============================================================================
+# Options
+# ============================================================================
+
+MODEL_SET_ARG=""
+BUILD_UI=false
+UNINSTALL=false
+
+usage() {
+    cat <<'USAGE'
+Usage: ./install.sh [options]
+
+  -m, --model-set           Name of model set to deploy, defaults to
+                            'piwind'. Expects to find
+                            `docker-compose.models.<models>.yml file and
+                            optionally a get-<models>.sh script to deploy the
+                            model in the root directory.
+  --build-ui                Rebuild the UI docker container.
+  -u, --uninstall           Bring the stack down and delete its volumes.
+  -h, --help                Show this message.
+USAGE
+}
+
+require_value() {
+    if [ -z "$2" ]; then
+        echo "ERROR: $1 needs a value" >&2
+        exit 1
+    fi
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -m|--model-set)   require_value "$1" "${2:-}"; MODEL_SET_ARG="$2"; shift 2 ;;
+        --build-ui)    BUILD_UI=true; shift ;;
+        -u|--uninstall) UNINSTALL=true; shift ;;
+        -h|--help)     usage; exit 0 ;;
+        *)             echo "ERROR: unknown option '$1'" >&2; usage >&2; exit 1 ;;
+    esac
+done
+
+# ============================================================================
 # Uninstall mode
 # ============================================================================
 
-if [[ "$1" == "--uninstall" || "$1" == "-u" ]]; then
+if [ "$UNINSTALL" = true ]; then
     echo "Uninstalling Oasis platform (docker compose down only)..."
+
+    # Every model set, so model workers come down whichever one was deployed
+    MODEL_FILES=()
+    for model_file in "$SCRIPT_DIR"/docker-compose.models.*.yml; do
+        [ -f "$model_file" ] && MODEL_FILES+=(-f "$model_file")
+    done
 
     set +e
     docker compose -f "$SCRIPT_DIR/docker-compose.yml" \
         -f "$SCRIPT_DIR/docker-compose.ui.yml" \
         -f "$SCRIPT_DIR/docker-compose.keycloak.yml" \
         -f "$SCRIPT_DIR/docker-compose.authentik.yml" \
+        "${MODEL_FILES[@]}" \
         down --remove-orphans -v 2>/dev/null
     # Also try old files in case of migration
     docker compose -f "$SCRIPT_DIR/oasis-platform.yml" \
@@ -50,6 +97,7 @@ set -a
 source "$SCRIPT_DIR/.env"
 set +a
 
+
 # ============================================================================
 # Auto-detect Docker socket if not set
 # ============================================================================
@@ -64,11 +112,25 @@ elif [ ! -S "$DOCKER_SOCK" ]; then
     export DOCKER_SOCK=/var/run/docker.sock
 fi
 
+# ============================================================================
+# Resolve the model compose files
+# ============================================================================
+
+MODEL_SET_NAME="${MODEL_SET_ARG:-${MODEL_SET:-piwind}}"
+MODEL_COMPOSE_FILE="$SCRIPT_DIR/docker-compose.models.$MODEL_SET_NAME.yml"
+MODEL_SETUP_SCRIPT="$SCRIPT_DIR/get-$MODEL_SET_NAME.sh"
+if [ ! -f "$MODEL_COMPOSE_FILE" ]; then
+    echo "ERROR: no model set '$MODEL_SET_NAME': $(basename "$MODEL_COMPOSE_FILE") not found"
+    echo ""
+    exit 1
+fi
+
 echo "========================================"
 echo " OasisPythonUI Installer"
 echo "========================================"
 echo ""
 echo "  Auth type:     $API_AUTH_TYPE"
+echo "  Model set:     $MODEL_SET_NAME"
 echo "  Hostname:      $OASIS_UI_HOSTNAME"
 echo "  Protocol:      $OASIS_PROTOCOL"
 echo "  Docker socket: $DOCKER_SOCK"
@@ -139,7 +201,7 @@ fi
 # Build compose file list
 # ============================================================================
 
-COMPOSE_FILES="-f $SCRIPT_DIR/docker-compose.yml -f $SCRIPT_DIR/docker-compose.ui.yml"
+COMPOSE_FILES="-f $SCRIPT_DIR/docker-compose.yml -f $MODEL_COMPOSE_FILE -f $SCRIPT_DIR/docker-compose.ui.yml"
 
 if [ "$API_AUTH_TYPE" = "keycloak" ]; then
     COMPOSE_FILES="$COMPOSE_FILES -f $SCRIPT_DIR/docker-compose.keycloak.yml"
@@ -152,23 +214,18 @@ fi
 echo "  -> Compose files: $COMPOSE_FILES"
 echo ""
 
-# ============================================================================
-# Clone PiWind model (if not present)
-# ============================================================================
 
-GIT_PIWIND=OasisPiWind
+# ============================================================================
+# Get model data
+# ============================================================================
+echo "--- Retrieving Model Data ---"
 
-if [ ! -d "$SCRIPT_DIR/$GIT_PIWIND/.git" ]; then
-    echo "--- Cloning PiWind model ---"
-    mkdir -p "$SCRIPT_DIR/$GIT_PIWIND"
-    cd "$SCRIPT_DIR/$GIT_PIWIND"
-    git clone --depth 1 --branch "${VERS_PIWIND}" "https://github.com/OasisLMF/$GIT_PIWIND.git" .
-    cd "$SCRIPT_DIR"
-    echo ""
+if [ -f "$MODEL_SETUP_SCRIPT" ]; then
+    bash "$MODEL_SETUP_SCRIPT"
 else
-    echo "  -> PiWind model already cloned"
-    echo ""
+    echo "  -> No get-$MODEL_NAME.sh, expecting the $MODEL_NAME model data to be in place"
 fi
+echo ""
 
 # ============================================================================
 # Check for previous install
@@ -197,19 +254,29 @@ echo "--- Pulling images ---"
 set +e
 docker pull "${SERVER_IMG:-coreoasis/api_server}:${VERS_API:-latest}"
 docker pull "${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}"
-docker pull "${PYTHONUI_IMG:-coreoasis/oasispythonui_app}:${VERS_UI:-latest}"
 set -e
 
 echo ""
+
+# ============================================================================
+# Build UI if necessary
+# ============================================================================
+
+if [ "$BUILD_UI" = true ]; then
+    echo "  -> Building UI image"
+    docker compose $COMPOSE_FILES build --no-cache pythonui
+else
+    echo "  -> Pulling UI image ${PYTHONUI_IMG:-coreoasis/oasispythonui_app}:${VERS_UI:-latest}"
+    set +e
+    docker pull "${PYTHONUI_IMG:-coreoasis/oasispythonui_app}:${VERS_UI:-latest}"
+    set -e
+fi
 
 # ============================================================================
 # Deploy services
 # ============================================================================
 
 echo "--- Deploying services ---"
-
-# Build UI
-docker compose $COMPOSE_FILES build --no-cache pythonui
 
 # Start all services
 docker compose $COMPOSE_FILES up -d

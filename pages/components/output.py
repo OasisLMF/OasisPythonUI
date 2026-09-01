@@ -432,7 +432,7 @@ def elt_ord_table(result, perspective, oed_fields = None, key_prefix=None,
         table_df = table_df.sort_values(by=order_col, ascending=False)
 
     # OED Filters
-    with st.popover("OED Filters", use_container_width=True):
+    with st.popover("OED Filters", width='stretch'):
         for oed_field in oed_fields:
             options = table_df[oed_field].unique()
             oed_filter = st.multiselect(f"{oed_field} Filter:",  options,
@@ -765,7 +765,7 @@ def generate_aalcalc_fragment(p, vis):
     if breakdown_field_invalid:
         st.error("Too many values in group field.")
 
-    st.plotly_chart(graph, use_container_width=True)
+    st.plotly_chart(graph, width='stretch')
 
 @st.fragment
 def generate_alt_fragment(p, vis, output_type='alt_meanonly'):
@@ -802,7 +802,7 @@ def generate_alt_fragment(p, vis, output_type='alt_meanonly'):
     if breakdown_field_invalid:
         st.error("Too many values in group field.")
 
-    st.plotly_chart(graph, use_container_width=True, key=f'{output_type}_graph')
+    st.plotly_chart(graph, width='stretch', key=f'{output_type}_graph')
 
 def generate_leccalc_fragment(p, vis, lec_outputs):
     lec_options = [option for option in lec_outputs.keys() if lec_outputs[option]]
@@ -1296,7 +1296,7 @@ def generate_aalcalc_comparison_fragment(p, outputs, names = None):
                    labels = {'mean': 'Mean', 'name': 'Analysis Name'},
                    color_discrete_sequence= px.colors.sequential.RdBu,
                    category_orders={'name': names})
-    st.plotly_chart(graph, use_container_width=True)
+    st.plotly_chart(graph, width='stretch')
 
     if breakdown_field_invalid:
         st.error("Too many values in group field.")

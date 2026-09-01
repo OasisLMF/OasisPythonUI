@@ -1,7 +1,7 @@
 services:
   pythonui:
     restart: always
-    image: ${PYTHONUI_IMG}:${VERS_UI}
+    image: ${PYTHONUI_IMG-coreoasis/oasispythonui_app}:${VERS_UI-latest}
     build:
       dockerfile: ./oasisui_st_app.Dockerfile
     ports:
@@ -25,9 +25,10 @@ services:
       - OASIS_HOSTNAME=${OASIS_UI_HOSTNAME}
       - OASIS_PROTOCOL=${OASIS_PROTOCOL:-http}
     volumes:
-      - ./defaults/:/usr/src/app/defaults/
-      - ./ui-config.json:/usr/src/app/ui-config.json:ro
-      - ./.streamlit/:/usr/src/app/.streamlit:ro
+      - ${UI_DEFAULTS:-./defaults/}:/usr/src/app/defaults/
+      - ${UI_CONFIG:-./ui-config.json}:/usr/src/app/ui-config.json:ro
+      - ${UI_STREAMLIT:-./.streamlit/}:/usr/src/app/.streamlit:ro
+      - ${UI_ASSETS:-./ui_assets/}:/usr/src/app/ui_assets:ro
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')"]
       interval: 30s

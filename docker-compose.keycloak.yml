@@ -2,7 +2,7 @@ volumes:
   keycloak-db-data:
 
 services:
-  model-registration:
+  server:
     depends_on:
       keycloak:
         condition: service_healthy

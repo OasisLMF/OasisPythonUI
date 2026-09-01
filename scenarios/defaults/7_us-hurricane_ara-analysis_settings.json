@@ -1,0 +1,21 @@
+{
+        "gul_output": true,
+        "gul_summaries": [
+            {
+                "ord_output": {
+                  "elt_moment": true,
+                  "alt_period": true,
+                  "ept_per_sample_mean_aep": true
+                },
+                "id": 1,
+                "return_period_file": true
+
+            }
+        ],
+        "gul_threshold": 0,
+        "model_settings": {
+         },
+        "model_name_id": "US_Hurricane",
+        "model_supplier_id": "ARA",
+        "number_of_samples": 10
+}
