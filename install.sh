@@ -15,6 +15,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 MODEL_SET_ARG=""
 BUILD_UI=false
+NO_PULL_UI=false
 UNINSTALL=false
 
 usage() {
@@ -27,6 +28,7 @@ Usage: ./install.sh [options]
                             optionally a get-<models>.sh script to deploy the
                             model in the root directory.
   --build-ui                Rebuild the UI docker container.
+  --no-pull-ui              Disable pulling UI docker container.
   -u, --uninstall           Bring the stack down and delete its volumes.
   -h, --help                Show this message.
 USAGE
@@ -43,6 +45,7 @@ while [ $# -gt 0 ]; do
     case "$1" in
         -m|--model-set)   require_value "$1" "${2:-}"; MODEL_SET_ARG="$2"; shift 2 ;;
         --build-ui)    BUILD_UI=true; shift ;;
+        --no-pull-ui)    NO_PULL_UI=true; shift ;;
         -u|--uninstall) UNINSTALL=true; shift ;;
         -h|--help)     usage; exit 0 ;;
         *)             echo "ERROR: unknown option '$1'" >&2; usage >&2; exit 1 ;;
@@ -265,6 +268,8 @@ echo ""
 if [ "$BUILD_UI" = true ]; then
     echo "  -> Building UI image"
     docker compose $COMPOSE_FILES build --no-cache pythonui
+elif [ "$NO_PULL_UI" = true ]; then
+    echo "  -> Pulling UI image disabled"
 else
     echo "  -> Pulling UI image ${PYTHONUI_IMG:-coreoasis/oasispythonui_app}:${VERS_UI:-latest}"
     set +e
