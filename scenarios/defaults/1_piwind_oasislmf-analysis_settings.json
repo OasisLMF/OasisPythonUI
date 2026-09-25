@@ -9,21 +9,24 @@
     },
     "gul_summaries": [
         {
-            "eltcalc": true,
-	    "aalcalc": false, 
-	    "lec_output": false,
-            "leccalc": {
-                "full_uncertainty_aep": true,
-                "full_uncertainty_oep": true,
-                "return_period_file": true
-            }, 
+            "ord_output": {
+                "alt_period": true,
+                "elt_sample": true,
+                "ept_full_uncertainty_aep": true,
+                "ept_full_uncertainty_oep": true
+            },
             "id": 1
         }
     ],
     "il_output": true,
     "il_summaries": [
         {
-            "eltcalc": true,
+            "ord_output": {
+                "alt_period": true,
+                "elt_sample": true,
+                "ept_full_uncertainty_aep": true,
+                "ept_full_uncertainty_oep": true
+            },
             "id": 1
         }
     ],
