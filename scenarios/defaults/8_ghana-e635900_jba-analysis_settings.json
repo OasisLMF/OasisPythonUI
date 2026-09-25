@@ -1,0 +1,19 @@
+{
+    "model_name_id": "Ghana-E635900",
+    "model_supplier_id": "JBA",
+    "gul_output": true,
+    "gul_summaries": [
+        {
+            "ord_output": {
+              "elt_moment": true,
+              "alt_period": true
+            },
+            "id": 1
+        }
+    ],
+    "gul_threshold": 0,
+    "il_output": false,
+    "model_settings": {
+     },
+    "number_of_samples": 10
+}

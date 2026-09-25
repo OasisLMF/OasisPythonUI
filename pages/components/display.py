@@ -87,14 +87,14 @@ class DataframeView(View):
         if self.data.empty:
             st.dataframe(pd.DataFrame(columns=self.display_cols),
                          hide_index=self.hide_index, column_config=self.column_config,
-                         column_order=self.display_cols, use_container_width=True,
+                         column_order=self.display_cols, width='stretch',
                          key=key)
             return None
 
         args = {
             'hide_index': self.hide_index,
             'column_config': self.column_config,
-            'use_container_width': True,
+            'width': 'stretch',
             'column_order': self.display_cols,
             'key': key
         }
@@ -280,7 +280,7 @@ class MapView(View):
             len=500
         ))
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     def generate_choropleth(self):
         # Get country GeoJSON

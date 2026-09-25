@@ -1,0 +1,19 @@
+{
+        "gul_output": true,
+        "gul_summaries": [
+            {
+                "ord_output": {
+                  "elt_moment": true,
+                  "alt_period": true
+                },
+                "id": 1
+            }
+        ],
+        "gul_threshold": 0,
+        "il_output": false,
+        "model_settings": {
+         },
+        "model_name_id": "Nepal-E151185",
+        "model_supplier_id": "JBA",
+        "number_of_samples": 10
+}

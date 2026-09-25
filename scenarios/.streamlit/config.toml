@@ -1,0 +1,14 @@
+[client]
+showSidebarNavigation = false
+showErrorDetails = "type"
+toolbarMode = "minimal"
+
+[server]
+fileWatcherType = "none"
+headless = true
+enableXsrfProtection = false
+enableCORS = false
+
+[browser]
+gatherUsageStats = false
+showSidebarNavigation = false

@@ -147,7 +147,7 @@ with create_container:
     cols = st.columns([0.25, 0.25, 0.25, 0.25])
 
     with cols[0]:
-        with st.popover("Create Analysis", disabled=not enable_popover, help=msg,  use_container_width=True):
+        with st.popover("Create Analysis", disabled=not enable_popover, help=msg,  width='stretch'):
             if enable_popover:
                 resp = create_analysis_form(portfolios=[selected_portfolio.to_dict()], models=[selected_model.to_dict()])
                 if resp:
@@ -165,7 +165,7 @@ with create_container:
         enable_map_button = validation.is_valid(selected_portfolio)
 
         if st.button("Exposure Map", disabled=not enable_map_button,
-                     help=validation.get_message(), use_container_width=True):
+                     help=validation.get_message(), width='stretch'):
             @st.dialog("Locations Map", width='large')
             def show_locations_map():
                 with st.spinner('Loading map...'):
@@ -189,7 +189,7 @@ with create_container:
         enable_model_details = validation.is_valid(selected_model)
 
         if st.button("Scenario Details", disabled=not enable_model_details,
-                     help = validation.get_message(), use_container_width=True):
+                     help = validation.get_message(), width='stretch'):
             try:
                 model_settings = client_interface.models.settings.get(selected_model['id'])
             except HTTPError as e:
@@ -279,7 +279,7 @@ with run_container:
 
         run_started = False
         with columns[0]:
-            if st.button('Run', disabled = not run_enabled, help=msg, use_container_width=True):
+            if st.button('Run', disabled = not run_enabled, help=msg, width='stretch'):
                 try:
                     # Load from platform
                     templates = client_interface.models.setting_templates.get(selected['model'])
@@ -337,7 +337,14 @@ with run_container:
         def display_outputs(ci, analysis_id, model_id):
             st.markdown('# Analysis Summary')
             st.markdown('This section summarises the input data for this analysis, including the total values contained in the portfolio, and analysis / output settings.')
-            locations = ci.analyses.get_file(analysis_id, 'input_file', df=True)['location.csv']
+            input_file = ci.analyses.get_file(analysis_id, 'input_file', df=True)
+
+            if 'location.csv' in input_file:
+                locations = input_file.get('location.csv')
+            elif 'location.parquet' in input_file:
+                locations = input_file.get('locations.parquet')
+            else:
+                locations = None
             a_settings = ci.analyses.settings.get(analysis_id)
             model_settings = ci.models.settings.get(model_id)
             summarise_inputs(locations, a_settings, model_settings)
@@ -420,7 +427,7 @@ with run_container:
         download_enabled = validations.is_valid()
 
         with columns[1]:
-            if st.button("Show Output", use_container_width=True, disabled = not download_enabled):
+            if st.button("Show Output", width='stretch', disabled = not download_enabled):
                 display_outputs(client_interface, selected["id"], selected['model'])
 
 

@@ -1,0 +1,249 @@
+# ============================================================================
+# PiWind demo model
+# ============================================================================
+# The default model set, loaded by install.sh (MODEL_COMPOSE=piwind, or
+# --models piwind). Always used together with docker-compose.yml, which
+# provides the server, databases, broker and the filestore volume.
+#
+
+x-shared-env: &worker-env
+  # Debug and basic config
+  OASIS_DEBUG: ${OASIS_DEBUG:-1}
+  OASIS_URL_SUB_PATH: 0
+
+  # Hostname configuration (matches Minikube ingress)
+  INGRESS_EXTERNAL_HOST: ${OASIS_UI_HOSTNAME:-localhost}
+  INGRESS_INTERNAL_HOST: traefik
+
+  # Authentication configuration
+  OASIS_SERVER_API_AUTH_TYPE: ${API_AUTH_TYPE:-simple}
+  OASIS_SERVER_ALLOWED_OIDC_AUTH_PROVIDERS: ${OASIS_SERVER_ALLOWED_OIDC_AUTH_PROVIDERS}
+
+  # Database connections
+  OASIS_SERVER_DB_ENGINE: django.db.backends.postgresql
+  OASIS_SERVER_DB_HOST: ${OASIS_SERVER_DB_HOST}
+  OASIS_SERVER_DB_PORT: ${OASIS_SERVER_DB_PORT}
+  OASIS_SERVER_DB_NAME: ${OASIS_SERVER_DB_NAME}
+  OASIS_SERVER_DB_USER: ${OASIS_SERVER_DB_USER}
+  OASIS_SERVER_DB_PASS: ${OASIS_SERVER_DB_PASS}
+
+  OASIS_CELERY_DB_ENGINE: db+postgresql+psycopg
+  OASIS_CELERY_DB_HOST: ${OASIS_CELERY_DB_HOST}
+  OASIS_CELERY_DB_PORT: ${OASIS_CELERY_DB_PORT}
+  OASIS_CELERY_DB_NAME: ${OASIS_CELERY_DB_NAME}
+  OASIS_CELERY_DB_USER: ${OASIS_CELERY_DB_USER}
+  OASIS_CELERY_DB_PASS: ${OASIS_CELERY_DB_PASS}
+
+  # Broker and channel layer
+  OASIS_CELERY_BROKER_URL: ${OASIS_CELERY_BROKER_URL}
+  OASIS_SERVER_CHANNEL_LAYER_HOST: ${REDIS_HOST}
+  OASIS_SERVER_CHANNEL_LAYER_PORT: ${REDIS_PORT:-6379}
+  OASIS_SERVER_CHANNEL_LAYER_SSL: "false"
+
+  # Task queues
+  OASIS_TASK_CONTROLLER_QUEUE: task-controller
+  OASIS_INPUT_GENERATION_CONTROLLER_QUEUE: task-controller
+  OASIS_LOSSES_GENERATION_CONTROLLER_QUEUE: task-controller
+
+  # Service account credentials (set dynamically by install.sh)
+  OASIS_SERVICE_USERNAME_OR_ID: ${OASIS_SERVICE_USERNAME_OR_ID}
+  OASIS_SERVICE_PASSWORD_OR_SECRET: ${OASIS_SERVICE_PASSWORD_OR_SECRET}
+  OASIS_USE_OIDC: ${OASIS_USE_OIDC}
+
+  # OIDC configuration (only used when API_AUTH_TYPE != simple)
+  OASIS_SERVER_OIDC_ENDPOINT: ${OASIS_SERVER_OIDC_ENDPOINT:-}
+  OASIS_SERVER_OIDC_CLIENT_NAME: ${OASIS_SERVER_OIDC_CLIENT_NAME:-}
+  OASIS_SERVER_OIDC_CLIENT_SECRET: ${OASIS_SERVER_OIDC_CLIENT_SECRET:-}
+  OASIS_SERVER_OIDC_SERVICE_CLIENT_NAME: ${OASIS_SERVER_OIDC_SERVICE_CLIENT_NAME:-}
+  OASIS_SERVER_OIDC_SERVICE_CLIENT_SECRET: ${OASIS_SERVER_OIDC_SERVICE_CLIENT_SECRET:-}
+
+x-worker: &worker
+  restart: always
+  image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
+  depends_on:
+    server:
+      condition: service_healthy
+    celery-db:
+      condition: service_healthy
+    broker:
+      condition: service_healthy
+
+
+services:
+  piwind-worker:
+    <<: *worker
+    environment:
+      <<: *worker-env
+      OASIS_MODEL_SUPPLIER_ID: OasisLMF
+      OASIS_MODEL_ID: PiWind
+      OASIS_MODEL_VERSION_ID: 'v2'
+      OASIS_RUN_MODE: v2
+    volumes:
+      - ./OasisPiWind/:/home/worker/model
+      - filestore-data:/shared-fs:rw
+
+  maeq-worker:
+    <<: *worker
+    environment:
+      <<: *worker-env
+      OASIS_MODEL_SUPPLIER_ID: Impact Forecasting
+      OASIS_MODEL_ID: MAEQ
+      OASIS_MODEL_VERSION_ID: 'v2'
+      OASIS_RUN_MODE: v2
+    volumes:
+      - ${SCENARIOS_PATH}/ImpactForecasting/MAEQ/1.0.0/:/home/worker/model
+      - filestore-data:/shared-fs:rw
+
+  euws-worker:
+    <<: *worker
+    environment:
+      <<: *worker-env
+      OASIS_MODEL_SUPPLIER_ID: Impact Forecasting
+      OASIS_MODEL_ID: EUWS
+      OASIS_MODEL_VERSION_ID: 'v2'
+      OASIS_RUN_MODE: v2
+    volumes:
+      - ${SCENARIOS_PATH}/ImpactForecasting/EUWS/1.0.0/:/home/worker/model
+      - filestore-data:/shared-fs:rw
+
+  treq-worker:
+    <<: *worker
+    environment:
+      <<: *worker-env
+      OASIS_MODEL_SUPPLIER_ID: Impact Forecasting
+      OASIS_MODEL_ID: TREQ
+      OASIS_MODEL_VERSION_ID: 'v2'
+      OASIS_RUN_MODE: v2
+    volumes:
+      - ${SCENARIOS_PATH}/ImpactForecasting/TREQ/1.0.0/:/home/worker/model
+      - filestore-data:/shared-fs:rw
+
+  philippines_taiwan_defended-worker:
+    <<: *worker
+    environment:
+      <<: *worker-env
+      OASIS_MODEL_SUPPLIER_ID: JBA
+      OASIS_MODEL_ID: Philippines-Taiwan-Defended
+      OASIS_MODEL_VERSION_ID: 'v2'
+      OASIS_RUN_MODE: v2
+      OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
+    volumes:
+      - ${SCENARIOS_PATH}/JBA/Philippines-Taiwan/combined-defended/:/home/worker/model
+      - filestore-data:/shared-fs:rw
+
+  philippines_taiwan_undefended-worker:
+    <<: *worker
+    environment:
+      <<: *worker-env
+      OASIS_MODEL_SUPPLIER_ID: JBA
+      OASIS_MODEL_ID: Philippines-Taiwan-Undefended
+      OASIS_MODEL_VERSION_ID: 'v2'
+      OASIS_RUN_MODE: v2
+      OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
+    volumes:
+      - ${SCENARIOS_PATH}/JBA/Philippines-Taiwan/combined-undefended/:/home/worker/model
+      - filestore-data:/shared-fs:rw
+
+  ghana-E635900-worker:
+    <<: *worker
+    environment:
+      <<: *worker-env
+      OASIS_MODEL_SUPPLIER_ID: JBA
+      OASIS_MODEL_ID: Ghana-E635900
+      OASIS_MODEL_VERSION_ID: 'v2'
+      OASIS_RUN_MODE: v2
+      OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
+    volumes:
+      - ${SCENARIOS_PATH}/JBA/Ghana/E635900/combined/:/home/worker/model
+      - filestore-data:/shared-fs:rw
+
+  ghana-E689982-worker:
+    <<: *worker
+    environment:
+      <<: *worker-env
+      OASIS_MODEL_SUPPLIER_ID: JBA
+      OASIS_MODEL_ID: Ghana-E689982
+      OASIS_MODEL_VERSION_ID: 'v2'
+      OASIS_RUN_MODE: v2
+      OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
+    volumes:
+      - ${SCENARIOS_PATH}/JBA/Ghana/E689982/combined/:/home/worker/model
+      - filestore-data:/shared-fs:rw
+
+  ghana-E760461-worker:
+    <<: *worker
+    environment:
+      <<: *worker-env
+      OASIS_MODEL_SUPPLIER_ID: JBA
+      OASIS_MODEL_ID: Ghana-E760461
+      OASIS_MODEL_VERSION_ID: 'v2'
+      OASIS_RUN_MODE: v2
+      OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
+    volumes:
+      - ${SCENARIOS_PATH}/JBA/Ghana/E760461/combined/:/home/worker/model
+      - filestore-data:/shared-fs:rw
+
+  nepal-E151185-worker:
+    <<: *worker
+    environment:
+      <<: *worker-env
+      OASIS_MODEL_SUPPLIER_ID: JBA
+      OASIS_MODEL_ID: Nepal-E151185
+      OASIS_MODEL_VERSION_ID: 'v2'
+      OASIS_RUN_MODE: v2
+      OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
+    volumes:
+      - ${SCENARIOS_PATH}/JBA/Nepal/E151185/combined/:/home/worker/model
+      - filestore-data:/shared-fs:rw
+
+  nepal-E432557-worker:
+    <<: *worker
+    environment:
+      <<: *worker-env
+      OASIS_MODEL_SUPPLIER_ID: JBA
+      OASIS_MODEL_ID: Nepal-E432557
+      OASIS_MODEL_VERSION_ID: 'v2'
+      OASIS_RUN_MODE: v2
+      OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
+    volumes:
+      - ${SCENARIOS_PATH}/JBA/Nepal/E432557/combined/:/home/worker/model
+      - filestore-data:/shared-fs:rw
+
+  nepal-E505423-worker:
+    <<: *worker
+    environment:
+      <<: *worker-env
+      OASIS_MODEL_SUPPLIER_ID: JBA
+      OASIS_MODEL_ID: Nepal-E505423
+      OASIS_MODEL_VERSION_ID: 'v2'
+      OASIS_RUN_MODE: v2
+      OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
+    volumes:
+      - ${SCENARIOS_PATH}/JBA/Nepal/E505423/combined/:/home/worker/model
+      - filestore-data:/shared-fs:rw
+
+  us_hurricane-worker:
+    <<: *worker
+    environment:
+      <<: *worker-env
+      OASIS_MODEL_SUPPLIER_ID: ARA
+      OASIS_MODEL_ID: US-Hurricane
+      OASIS_MODEL_VERSION_ID: 'v2'
+      OASIS_RUN_MODE: v2
+      OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
+    volumes:
+      - ${SCENARIOS_PATH}/ARA/US_Hurricane/:/home/worker/model
+      - filestore-data:/shared-fs:rw
+
+  france_hail-worker:
+    <<: *worker
+    environment:
+      <<: *worker-env
+      OASIS_MODEL_SUPPLIER_ID: IPE
+      OASIS_MODEL_ID: France-Hail
+      OASIS_MODEL_VERSION_ID: 'v2'
+      OASIS_RUN_MODE: v2
+      OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf.json
+    volumes:
+      - ${SCENARIOS_PATH}/IPE/FranceHail/:/home/worker/model
+      - filestore-data:/shared-fs:rw

@@ -1,0 +1,24 @@
+{
+
+	"source_tag": "MDK",
+	"analysis_tag": 1,
+	"model_version_id": "0.0.0.1",
+	"model_name_id": "treq",
+	"module_supplier_id": "ImpactForecasting",
+	"number_of_samples": 10,
+	"model_settings": {
+		"event_set": "",
+		"peril_wind": true
+	 },
+        "gul_output": true,
+	"gul_summaries": [
+	            {
+	            	"id": 1,
+                    "ord_output": {
+                      "elt_moment": true
+                    }
+	            }
+	        ],
+        "gul_threshold": 0
+
+}

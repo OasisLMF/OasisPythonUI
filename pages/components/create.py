@@ -339,7 +339,7 @@ def summary_settings_fragment(oed_fields, perspective):
         st.session_state[f'editing_level_{perspective}'] = False
 
     if col1.button('Add Level', key=f'{perspective}_summary_add_button',
-                   use_container_width=True):
+                   width='stretch'):
         st.session_state[f'adding_level_{perspective}'] = not st.session_state[f'adding_level_{perspective}']
         st.session_state[f'{perspective}_summaries'] = original_summaries
 
@@ -356,14 +356,14 @@ def summary_settings_fragment(oed_fields, perspective):
             st.rerun(scope='fragment')
 
     if col2.button('Delete Level', key=f'{perspective}_summary_delete_button',
-                   use_container_width=True, disabled=selected is None):
+                   width='stretch', disabled=selected is None):
         pos = [i for i, el in enumerate(curr_summaries) if el['id'] == selected][0]
         curr_summaries.pop(pos)
         st.session_state[f'{perspective}_summaries'] = curr_summaries
         st.rerun(scope='fragment')
 
     if col3.button('Edit Level', key=f'{perspective}_summary_edit_button',
-                   use_container_width=True, disabled=selected is None):
+                   width='stretch', disabled=selected is None):
         st.session_state[f'editing_level_{perspective}'] = not st.session_state[f'editing_level_{perspective}']
         st.session_state[f'{perspective}_summaries'] = original_summaries
 

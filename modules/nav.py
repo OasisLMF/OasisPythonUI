@@ -18,7 +18,7 @@ def SidebarNav(no_client=False):
                             f'<input type="hidden" name="id_token_hint" value="{id_token}">'
                             '<button type="submit" style="width:100%">Logout</button></form>')
                 else:
-                    if st.button("Logout", use_container_width=True):
+                    if st.button("Logout", width='stretch'):
                         logout()
         else:
             st.page_link('app.py', label="Login")
