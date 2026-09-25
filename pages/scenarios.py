@@ -337,7 +337,14 @@ with run_container:
         def display_outputs(ci, analysis_id, model_id):
             st.markdown('# Analysis Summary')
             st.markdown('This section summarises the input data for this analysis, including the total values contained in the portfolio, and analysis / output settings.')
-            locations = ci.analyses.get_file(analysis_id, 'input_file', df=True)['location.csv']
+            input_file = ci.analyses.get_file(analysis_id, 'input_file', df=True)
+
+            if 'location.csv' in input_file:
+                locations = input_file.get('location.csv')
+            elif 'location.parquet' in input_file:
+                locations = input_file.get('locations.parquet')
+            else:
+                locations = None
             a_settings = ci.analyses.settings.get(analysis_id)
             model_settings = ci.models.settings.get(model_id)
             summarise_inputs(locations, a_settings, model_settings)
