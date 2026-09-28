@@ -4,7 +4,6 @@ from modules.client import ClientInterface
 from modules.nav import SidebarNav
 from modules.authorisation import validate_page
 import pandas as pd
-import altair as alt
 
 from pages.components.footer import generate_footer
 from pages.components.output import generate_alt_fragment, generate_eltcalc_fragment, generate_qplt_fragment
