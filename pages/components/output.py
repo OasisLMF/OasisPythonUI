@@ -1330,25 +1330,28 @@ def generate_ept_fragment(p, vis):
     }
 
     type_options = result['EPType'].unique()
-    calc_options = result['EPCalc'].unique()
 
     if len(type_options) > 1:
         selected_type = st.radio('EP Curve Type: ', options=type_options, horizontal=True,
-                                 format_func= lambda x: ep_type_map.get(x, x))
+                                 format_func= lambda x: ep_type_map.get(x, x),
+                                 key=f'ept_{p}_type_filter')
 
         result = result[result['EPType'] == selected_type]
+
+    calc_options = result['EPCalc'].unique()
 
     selected_calc = None
     if len(calc_options) > 1:
         selected_calc = st.radio("Calculation Method:", options=calc_options, horizontal=True,
-                                 format_func=lambda x: ep_calc_map.get(x, x))
+                                 format_func=lambda x: ep_calc_map.get(x, x),
+                                 key=f'ept_{p}_calc_filter')
         result = result[result['EPCalc'] == selected_calc]
 
     oed_fields = vis.oed_fields.get(p)
 
     selected_group = None
     if oed_fields and len(oed_fields) > 0 :
-        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key=f'qplt_{p}_group_field_pills')
+        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key=f'ept_{p}_group_field_pills')
 
     if selected_group is None:
         selected_group = 'SummaryId'
