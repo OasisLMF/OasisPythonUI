@@ -736,6 +736,70 @@ def generate_qelt_fragment(p, vis, locations=None):
 
 
 @st.fragment
+def generate_selt_fragment(p, vis, locations=None):
+    '''
+    Generate a `elt_sample` (SELT) visualisation. This is the ORD
+    counterpart of the legacy `eltcalc` output, but reports the raw
+    per-sample loss for each event/summary combination instead of
+    Analytical/Sample summary statistics. Supports `table` and `map`
+    views, following the same pattern as `generate_qelt_fragment`.
+    '''
+    data_df = vis.get(1, p, 'elt_sample')
+    oed_fields = vis.oed_fields.get(p) or []
+
+    aggregate_label = 'Mean (All Samples)'
+    sample_options = sorted(data_df['SampleId'].unique().tolist())
+    sample_filter = st.selectbox('Sample Filter:', options=[aggregate_label] + sample_options,
+                                 key=f'selt_{p}_sample_filter')
+
+    if sample_filter == aggregate_label:
+        group_cols = ['EventId'] + oed_fields
+        data_df = data_df.groupby(group_cols, as_index=False).agg({'Loss': 'mean'})
+    else:
+        data_df = data_df[data_df['SampleId'] == sample_filter]
+
+    tab_names = ['table', 'map']
+    with st.container(border=True):
+        tabs = st.tabs([t.title() for t in tab_names])
+
+    with tabs[0]:
+        data_df, selected = elt_ord_table(data_df, perspective=p, oed_fields=oed_fields,
+                                 order_cols=['Loss'], data_cols=['Loss'],
+                                 key_prefix='selt', selectable='multi')
+
+    selected_events = []
+    if selected is not None and not selected.empty:
+        selected_events = selected['EventId'].tolist()
+
+    if locations is None:
+        with tabs[1]:
+            st.error("Map view unavailable.")
+        logger.error("Locations required for Map view")
+        return
+
+    map_type = None
+    if 'LocNumber' in oed_fields and valid_locations(locations):
+        map_type = 'heatmap'
+    elif 'CountryCode' in oed_fields:
+        map_type = 'choropleth'
+
+    map_df = data_df
+    if selected_events:
+        map_df = data_df[data_df['EventId'].isin(selected_events)]
+
+    with tabs[1]:
+        if len(selected_events) > 0:
+            data = pd.DataFrame(
+                {'EventId': [selected_events]}
+            )
+            st.dataframe(data,
+                         column_config={'EventId': st.column_config.ListColumn('Mapped EventIds')},
+                         hide_index=True)
+        eltcalc_map(map_df, locations, oed_fields, map_type,
+                    intensity_col='Loss')
+
+
+@st.fragment
 def generate_aalcalc_fragment(p, vis):
     result = vis.get(1, p, 'aalcalc')
 
@@ -803,6 +867,31 @@ def generate_alt_fragment(p, vis, output_type='alt_meanonly'):
         st.error("Too many values in group field.")
 
     st.plotly_chart(graph, width='stretch', key=f'{output_type}_graph')
+
+@st.fragment
+def generate_alct_fragment(p, vis):
+    '''
+    Generate an `alct_convergence` (ALCT) visualisation. ALCT is a
+    diagnostic table reporting sample-convergence statistics for the ALT
+    output and has no direct legacy analogue, so it is rendered as a
+    plain filterable/sortable table rather than a chart.
+    '''
+    result = vis.get(1, p, 'alct_convergence')
+    oed_fields = vis.oed_fields.get(p) or []
+
+    selected_group = None
+    if oed_fields and len(oed_fields) > 0:
+        selected_group = st.pills('Breakdown OED Field: ', options=oed_fields, key=f'alct_{p}_group_field_pills')
+
+    if selected_group:
+        result[selected_group] = result[selected_group].astype(str)
+
+    table_view = DataframeView(result)
+    numeric_cols = result.select_dtypes(include='number').columns
+    for c in numeric_cols:
+        table_view.column_config[c] = st.column_config.NumberColumn(c, format='%.4f')
+    table_view.display()
+
 
 def generate_leccalc_fragment(p, vis, lec_outputs):
     lec_options = [option for option in lec_outputs.keys() if lec_outputs[option]]
@@ -1175,6 +1264,54 @@ def generate_qplt_fragment(p, vis):
     st.plotly_chart(fig)
 
 @st.fragment
+def generate_splt_fragment(p, vis):
+    '''
+    Generate a `plt_sample` (SPLT) visualisation. This is the ORD
+    counterpart of the legacy `pltcalc` output, reporting the raw
+    per-sample period loss instead of Analytical/Sample statistics.
+    Follows the same bar-chart pattern as `generate_mplt_fragment` and
+    `generate_qplt_fragment`.
+    '''
+    result = vis.get(1, p, 'plt_sample')
+    oed_fields = vis.oed_fields.get(p)
+
+    selected_group = None
+    if oed_fields and len(oed_fields) > 0:
+        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key=f'splt_{p}_group_field_pills')
+
+    selected_group_invalid = False
+    if selected_group and result[selected_group].nunique() > 100:
+        selected_group_invalid = True
+        selected_group = None
+    elif selected_group:
+        result[selected_group] = result[selected_group].astype(str)
+
+    aggregate_label = 'Mean (All Samples)'
+    sample_options = sorted(result['SampleId'].unique().tolist())
+    sample_filter = st.selectbox('Sample Filter:', options=[aggregate_label] + sample_options,
+                                 key=f'splt_{p}_sample_filter')
+
+    if sample_filter != aggregate_label:
+        result = result[result['SampleId'] == sample_filter]
+
+    date_cols = {
+        'year': 'Year',
+        'month': 'Month',
+        'day': 'Day'
+    }
+
+    with st.spinner('Generating pltcalc...'):
+        if sample_filter == aggregate_label:
+            group_cols = [c for c in [selected_group] if c] + list(date_cols.values())
+            result = result.groupby(group_cols, as_index=False).agg({'Loss': 'mean'})
+        fig = pltcalc_bar(result, selected_group, date_id=False, loss='Loss', **date_cols)
+
+    if selected_group_invalid:
+        st.error("Too many values in group field.")
+    st.plotly_chart(fig)
+
+
+@st.fragment
 def generate_ept_fragment(p, vis):
     result = vis.get(1, p, 'ept')
 
@@ -1240,6 +1377,85 @@ def generate_ept_fragment(p, vis):
                   color=selected_group, markers=False,
                   labels = {'ReturnPeriod': 'Return Period'},
                   log_x=log_x)
+    st.plotly_chart(fig)
+
+@st.fragment
+def generate_psept_fragment(p, vis):
+    '''
+    Generate a `psept` (Per Sample EPT) visualisation. This is the ORD
+    counterpart of the legacy `leccalc` `wheatsheaf`/per-sample EP curve
+    output, plotting a return-period/loss curve per sample. Follows the
+    same structure as `generate_ept_fragment`, with an added sample
+    dimension.
+    '''
+    result = vis.get(1, p, 'psept')
+
+    ep_type_map = {
+        1 : 'OEP',
+        2 : 'OEP TVAR',
+        3 : 'AEP',
+        4 : 'AEP TVAR'
+    }
+
+    type_options = result['EPType'].unique()
+
+    if len(type_options) > 1:
+        selected_type = st.radio('EP Curve Type: ', options=type_options, horizontal=True,
+                                 format_func= lambda x: ep_type_map.get(x, x),
+                                 key=f'psept_{p}_type_filter')
+
+        result = result[result['EPType'] == selected_type]
+
+    oed_fields = vis.oed_fields.get(p)
+
+    selected_group = None
+    if oed_fields and len(oed_fields) > 0 :
+        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key=f'psept_{p}_group_field_pills')
+
+    if selected_group is None:
+        selected_group = 'SummaryId'
+
+    result = result[[selected_group, 'SampleId', 'ReturnPeriod', 'Loss']]
+    result = result.groupby([selected_group, 'SampleId', 'ReturnPeriod'],
+                            as_index=False).agg({'Loss': 'sum'})
+
+    result_plot = result.groupby([selected_group, 'ReturnPeriod'], as_index=False).agg(
+        min_loss=('Loss', 'min'),
+        max_loss=('Loss', 'max'),
+        mean_loss=('Loss', 'mean'))
+
+    max_return_period = result_plot['ReturnPeriod'].max()
+    unique_group = result_plot[result_plot['ReturnPeriod'] == max_return_period].sort_values(by='mean_loss', ascending=False)
+    unique_group = unique_group[selected_group].tolist()
+
+    result_plot = result_plot.sort_values(by=['ReturnPeriod', 'mean_loss'], ascending=[True, False])
+    log_x = log10(result_plot['ReturnPeriod'].max()) - log10(result_plot['ReturnPeriod'].min()) > 2
+
+    all_selected = result_plot[selected_group].unique().tolist()
+    unique_group += [e for e in all_selected if e not in unique_group]
+
+    if len(unique_group) > 5:
+        filter_group = st.multiselect(f'Filtered {selected_group} Values:',
+                                      options = unique_group,
+                                      default = unique_group[:5],
+                                      key=f'psept_{p}_group_filter')
+        result_plot = result_plot[result_plot[selected_group].isin(filter_group)]
+
+    fig = go.Figure()
+    for item in result_plot[selected_group].unique().tolist():
+        result_item = result_plot[result_plot[selected_group] == item]
+        fig.add_trace(go.Scatter(
+            x = result_item['ReturnPeriod'],
+            y = result_item['mean_loss'],
+            error_y = {'array': result_item['max_loss'] - result_item['mean_loss'],
+                       'arrayminus': result_item['mean_loss'] - result_item['min_loss']},
+            name = item))
+    fig.update_layout(
+        xaxis = dict(title = dict(text = 'Return Period'), type='log' if log_x else None),
+        yaxis = dict(title = dict(text = 'Loss')),
+        legend_title_text=selected_group,
+        showlegend=True
+    )
     st.plotly_chart(fig)
 
 def shared_oed_fields(p, outputs):
