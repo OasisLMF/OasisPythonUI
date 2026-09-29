@@ -972,78 +972,124 @@ def generate_leccalc_fragment(p, vis, lec_outputs):
                           log_x=log_x)
         st.plotly_chart(fig)
 
-def generate_leccalc_comparison_fragment(perspective, outputs, lec_outputs, names=[]):
+def generate_leccalc_comparison_fragment(perspective, outputs, names=None,
+                                         output_type='leccalc', lec_outputs=None,
+                                         filter_specs=None,
+                                         return_period_col='return_period', loss_col='loss',
+                                         group_col_default='summary_id'):
     '''
-    Compare outputs from leccalc. Note that 'per_sample' or 'wheatsheaf' plots are not supported.
+    Compare an EP-curve output across two analyses: fetch (for the
+    legacy `leccalc` output, only after the user picks which
+    analysis_type/loss_type file via a "Select Output" pills widget -
+    a single ORD `ept` file already holds every EPType/EPCalc
+    combination, so ORD callers skip straight to fetching), filter to
+    a single value of each spec in `filter_specs`, group by an OED
+    field (or `group_col_default`), and plot return-period/loss curves
+    per analysis (dashed for the first, so near-identical curves stay
+    distinguishable).
+
+    Covers the legacy `leccalc` output (default; 'per_sample'/
+    'wheatsheaf' variants excluded, since they have no single-line
+    EP-curve comparison shape) and the ORD `ept` output.
 
     Parameters
     ----------
-    perspective : str
-                  Perspective of output. 'gul', 'il' or 'ri'
-    outputs : List[OutputInterface]
-              Lists of `OutputInterface` containing the outputs to compare.
-    lec_outputs : List[str]
-                  List of leccalc output types.
-    names : List[str]
-            Names of each analysis references to by `outputs`.
+    output_type : str
+                  `OutputInterface` output type to fetch: `leccalc` (default)
+                  or `ept`.
+    lec_outputs : dict
+                  Required when `output_type == 'leccalc'`: dict of leccalc
+                  output option -> enabled bool (as stored in analysis
+                  settings), used to build the "Select Output" pills.
+    filter_specs : List[dict]
+                   Column filters applied in order (each only rendered when
+                   the column has more than one unique value across the
+                   compared outputs). Each dict has `col`, `label`, and an
+                   optional `format_map` (raw value -> display value).
+                   Defaults to a single `type` filter (legacy leccalc); pass
+                   e.g. `[{'col': 'EPType', 'label': 'EP Curve Type: ', 'format_map': EP_TYPE_MAP},
+                     {'col': 'EPCalc', 'label': 'Calculation Method:', 'format_map': EP_CALC_MAP}]`
+                   for `ept`.
+    return_period_col, loss_col : str
+                                  Return period / loss column names
+                                  (`return_period`/`loss` for legacy,
+                                  `ReturnPeriod`/`Loss` for ORD).
+    group_col_default : str
+                        Column to group by when no OED field is chosen
+                        (`summary_id` for legacy, `SummaryId` for ORD).
     '''
-    lec_options = [option for option in lec_outputs.keys() if lec_outputs[option]]
-    lec_options = [opt for opt in lec_options if opt not in ['wheatsheaf_aep', 'wheatsheaf_oep']]
-
-    def format_lec_options(opt):
-        analysis_type = '_'.join(opt.split('_')[:-1])
-        loss_type = opt.split('_')[-1]
-
-        analysis_type = analysis_type.replace('wheatsheaf', 'per_sample')
-        return f'{analysis_type}_{loss_type}'
-
-    option = st.pills('Select Output:', options=lec_options,
-                      format_func=format_lec_options,
-                      key=f'leccalc_comparison_{perspective}_select_output')
-
-    diff_names = len(outputs) - len(names)
-    offset = len(names)
-    if diff_names > 0:
-        for i in range(diff_names):
-            names.append(f'Analysis {i + offset + 1}')
-
     if len(outputs) > 2:
         st.error('Maximum 2 outputs for comparison')
-        logger.error(f'Too many outputs for leccalc comparison plot.\nOutputs: {outputs}')
+        logger.error(f'Too many outputs for {output_type} comparison plot.\nOutputs: {outputs}')
         return
 
-    if option is None:
-        st.info('Output option not selected.')
-        return
+    if names is None:
+        names = ['Analysis 1', 'Analysis 2']
+    else:
+        names = list(names)
+        diff_names = len(outputs) - len(names)
+        if diff_names > 0:
+            offset = len(names)
+            for i in range(diff_names):
+                names.append(f'Analysis {i + offset + 1}')
 
-    analysis_type = '_'.join(option.split('_')[:-1])
-    loss_type = option.split('_')[-1]
+    if filter_specs is None:
+        filter_specs = [{'col': 'type', 'label': 'Type Filter:'}]
 
-    results = [o.get(1, perspective, 'leccalc', analysis_type = analysis_type, loss_type = loss_type) for o in outputs]
+    if output_type == 'leccalc':
+        lec_options = [option for option in lec_outputs.keys() if lec_outputs[option]]
+        lec_options = [opt for opt in lec_options if opt not in ['wheatsheaf_aep', 'wheatsheaf_oep']]
 
-    types = set()
-    for r in results:
-        types.update(r['type'].unique().tolist())
-    selected_type = st.radio('Type Filter:', options=types, index=0, horizontal=True,
-                             key=f'{perspective}_lec_comparison_type_filter')
-    for i in range(len(results)):
-        results[i] = results[i][results[i]['type'] == selected_type]
+        def format_lec_options(opt):
+            analysis_type = '_'.join(opt.split('_')[:-1])
+            loss_type = opt.split('_')[-1]
+
+            analysis_type = analysis_type.replace('wheatsheaf', 'per_sample')
+            return f'{analysis_type}_{loss_type}'
+
+        option = st.pills('Select Output:', options=lec_options,
+                          format_func=format_lec_options,
+                          key=f'leccalc_comparison_{perspective}_select_output')
+
+        if option is None:
+            st.info('Output option not selected.')
+            return
+
+        analysis_type = '_'.join(option.split('_')[:-1])
+        loss_type = option.split('_')[-1]
+
+        results = [o.get(1, perspective, 'leccalc', analysis_type = analysis_type, loss_type = loss_type) for o in outputs]
+    else:
+        results = [o.get(1, perspective, output_type) for o in outputs]
+
+    for spec in filter_specs:
+        col = spec['col']
+        values = set()
+        for r in results:
+            values.update(r[col].unique().tolist())
+
+        if len(values) > 1:
+            format_map = spec.get('format_map')
+            selected_value = st.radio(spec['label'], options=values, horizontal=True,
+                                      format_func=(lambda x: format_map.get(x, x)) if format_map else (lambda x: x),
+                                      key=f'{perspective}_{output_type}_comparison_{col}_filter')
+            results = [r[r[col] == selected_value] for r in results]
 
     oed_fields = shared_oed_fields(perspective, outputs)
 
     selected_group = None
     if oed_fields and len(oed_fields) > 0:
         selected_group = st.pills('Grouped OED Field: ', options=oed_fields,
-                                  key=f'leccalc_comparison_{perspective}_group_field_pills')
+                                  key=f'{output_type}_comparison_{perspective}_group_field_pills')
 
     if selected_group is None:
-        selected_group = 'summary_id'
+        selected_group = group_col_default
 
-    name_map = {i: names[i] for i in range(2)}
+    name_map = {i: names[i] for i in range(len(names))}
     selected_analysis = st.segmented_control('Analysis Filter:',
                                              options=name_map.keys(),
                                              format_func = lambda x: name_map.get(x, x),
-                                             key=f'{perspective}_lec_name_filter')
+                                             key=f'{perspective}_{output_type}_name_filter')
 
     linestyles = ['dash', None]
     if selected_analysis is not None:
@@ -1053,13 +1099,14 @@ def generate_leccalc_comparison_fragment(perspective, outputs, lec_outputs, name
 
     results_plot = []
     for result in results:
-        result_plot = result[[selected_group, 'return_period', 'loss']]
-        result_plot = result_plot.groupby([selected_group, 'return_period'],
-                                          as_index=False).agg({'loss': 'sum'})
-        result_plot = result_plot.sort_values(by=['return_period', 'loss'], ascending=[True, False])
+        result_plot = result[[selected_group, return_period_col, loss_col]]
+        result_plot = result_plot.groupby([selected_group, return_period_col],
+                                          as_index=False).agg({loss_col: 'sum'})
+        result_plot = result_plot.sort_values(by=[return_period_col, loss_col], ascending=[True, False])
         results_plot.append(result_plot)
 
-    log_x = [log10(result_plot['return_period'].max()) - log10(result_plot['return_period'].min()) > 2 for result_plot in results_plot]
+    log_x = [log10(result_plot[return_period_col].max()) - log10(result_plot[return_period_col].min()) > 2
+             for result_plot in results_plot]
     log_x = any(log_x)
 
     unique_group = []
@@ -1072,7 +1119,7 @@ def generate_leccalc_comparison_fragment(perspective, outputs, lec_outputs, name
         filter_group = st.multiselect(f'Filtered {selected_group} Values:',
                                       options = unique_group,
                                       default = unique_group[:5],
-                                      key=f'leccalc_comparison_{perspective}_group_filter')
+                                      key=f'{output_type}_comparison_{perspective}_group_filter')
         for i in range(len(results_plot)):
             results_plot[i] = results_plot[i][results_plot[i][selected_group].isin(filter_group)]
         graphed_group_fields = filter_group
@@ -1085,7 +1132,7 @@ def generate_leccalc_comparison_fragment(perspective, outputs, lec_outputs, name
         for i, field in enumerate(graphed_group_fields):
             curr_result = result[result[selected_group] == field]
             hover_title = f'{name} - {field}'
-            fig.add_trace(go.Scatter(x=curr_result['return_period'], y=curr_result['loss'], name=field, legendgroup=name,
+            fig.add_trace(go.Scatter(x=curr_result[return_period_col], y=curr_result[loss_col], name=field, legendgroup=name,
                                      legendgrouptitle_text=name,
                                      line=dict(color=colors[i % len(colors)], dash=linestyles[j % 2]),
                                      hovertemplate= hover_title + '<br>Return Period: %{x}'+
@@ -1094,13 +1141,13 @@ def generate_leccalc_comparison_fragment(perspective, outputs, lec_outputs, name
         j += 1
 
     fig.update_layout(
-        xaxis=dict(title=dict(text='Loss'), type="log" if log_x else None),
-        yaxis=dict(title=dict(text='Return Period')),
+        xaxis=dict(title=dict(text='Return Period'), type="log" if log_x else None),
+        yaxis=dict(title=dict(text='Loss')),
         hovermode='closest',
         showlegend=True
     )
 
-    st.plotly_chart(fig)
+    st.plotly_chart(fig, key=f'{output_type}_comparison_{perspective}_graph')
 
 @st.cache_data(show_spinner='Creating pltcalc bar')
 def pltcalc_bar(result, selected_group=None, number_shown=10, date_id = False,
@@ -1789,118 +1836,3 @@ def generate_alt_comparison_fragment(p, outputs, output_type='alt_meanonly', nam
 
     if breakdown_field_invalid:
         st.error("Too many values in group field.")
-
-def generate_ept_comparison_fragment(perspective, outputs, names=None):
-    '''
-    Compare `ept` outputs across two analyses. Mirrors
-    generate_leccalc_comparison_fragment's EP-curve-line comparison,
-    using the ORD `EPType`/`EPCalc`/`ReturnPeriod`/`Loss` columns from
-    generate_ept_fragment (a single `ept` file already holds every
-    EPType/EPCalc combination, so there is no per-file `option` pill
-    like leccalc's).
-    '''
-    ep_type_map = {1: 'OEP', 2: 'OEP TVAR', 3: 'AEP', 4: 'AEP TVAR'}
-    ep_calc_map = {1: 'MeanDR', 2: 'Full', 3: 'PerSampleMean', 4: 'MeanSample'}
-
-    results = [o.get(1, perspective, 'ept') for o in outputs]
-
-    if names is None:
-        names = ['Analysis 1', 'Analysis 2']
-
-    if len(outputs) > 2:
-        st.error('Maximum 2 outputs for comparison')
-        logger.error(f'Too many outputs for ept comparison plot.\nOutputs: {outputs}')
-        return
-
-    type_options = set()
-    for r in results:
-        type_options.update(r['EPType'].unique().tolist())
-
-    if len(type_options) > 1:
-        selected_type = st.radio('EP Curve Type: ', options=type_options, horizontal=True,
-                                 format_func=lambda x: ep_type_map.get(x, x),
-                                 key=f'{perspective}_ept_comparison_type_filter')
-        results = [r[r['EPType'] == selected_type] for r in results]
-
-    calc_options = set()
-    for r in results:
-        calc_options.update(r['EPCalc'].unique().tolist())
-
-    if len(calc_options) > 1:
-        selected_calc = st.radio('Calculation Method:', options=calc_options, horizontal=True,
-                                 format_func=lambda x: ep_calc_map.get(x, x),
-                                 key=f'{perspective}_ept_comparison_calc_filter')
-        results = [r[r['EPCalc'] == selected_calc] for r in results]
-
-    oed_fields = shared_oed_fields(perspective, outputs)
-
-    selected_group = None
-    if oed_fields and len(oed_fields) > 0:
-        selected_group = st.pills('Grouped OED Field: ', options=oed_fields,
-                                  key=f'ept_{perspective}_comparison_group_field_pills')
-
-    if selected_group is None:
-        selected_group = 'SummaryId'
-
-    name_map = {i: names[i] for i in range(2)}
-    selected_analysis = st.segmented_control('Analysis Filter:',
-                                             options=name_map.keys(),
-                                             format_func = lambda x: name_map.get(x, x),
-                                             key=f'{perspective}_ept_name_filter')
-
-    linestyles = ['dash', None]
-    if selected_analysis is not None:
-        results = [results[selected_analysis]]
-        names = [names[selected_analysis]]
-        linestyles = [linestyles[selected_analysis]]
-
-    results_plot = []
-    for result in results:
-        result_plot = result[[selected_group, 'ReturnPeriod', 'Loss']]
-        result_plot = result_plot.groupby([selected_group, 'ReturnPeriod'],
-                                          as_index=False).agg({'Loss': 'sum'})
-        result_plot = result_plot.sort_values(by=['ReturnPeriod', 'Loss'], ascending=[True, False])
-        results_plot.append(result_plot)
-
-    log_x = [log10(result_plot['ReturnPeriod'].max()) - log10(result_plot['ReturnPeriod'].min()) > 2
-             for result_plot in results_plot]
-    log_x = any(log_x)
-
-    unique_group = []
-    for result_plot in results_plot:
-        unique_group += result_plot[selected_group].unique().tolist()
-    unique_group = list(set(unique_group))
-
-    graphed_group_fields = unique_group
-    if len(unique_group) > 5:
-        filter_group = st.multiselect(f'Filtered {selected_group} Values:',
-                                      options = unique_group,
-                                      default = unique_group[:5],
-                                      key=f'ept_{perspective}_comparison_group_filter')
-        for i in range(len(results_plot)):
-            results_plot[i] = results_plot[i][results_plot[i][selected_group].isin(filter_group)]
-        graphed_group_fields = filter_group
-
-    fig = go.Figure()
-    colors = px.colors.qualitative.Plotly
-    j = 0
-    for result, name in zip(results_plot, names):
-        for i, field in enumerate(graphed_group_fields):
-            curr_result = result[result[selected_group] == field]
-            hover_title = f'{name} - {field}'
-            fig.add_trace(go.Scatter(x=curr_result['ReturnPeriod'], y=curr_result['Loss'], name=field, legendgroup=name,
-                                     legendgrouptitle_text=name,
-                                     line=dict(color=colors[i % len(colors)], dash=linestyles[j % 2]),
-                                     hovertemplate= hover_title + '<br>Return Period: %{x}'+
-                                                   '<br><b>Loss: %{y}</b>',
-                                     customdata=[f'{name}']))
-        j += 1
-
-    fig.update_layout(
-        xaxis=dict(title=dict(text='Return Period'), type="log" if log_x else None),
-        yaxis=dict(title=dict(text='Loss')),
-        hovermode='closest',
-        showlegend=True
-    )
-
-    st.plotly_chart(fig, key=f'ept_{perspective}_comparison_graph')

@@ -10,7 +10,7 @@ from pages.components.footer import generate_footer
 from pages.components.output import generate_aalcalc_comparison_fragment, generate_leccalc_comparison_fragment
 from pages.components.output import generate_eltcalc_comparison_fragment, summarise_inputs
 from pages.components.output import generate_pltcalc_comparison_fragment
-from pages.components.output import generate_alt_comparison_fragment, generate_ept_comparison_fragment
+from pages.components.output import generate_alt_comparison_fragment
 
 ##########################################################################################
 # Header
@@ -217,8 +217,8 @@ for p in perspectives:
         for k in keys:
             if all([lec.get(k, False) for lec in lec_outputs_list]):
                 lec_outputs[k] = True
-        generate_leccalc_comparison_fragment(p, outputs, lec_outputs,
-                                             names=names)
+        generate_leccalc_comparison_fragment(p, outputs, names=names,
+                                             lec_outputs=lec_outputs)
 
     if all(o.get('elt_moment', False) for o in ord_settings):
         st.write("### MELT Output")
@@ -277,6 +277,15 @@ for p in perspectives:
 
     if all(any(o.get(e, False) for e in ept_settings) for o in ord_settings):
         st.write("### EPT Output")
-        generate_ept_comparison_fragment(p, outputs, names=names)
+        ep_type_map = {1: 'OEP', 2: 'OEP TVAR', 3: 'AEP', 4: 'AEP TVAR'}
+        ep_calc_map = {1: 'MeanDR', 2: 'Full', 3: 'PerSampleMean', 4: 'MeanSample'}
+        generate_leccalc_comparison_fragment(p, outputs, names=names,
+                                             output_type='ept',
+                                             filter_specs=[
+                                                 {'col': 'EPType', 'label': 'EP Curve Type: ', 'format_map': ep_type_map},
+                                                 {'col': 'EPCalc', 'label': 'Calculation Method:', 'format_map': ep_calc_map},
+                                             ],
+                                             return_period_col='ReturnPeriod', loss_col='Loss',
+                                             group_col_default='SummaryId')
 
 generate_footer(ui_config)
