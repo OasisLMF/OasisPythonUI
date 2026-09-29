@@ -9,7 +9,7 @@ from pages.components.common import PERSPECTIVES_MAP
 from pages.components.footer import generate_footer
 from pages.components.output import generate_aalcalc_comparison_fragment, generate_leccalc_comparison_fragment
 from pages.components.output import generate_eltcalc_comparison_fragment, summarise_inputs
-from pages.components.output import generate_mplt_comparison_fragment, generate_qplt_comparison_fragment
+from pages.components.output import generate_pltcalc_comparison_fragment
 from pages.components.output import generate_alt_comparison_fragment, generate_ept_comparison_fragment
 
 ##########################################################################################
@@ -251,11 +251,21 @@ for p in perspectives:
 
     if all(o.get('plt_moment', False) for o in ord_settings):
         st.write("### MPLT Output")
-        generate_mplt_comparison_fragment(p, outputs, names=names)
+        generate_pltcalc_comparison_fragment(p, outputs, names=names,
+                                             output_type='plt_moment',
+                                             filter_col='SampleType',
+                                             value_col_options=['MeanLoss', 'MaxLoss',
+                                                                'MeanImpactedExposure',
+                                                                'MaxImpactedExposure'])
 
     if all(o.get('plt_quantile', False) for o in ord_settings):
         st.write("### QPLT Output")
-        generate_qplt_comparison_fragment(p, outputs, names=names)
+        generate_pltcalc_comparison_fragment(p, outputs, names=names,
+                                             output_type='plt_quantile',
+                                             filter_col='Quantile',
+                                             filter_label='Quantile Filter: ',
+                                             filter_format_func=lambda x: '{:.2f}'.format(x),
+                                             value_col='Loss')
 
     if all(o.get('alt_meanonly', False) for o in ord_settings):
         st.write("### ALT MeanOnly Output")

@@ -1635,38 +1635,72 @@ def generate_eltcalc_comparison_fragment(perspective, outputs, names=None,
         eltcalc_map(result, locations, oed_fields, map_type=map_type,
                     intensity_col=intensity_col, group_fields=['loc_analysis_id'])
 
-def generate_mplt_comparison_fragment(p, outputs, names=None):
+def generate_pltcalc_comparison_fragment(p, outputs, names=None, output_type='plt_moment',
+                                         filter_col='SampleType', filter_label='Type Filter:',
+                                         filter_index=0, filter_format_func=None,
+                                         value_col='Loss', value_col_options=None):
     '''
-    Compare total `plt_moment` (MPLT) loss across two analyses. Mirrors
-    generate_aalcalc_comparison_fragment's bar-chart-by-analysis-name
-    pattern (rather than generate_mplt_fragment's per-period ranking,
-    which has no natural two-analysis equivalent), aggregating the
-    selected loss column over the full period.
+    Compare total period-loss across two analyses: filter to a single
+    value of `filter_col`, aggregate a loss column by analysis name
+    (and, optionally, a breakdown OED field), then show a bar chart.
+    Mirrors generate_aalcalc_comparison_fragment's bar-chart-by-
+    analysis-name pattern (rather than generate_mplt_fragment's/
+    generate_qplt_fragment's per-period ranking, which has no natural
+    two-analysis equivalent). Covers both PLT-family ORD outputs:
+
+    - MPLT (`plt_moment`, default): `SampleType` (Analytical/Sample),
+      loss column chosen from `value_col_options`
+      (MeanLoss/MaxLoss/MeanImpactedExposure/MaxImpactedExposure).
+    - QPLT (`plt_quantile`): `Quantile`, fixed `Loss` column.
+
+    Parameters
+    ----------
+    output_type : str
+                  `OutputInterface` output type to fetch.
+    filter_col : str
+                 Column filtered to a single selected value.
+    filter_label : str
+                   Label for the filter radio.
+    filter_index : int
+                   Default selected index of the filter radio. Negative
+                   values count from the end, matching Python list indexing.
+    filter_format_func : callable
+                         Optional display formatter for the filter radio's options.
+    value_col : str
+                Loss column to aggregate and plot, when `value_col_options`
+                is not given.
+    value_col_options : List[str]
+                        If given, renders a "Loss Filter" radio letting the
+                        user choose the loss column from these options,
+                        instead of using the fixed `value_col`.
     '''
-    results = [o.get(1, p, 'plt_moment') for o in outputs]
+    results = [o.get(1, p, output_type) for o in outputs]
 
     oed_fields = shared_oed_fields(p, outputs)
     breakdown_field = None
     if oed_fields and len(oed_fields) > 0:
         breakdown_field = st.pills('Breakdown OED Field: ', options=oed_fields,
-                                   key=f'mplt_{p}_comparison_oed_filter')
+                                   key=f'{output_type}_{p}_comparison_oed_filter')
 
     breakdown_field_invalid = False
     if breakdown_field and any([r[breakdown_field].nunique() > 100 for r in results]):
         breakdown_field_invalid = True
         breakdown_field = None
 
-    types = results[0]['SampleType'].unique()
-    selected_type = st.radio('Type Filter:', options=types, index=0, horizontal=True,
-                             key=f'mplt_{p}_comparison_type_filter')
+    options = results[0][filter_col].unique()
+    if filter_index < 0:
+        filter_index += len(options)
+
+    selected_filter = st.radio(filter_label, options=options, index=filter_index, horizontal=True,
+                               format_func=filter_format_func if filter_format_func else (lambda x: x),
+                               key=f'{output_type}_{p}_comparison_filter')
 
     for i in range(len(results)):
-        results[i] = results[i][results[i]['SampleType'] == selected_type]
+        results[i] = results[i][results[i][filter_col] == selected_filter]
 
-    loss_col = st.radio('Loss Filter: ', options=['MeanLoss', 'MaxLoss',
-                                                  'MeanImpactedExposure',
-                                                  'MaxImpactedExposure'], horizontal=True,
-                        key=f'mplt_{p}_comparison_loss_filter')
+    if value_col_options:
+        value_col = st.radio('Loss Filter: ', options=value_col_options, horizontal=True,
+                             key=f'{output_type}_{p}_comparison_value_col')
 
     group_field = []
     if breakdown_field:
@@ -1674,10 +1708,10 @@ def generate_mplt_comparison_fragment(p, outputs, names=None):
             results[i][breakdown_field] = results[i][breakdown_field].astype(str)
         group_field += [breakdown_field]
 
-    results = list(map(lambda x: x.loc[:, group_field + [loss_col]], results))
+    results = list(map(lambda x: x.loc[:, group_field + [value_col]], results))
 
     if len(group_field) > 0:
-        results = list(map(lambda x: x.groupby(group_field, as_index=False).agg({loss_col: 'sum'}), results))
+        results = list(map(lambda x: x.groupby(group_field, as_index=False).agg({value_col: 'sum'}), results))
 
     if names is None:
         names = ['Analysis 1', 'Analysis 2']
@@ -1687,70 +1721,13 @@ def generate_mplt_comparison_fragment(p, outputs, names=None):
 
     results = pd.concat(results)
     if breakdown_field is None:
-        results = results.groupby('name', as_index=False).agg({loss_col: 'sum'})
+        results = results.groupby('name', as_index=False).agg({value_col: 'sum'})
 
-    graph = px.bar(results, x='name', y=loss_col, color=breakdown_field,
-                   labels = {loss_col: loss_col, 'name': 'Analysis Name'},
+    graph = px.bar(results, x='name', y=value_col, color=breakdown_field,
+                   labels = {value_col: value_col, 'name': 'Analysis Name'},
                    color_discrete_sequence= px.colors.sequential.RdBu,
                    category_orders={'name': names})
-    st.plotly_chart(graph, width='stretch', key=f'mplt_{p}_comparison_graph')
-
-    if breakdown_field_invalid:
-        st.error("Too many values in group field.")
-
-def generate_qplt_comparison_fragment(p, outputs, names=None):
-    '''
-    Compare total `plt_quantile` (QPLT) loss across two analyses.
-    Mirrors generate_mplt_comparison_fragment, filtering on `Quantile`
-    instead of `SampleType` and using the fixed `Loss` column.
-    '''
-    results = [o.get(1, p, 'plt_quantile') for o in outputs]
-
-    oed_fields = shared_oed_fields(p, outputs)
-    breakdown_field = None
-    if oed_fields and len(oed_fields) > 0:
-        breakdown_field = st.pills('Breakdown OED Field: ', options=oed_fields,
-                                   key=f'qplt_{p}_comparison_oed_filter')
-
-    breakdown_field_invalid = False
-    if breakdown_field and any([r[breakdown_field].nunique() > 100 for r in results]):
-        breakdown_field_invalid = True
-        breakdown_field = None
-
-    quantiles = results[0]['Quantile'].unique()
-    quantile_filter = st.radio('Quantile Filter: ', options=quantiles, horizontal=True,
-                               format_func=lambda x: '{:.2f}'.format(x),
-                               key=f'qplt_{p}_comparison_quantile_filter')
-
-    for i in range(len(results)):
-        results[i] = results[i][results[i]['Quantile'] == quantile_filter]
-
-    group_field = []
-    if breakdown_field:
-        for i in range(len(results)):
-            results[i][breakdown_field] = results[i][breakdown_field].astype(str)
-        group_field += [breakdown_field]
-
-    results = list(map(lambda x: x.loc[:, group_field + ['Loss']], results))
-
-    if len(group_field) > 0:
-        results = list(map(lambda x: x.groupby(group_field, as_index=False).agg({'Loss': 'sum'}), results))
-
-    if names is None:
-        names = ['Analysis 1', 'Analysis 2']
-
-    for i in range(len(results)):
-        results[i]['name'] = names[i]
-
-    results = pd.concat(results)
-    if breakdown_field is None:
-        results = results.groupby('name', as_index=False).agg({'Loss': 'sum'})
-
-    graph = px.bar(results, x='name', y='Loss', color=breakdown_field,
-                   labels = {'Loss': 'Loss', 'name': 'Analysis Name'},
-                   color_discrete_sequence= px.colors.sequential.RdBu,
-                   category_orders={'name': names})
-    st.plotly_chart(graph, width='stretch', key=f'qplt_{p}_comparison_graph')
+    st.plotly_chart(graph, width='stretch', key=f'{output_type}_{p}_comparison_graph')
 
     if breakdown_field_invalid:
         st.error("Too many values in group field.")
