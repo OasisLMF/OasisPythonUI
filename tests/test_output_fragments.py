@@ -56,3 +56,33 @@ def test_qplt_and_ept_fragments_coexist_without_widget_key_collision():
 
     assert len(at.exception) == 0
     assert len(at.get("plotly_chart")) == 2
+
+
+def test_eltcalc_map_heatmap_survives_locnumber_dtype_mismatch():
+    '''
+    Regression test: `eltcalc_map`'s heatmap branch merged the ORD
+    output's `LocNumber` (joined in from the ktools summary-info file)
+    against the location file's `LocNumber` without normalising
+    either side's dtype first. A str-vs-int mismatch between the two
+    (same values, different dtype) used to merge to all-NaN
+    Longitude/Latitude silently, rendering a map with nothing visible
+    on it - the exact "map view isn't working" symptom this pins.
+    '''
+    at = AppTest.from_file("tests/fixtures/eltcalc_map_locnumber_mismatch_app.py").run()
+
+    assert len(at.exception) == 0
+    assert len(at.warning) == 0
+    assert len(at.get("plotly_chart")) == 1
+
+
+def test_eltcalc_map_heatmap_warns_when_no_locations_match():
+    '''
+    When the output's LocNumber values have no overlap at all with the
+    location file (a real data problem, not a dtype mismatch), warn
+    instead of silently rendering a map with every point at NaN.
+    '''
+    at = AppTest.from_file("tests/fixtures/eltcalc_map_no_match_app.py").run()
+
+    assert len(at.exception) == 0
+    assert len(at.warning) == 1
+    assert len(at.get("plotly_chart")) == 0

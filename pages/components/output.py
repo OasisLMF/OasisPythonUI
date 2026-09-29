@@ -530,7 +530,22 @@ def eltcalc_map(map_df, locations, oed_fields=[], map_type=None,
         map_df = elt_group_fields(map_df, group_fields, categorical_cols=oed_fields)
 
         loc_reduced = locations[['LocNumber', 'Longitude', 'Latitude']]
+
+        # LocNumber on the two sides can come in with different dtypes/formatting
+        # (e.g. int vs str, or a stray '.0') - the output's LocNumber is joined in
+        # from the ktools summary-info file, while loc_reduced's comes straight from
+        # the OED location file. Coerce both to string so the join isn't brittle to that.
+        map_df = map_df.astype({'LocNumber': str})
+        loc_reduced = loc_reduced.astype({'LocNumber': str})
+
         map_df = map_df.merge(loc_reduced, how="left", on="LocNumber")
+
+        if map_df['Longitude'].isna().all():
+            st.warning("Could not match any locations to the output's LocNumber values. "
+                       "No map to display.")
+            logger.error("eltcalc_map: heatmap merge on LocNumber matched no rows.")
+            return
+
         map_df = map_df[['Longitude', 'Latitude', intensity_col]]
 
         mv = MapView(map_df, longitude='Longitude', latitude='Latitude',
