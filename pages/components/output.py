@@ -578,7 +578,7 @@ def generate_eltcalc_fragment(perspective, output,
                 DataFrame representing `locations.csv` file. Required for `map` view.
 
     '''
-    oed_fields = output.oed_fields.get(perspective, [])
+    oed_fields = output.oed_fields.get(perspective) or []
     eltcalc_result = output.get(1, perspective, 'eltcalc')
 
     tab_names = []
@@ -612,7 +612,7 @@ def generate_eltcalc_fragment(perspective, output,
 @st.fragment
 def generate_melt_fragment(p, vis, locations=None):
     data_df = vis.get(1, p, 'elt_moment')
-    oed_fields = vis.oed_fields.get(p)
+    oed_fields = vis.oed_fields.get(p) or []
 
     # Type filter
     if 'type' in data_df.columns:
@@ -680,7 +680,7 @@ def generate_melt_fragment(p, vis, locations=None):
 @st.fragment
 def generate_qelt_fragment(p, vis, locations=None):
     data_df = vis.get(1, p, 'elt_quantile')
-    oed_fields = vis.oed_fields.get(p)
+    oed_fields = vis.oed_fields.get(p) or []
 
     options = data_df['Quantile'].unique()
     quantile_filter = st.radio("Quantile Filter", options,
@@ -804,7 +804,7 @@ def generate_selt_fragment(p, vis, locations=None):
 def generate_aalcalc_fragment(p, vis):
     result = vis.get(1, p, 'aalcalc')
 
-    oed_fields = vis.oed_fields.get(p)
+    oed_fields = vis.oed_fields.get(p) or []
     breakdown_field = None
     if oed_fields and len(oed_fields) > 0:
         breakdown_field = st.pills('Breakdown OED Field: ', options=oed_fields,
@@ -839,7 +839,7 @@ def generate_alt_fragment(p, vis, output_type='alt_meanonly'):
     type_field = 'SampleType'
     mean_field = 'MeanLoss'
 
-    oed_fields = vis.oed_fields.get(p)
+    oed_fields = vis.oed_fields.get(p) or []
     breakdown_field = None
     if oed_fields and len(oed_fields) > 0:
         breakdown_field = st.pills('Breakdown OED Field: ', options=oed_fields,
@@ -905,7 +905,7 @@ def generate_leccalc_fragment(p, vis, lec_outputs):
         analysis_type = '_'.join(option.split('_')[:-1])
         loss_type = option.split('_')[-1]
         result = vis.get(1, p, 'leccalc', analysis_type = analysis_type, loss_type = loss_type)
-        oed_fields = vis.oed_fields.get(p)
+        oed_fields = vis.oed_fields.get(p) or []
 
         selected_group = None
         if oed_fields and len(oed_fields) > 0:
@@ -1211,7 +1211,7 @@ def pltcalc_bar(result, selected_group=None, number_shown=10, date_id = False,
 @st.fragment
 def generate_pltcalc_fragment(p, vis):
     result = vis.get(1, p, 'pltcalc')
-    oed_fields = vis.oed_fields.get(p)
+    oed_fields = vis.oed_fields.get(p) or []
 
     selected_group = None
     if oed_fields and len(oed_fields) > 0 :
@@ -1247,7 +1247,7 @@ def generate_pltcalc_fragment(p, vis):
 @st.fragment
 def generate_mplt_fragment(p, vis):
     result = vis.get(1, p, 'plt_moment')
-    oed_fields = vis.oed_fields.get(p)
+    oed_fields = vis.oed_fields.get(p) or []
 
     selected_group = None
     if oed_fields and len(oed_fields) > 0 :
@@ -1287,7 +1287,7 @@ def generate_mplt_fragment(p, vis):
 @st.fragment
 def generate_qplt_fragment(p, vis):
     result = vis.get(1, p, 'plt_quantile')
-    oed_fields = vis.oed_fields.get(p)
+    oed_fields = vis.oed_fields.get(p) or []
 
     selected_group = None
     if oed_fields and len(oed_fields) > 0 :
@@ -1329,7 +1329,7 @@ def generate_splt_fragment(p, vis):
     `generate_qplt_fragment`.
     '''
     result = vis.get(1, p, 'plt_sample')
-    oed_fields = vis.oed_fields.get(p)
+    oed_fields = vis.oed_fields.get(p) or []
 
     selected_group = None
     if oed_fields and len(oed_fields) > 0:
@@ -1403,7 +1403,7 @@ def generate_ept_fragment(p, vis):
                                  key=f'ept_{p}_calc_filter')
         result = result[result['EPCalc'] == selected_calc]
 
-    oed_fields = vis.oed_fields.get(p)
+    oed_fields = vis.oed_fields.get(p) or []
 
     selected_group = None
     if oed_fields and len(oed_fields) > 0 :
@@ -1466,7 +1466,7 @@ def generate_psept_fragment(p, vis):
 
         result = result[result['EPType'] == selected_type]
 
-    oed_fields = vis.oed_fields.get(p)
+    oed_fields = vis.oed_fields.get(p) or []
 
     selected_group = None
     if oed_fields and len(oed_fields) > 0 :
