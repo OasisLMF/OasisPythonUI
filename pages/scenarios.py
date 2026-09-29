@@ -346,7 +346,7 @@ with run_container:
             if 'location.csv' in input_file:
                 locations = input_file.get('location.csv')
             elif 'location.parquet' in input_file:
-                locations = input_file.get('locations.parquet')
+                locations = input_file.get('location.parquet')
             else:
                 locations = None
             a_settings = ci.analyses.settings.get(analysis_id)
