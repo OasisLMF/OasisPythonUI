@@ -292,7 +292,23 @@ class MapView(View):
         locations = self.data[cols]
         locations = locations.groupby(self.country, as_index=False).agg('sum')
 
+        # The output's country code and the geojson's iso_a2 can come in with
+        # different dtypes/formatting (e.g. a 'category' dtype, or mismatched
+        # case) - the output's value is joined in from the ktools summary-info
+        # file, while iso_a2 comes straight from the geojson. Normalise both to
+        # upper-case strings so the join isn't brittle to that.
+        countries = countries.copy()
+        countries['iso_a2'] = countries['iso_a2'].astype(str).str.strip().str.upper()
+        locations[self.country] = locations[self.country].astype(str).str.strip().str.upper()
+
         merged = countries.merge(locations, right_on=self.country, left_on="iso_a2", how="right")
+
+        if merged.geometry.isna().all():
+            st.warning("Could not match any locations to the output's CountryCode values. "
+                       "No map to display.")
+            logger.error("generate_choropleth: merge on CountryCode/iso_a2 matched no rows.")
+            return
+
         center = {'lat': merged.geometry.centroid.y.mean(),
                   'lon': merged.geometry.centroid.x.mean()}
 

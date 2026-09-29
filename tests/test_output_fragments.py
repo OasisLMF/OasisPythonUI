@@ -86,3 +86,31 @@ def test_eltcalc_map_heatmap_warns_when_no_locations_match():
     assert len(at.exception) == 0
     assert len(at.warning) == 1
     assert len(at.get("plotly_chart")) == 0
+
+
+def test_choropleth_survives_countrycode_case_mismatch():
+    '''
+    Regression test: `MapView.generate_choropleth` merged the output's
+    `CountryCode` against the geojson's `iso_a2` without normalising
+    either side first. A case mismatch between the two ('fr' vs 'FR' -
+    same country, different formatting) used to merge to no rows
+    silently, same failure class as the LocNumber/heatmap one above.
+    '''
+    at = AppTest.from_file("tests/fixtures/choropleth_countrycode_mismatch_app.py").run()
+
+    assert len(at.exception) == 0
+    assert len(at.warning) == 0
+    assert len(at.get("plotly_chart")) == 1
+
+
+def test_choropleth_warns_when_no_countries_match():
+    '''
+    When the output's CountryCode values don't correspond to any
+    country in the geojson (a real data problem), warn instead of
+    silently computing a NaN center from an empty geometry join.
+    '''
+    at = AppTest.from_file("tests/fixtures/choropleth_no_match_app.py").run()
+
+    assert len(at.exception) == 0
+    assert len(at.warning) == 1
+    assert len(at.get("plotly_chart")) == 0
