@@ -101,6 +101,18 @@ def get_analysis_inputs(ID):
 def get_analysis_outputs(ID):
     return client_interface.analyses.get_file(ID, 'output_file', df=True)
 
+def get_location_df(inputs):
+    '''Return the locations DataFrame from an `input_file` dict, whichever
+    of `location.csv` or `location.parquet` is present.
+    '''
+    if not inputs:
+        return None
+    if 'location.csv' in inputs:
+        return inputs['location.csv']
+    if 'location.parquet' in inputs:
+        return inputs['location.parquet']
+    return None
+
 analysis_settings = []
 model_settings = []
 with cols[0]:
@@ -111,7 +123,7 @@ with cols[0]:
         model_settings.append(client_interface.models.settings.get(model_ids[0]))
 
     with st.spinner('Loading analysis summary...'):
-        summarise_inputs(inputs.get('location.csv', None), analysis_settings[0], model_settings[0], title_prefix='###')
+        summarise_inputs(get_location_df(inputs), analysis_settings[0], model_settings[0], title_prefix='###')
 
 with cols[1]:
     st.write(f"## {selected['name'][1]}")
@@ -121,14 +133,12 @@ with cols[1]:
         model_settings.append(client_interface.models.settings.get(model_ids[1]))
 
     with st.spinner('Loading analysis summary...'):
-        summarise_inputs(inputs.get('location.csv', None), analysis_settings[1], model_settings[1], title_prefix='###')
+        summarise_inputs(get_location_df(inputs), analysis_settings[1], model_settings[1], title_prefix='###')
 
 @st.cache_data
 def get_locations_file(ID):
     inputs = client_interface.analyses.get_file(ID, 'input_file', df=True)
-    if inputs:
-        return inputs.get('location.csv')
-    return None
+    return get_location_df(inputs)
 
 @st.cache_data
 def merge_locations(locations_1, locations_2):
