@@ -1533,26 +1533,77 @@ def generate_aalcalc_comparison_fragment(p, outputs, names = None):
         st.error("Too many values in group field.")
 
 def generate_eltcalc_comparison_fragment(perspective, outputs, names=None,
-                                         locations=None):
-    results = [o.get(1, perspective, 'eltcalc') for o in outputs]
+                                         locations=None, output_type='eltcalc',
+                                         filter_col='type', filter_label='Type Filter:',
+                                         filter_index=0, data_cols=None, event_id='event_id',
+                                         name_map=None, intensity_col=None):
+    '''
+    Compare an event-level-table output across two analyses: filter to
+    a single value of `filter_col`, then show a `table`/`map` view.
+    Covers the legacy `eltcalc` output and every ORD `elt_*` output
+    that shares the same "single equality filter, per-event value
+    columns" shape (MELT/`elt_moment`, QELT/`elt_quantile`) - only the
+    output type, filter column/widget and value columns differ:
+
+    - `eltcalc` (default): `type` (Analytical/Sample), `mean`/`exposure_value`.
+    - MELT (`elt_moment`): `SampleType` (Analytical/Sample), PascalCase
+      `MeanLoss`/`MeanImpactedExposure`/`MaxImpactedExposure`.
+    - QELT (`elt_quantile`): `Quantile`, PascalCase `Loss`.
+
+    `elt_sample` (SELT) is not covered here: its single-analysis view
+    supports aggregating across all samples rather than just filtering
+    to one, which doesn't fit this "filter to a single value" shape.
+
+    Parameters
+    ----------
+    output_type : str
+                  `OutputInterface` output type to fetch, e.g. `eltcalc`,
+                  `elt_moment`, `elt_quantile`.
+    filter_col : str
+                 Column filtered to a single selected value.
+    filter_label : str
+                   Label for the filter radio.
+    filter_index : int
+                   Default selected index of the filter radio. Negative
+                   values count from the end (e.g. `-1` is the last option),
+                   matching Python list indexing.
+    data_cols : List[str]
+                Value columns to display/sum and use as the map intensity
+                column. Defaults to `['mean', 'exposure_value']`.
+    event_id : str
+               Event ID column name (`event_id` for legacy, `EventId` for ORD).
+    name_map : dict
+               Column name -> display name overrides for the table.
+    intensity_col : str
+                    Map intensity column. Defaults to `data_cols[0]`.
+    '''
+    if data_cols is None:
+        data_cols = ['mean', 'exposure_value']
+    if name_map is None:
+        name_map = {}
+    if intensity_col is None:
+        intensity_col = data_cols[0]
+
+    results = [o.get(1, perspective, output_type) for o in outputs]
     oed_fields = shared_oed_fields(perspective, outputs)
 
-    types = results[0]['type'].unique()
+    options = results[0][filter_col].unique()
+    if filter_index < 0:
+        filter_index += len(options)
 
-    selected_type = st.radio('Type Filter:', options=types, index=0, horizontal=True,
-                             key=f'{perspective}_elt_comparison_type_filter')
+    selected_filter = st.radio(filter_label, options=options, index=filter_index, horizontal=True,
+                               key=f'{perspective}_{output_type}_comparison_filter')
 
     for i in range(len(results)):
-        results[i] = results[i][results[i]['type'] == selected_type]
+        results[i] = results[i][results[i][filter_col] == selected_filter]
         results[i]['name'] = names[i] if names[i] else f'Analysis {i+1}'
         results[i]['loc_analysis_id'] = i + 1
 
-
-    name_map = {i: names[i] for i in range(2)}
+    analysis_map = {i: names[i] for i in range(2)}
     selected_analysis = st.segmented_control('Analysis Filter:',
-                                             options=name_map.keys(),
-                                             format_func = lambda x: name_map.get(x, x),
-                                             key=f'{perspective}_elt_name_filter')
+                                             options=analysis_map.keys(),
+                                             format_func = lambda x: analysis_map.get(x, x),
+                                             key=f'{perspective}_{output_type}_name_filter')
 
     if selected_analysis is not None:
         result = results[selected_analysis]
@@ -1563,15 +1614,10 @@ def generate_eltcalc_comparison_fragment(perspective, outputs, names=None,
 
     with table_tab:
         result, selected = elt_ord_table(result, perspective=perspective, oed_fields=oed_fields,
-                                 order_cols=['mean','exposure_value'],
-                                 data_cols = ['mean', 'exposure_value'],
-                                 key_prefix=f'{perspective}_elt', event_id='event_id',
+                                 order_cols=data_cols, data_cols=data_cols,
+                                 key_prefix=f'{perspective}_{output_type}', event_id=event_id,
                                  additional_cols=['name'],
-                                 name_map = {
-                                        'mean': 'Mean',
-                                        'exposure_value': 'Exposure Value',
-                                        'name': 'Analysis Name'
-                                    },
+                                 name_map = {**name_map, 'name': 'Analysis Name'},
                                  selectable='multi')
 
     with map_tab:
@@ -1587,127 +1633,7 @@ def generate_eltcalc_comparison_fragment(perspective, outputs, names=None,
             map_type = 'choropleth'
 
         eltcalc_map(result, locations, oed_fields, map_type=map_type,
-                    intensity_col='mean', group_fields=['loc_analysis_id'])
-
-def generate_melt_comparison_fragment(perspective, outputs, names=None,
-                                      locations=None):
-    '''
-    Compare `elt_moment` (MELT) outputs across two analyses. Mirrors
-    generate_eltcalc_comparison_fragment, but filters on the ORD
-    `SampleType` column and uses the PascalCase `MeanLoss` metric
-    instead of the legacy `type`/`mean` columns.
-    '''
-    results = [o.get(1, perspective, 'elt_moment') for o in outputs]
-    oed_fields = shared_oed_fields(perspective, outputs)
-
-    types = results[0]['SampleType'].unique()
-
-    selected_type = st.radio('Type Filter:', options=types, index=0, horizontal=True,
-                             key=f'{perspective}_melt_comparison_type_filter')
-
-    for i in range(len(results)):
-        results[i] = results[i][results[i]['SampleType'] == selected_type]
-        results[i]['name'] = names[i] if names[i] else f'Analysis {i+1}'
-        results[i]['loc_analysis_id'] = i + 1
-
-    name_map = {i: names[i] for i in range(2)}
-    selected_analysis = st.segmented_control('Analysis Filter:',
-                                             options=name_map.keys(),
-                                             format_func = lambda x: name_map.get(x, x),
-                                             key=f'{perspective}_melt_name_filter')
-
-    if selected_analysis is not None:
-        result = results[selected_analysis]
-    else:
-        result = pd.concat(results)
-
-    table_tab, map_tab = st.tabs(['Table', 'Map'])
-
-    with table_tab:
-        result, selected = elt_ord_table(result, perspective=perspective, oed_fields=oed_fields,
-                                 order_cols=['MeanLoss', 'MeanImpactedExposure', 'MaxImpactedExposure'],
-                                 data_cols=['MeanLoss', 'MeanImpactedExposure', 'MaxImpactedExposure'],
-                                 key_prefix=f'{perspective}_melt', event_id='EventId',
-                                 additional_cols=['name'],
-                                 name_map = {
-                                        'MeanLoss': 'Mean Loss',
-                                        'MeanImpactedExposure': 'Mean Impacted Exposure',
-                                        'MaxImpactedExposure': 'Max Impacted Exposure',
-                                        'name': 'Analysis Name'
-                                    },
-                                 selectable='multi')
-
-    with map_tab:
-        if locations is None:
-            st.info('Locations files not found.')
-            return
-
-        map_type = None
-
-        if 'LocNumber' in oed_fields and valid_locations(locations):
-            map_type = 'heatmap'
-        elif 'CountryCode' in oed_fields:
-            map_type = 'choropleth'
-
-        eltcalc_map(result, locations, oed_fields, map_type=map_type,
-                    intensity_col='MeanLoss', group_fields=['loc_analysis_id'])
-
-def generate_qelt_comparison_fragment(perspective, outputs, names=None,
-                                      locations=None):
-    '''
-    Compare `elt_quantile` (QELT) outputs across two analyses. Mirrors
-    generate_eltcalc_comparison_fragment, but filters on the ORD
-    `Quantile` column and uses the PascalCase `Loss` metric instead of
-    the legacy `type`/`mean` columns.
-    '''
-    results = [o.get(1, perspective, 'elt_quantile') for o in outputs]
-    oed_fields = shared_oed_fields(perspective, outputs)
-
-    options = results[0]['Quantile'].unique()
-    quantile_filter = st.radio('Quantile Filter:', options, horizontal=True,
-                               index=len(options) - 1,
-                               key=f'{perspective}_qelt_comparison_quantile_filter')
-
-    for i in range(len(results)):
-        results[i] = results[i][results[i]['Quantile'] == quantile_filter]
-        results[i]['name'] = names[i] if names[i] else f'Analysis {i+1}'
-        results[i]['loc_analysis_id'] = i + 1
-
-    name_map = {i: names[i] for i in range(2)}
-    selected_analysis = st.segmented_control('Analysis Filter:',
-                                             options=name_map.keys(),
-                                             format_func = lambda x: name_map.get(x, x),
-                                             key=f'{perspective}_qelt_name_filter')
-
-    if selected_analysis is not None:
-        result = results[selected_analysis]
-    else:
-        result = pd.concat(results)
-
-    table_tab, map_tab = st.tabs(['Table', 'Map'])
-
-    with table_tab:
-        result, selected = elt_ord_table(result, perspective=perspective, oed_fields=oed_fields,
-                                 order_cols=['Loss'], data_cols=['Loss'],
-                                 key_prefix=f'{perspective}_qelt', event_id='EventId',
-                                 additional_cols=['name'],
-                                 name_map = {'name': 'Analysis Name'},
-                                 selectable='multi')
-
-    with map_tab:
-        if locations is None:
-            st.info('Locations files not found.')
-            return
-
-        map_type = None
-
-        if 'LocNumber' in oed_fields and valid_locations(locations):
-            map_type = 'heatmap'
-        elif 'CountryCode' in oed_fields:
-            map_type = 'choropleth'
-
-        eltcalc_map(result, locations, oed_fields, map_type=map_type,
-                    intensity_col='Loss', group_fields=['loc_analysis_id'])
+                    intensity_col=intensity_col, group_fields=['loc_analysis_id'])
 
 def generate_mplt_comparison_fragment(p, outputs, names=None):
     '''

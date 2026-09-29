@@ -9,7 +9,6 @@ from pages.components.common import PERSPECTIVES_MAP
 from pages.components.footer import generate_footer
 from pages.components.output import generate_aalcalc_comparison_fragment, generate_leccalc_comparison_fragment
 from pages.components.output import generate_eltcalc_comparison_fragment, summarise_inputs
-from pages.components.output import generate_melt_comparison_fragment, generate_qelt_comparison_fragment
 from pages.components.output import generate_mplt_comparison_fragment, generate_qplt_comparison_fragment
 from pages.components.output import generate_alt_comparison_fragment, generate_ept_comparison_fragment
 
@@ -225,15 +224,30 @@ for p in perspectives:
         st.write("### MELT Output")
         locations = [get_locations_file(id) for id in analysis_ids]
         locations = merge_locations(*locations)
-        generate_melt_comparison_fragment(p, outputs, names=names,
-                                          locations=locations)
+        generate_eltcalc_comparison_fragment(p, outputs, names=names,
+                                             locations=locations,
+                                             output_type='elt_moment',
+                                             filter_col='SampleType',
+                                             data_cols=['MeanLoss', 'MeanImpactedExposure', 'MaxImpactedExposure'],
+                                             event_id='EventId',
+                                             name_map={
+                                                 'MeanLoss': 'Mean Loss',
+                                                 'MeanImpactedExposure': 'Mean Impacted Exposure',
+                                                 'MaxImpactedExposure': 'Max Impacted Exposure',
+                                             })
 
     if all(o.get('elt_quantile', False) for o in ord_settings):
         st.write("### QELT Output")
         locations = [get_locations_file(id) for id in analysis_ids]
         locations = merge_locations(*locations)
-        generate_qelt_comparison_fragment(p, outputs, names=names,
-                                          locations=locations)
+        generate_eltcalc_comparison_fragment(p, outputs, names=names,
+                                             locations=locations,
+                                             output_type='elt_quantile',
+                                             filter_col='Quantile',
+                                             filter_label='Quantile Filter:',
+                                             filter_index=-1,
+                                             data_cols=['Loss'],
+                                             event_id='EventId')
 
     if all(o.get('plt_moment', False) for o in ord_settings):
         st.write("### MPLT Output")
