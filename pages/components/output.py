@@ -625,7 +625,7 @@ def generate_melt_fragment(p, vis, locations=None):
     if type_col:
         types = data_df[type_col].unique()
         selected_type = st.radio('Type Filter:', options=types, index=0, horizontal=True,
-                                 key=f'melt_elt_ord_type_filter')
+                                 key=f'melt_{p}_type_filter')
         data_df = data_df[data_df[type_col] == selected_type]
 
     map_event_container = st.container()
@@ -640,7 +640,7 @@ def generate_melt_fragment(p, vis, locations=None):
                                              'MaxImpactedExposure'],
                                  data_cols=['MeanLoss','MeanImpactedExposure',
                                             'MaxImpactedExposure'],
-                                 key_prefix='melt',
+                                 key_prefix=f'melt_{p}',
                                  selectable='multi')
 
     selected_events = []
@@ -672,7 +672,7 @@ def generate_melt_fragment(p, vis, locations=None):
                          column_config= {'EventId' : st.column_config.ListColumn('Mapped EventIds')},
                          hide_index=True)
         loss_col = st.radio('Intensity Column:', ['MeanLoss', 'MeanImpactedExposure', 'MaxImpactedExposure'],
-                            index=0, horizontal=True)
+                            index=0, horizontal=True, key=f'melt_{p}_intensity_col')
         eltcalc_map(data_df, locations, oed_fields, map_type,
                     intensity_col=loss_col)
 
@@ -684,7 +684,8 @@ def generate_qelt_fragment(p, vis, locations=None):
 
     options = data_df['Quantile'].unique()
     quantile_filter = st.radio("Quantile Filter", options,
-                               horizontal=True, index=len(options) - 1)
+                               horizontal=True, index=len(options) - 1,
+                               key=f'qelt_{p}_quantile_filter')
 
     data_df = data_df[data_df['Quantile'] == quantile_filter]
 
@@ -696,7 +697,7 @@ def generate_qelt_fragment(p, vis, locations=None):
 
     with tabs[0]:
         table_df, selected = elt_ord_table(data_df, perspective=p,
-                                 oed_fields=oed_fields, key_prefix='qelt',
+                                 oed_fields=oed_fields, key_prefix=f'qelt_{p}',
                                  order_cols=['Loss'], data_cols=['Loss'],
                                  selectable="multi")
 
@@ -765,7 +766,7 @@ def generate_selt_fragment(p, vis, locations=None):
     with tabs[0]:
         data_df, selected = elt_ord_table(data_df, perspective=p, oed_fields=oed_fields,
                                  order_cols=['Loss'], data_cols=['Loss'],
-                                 key_prefix='selt', selectable='multi')
+                                 key_prefix=f'selt_{p}', selectable='multi')
 
     selected_events = []
     if selected is not None and not selected.empty:
@@ -806,7 +807,8 @@ def generate_aalcalc_fragment(p, vis):
     oed_fields = vis.oed_fields.get(p)
     breakdown_field = None
     if oed_fields and len(oed_fields) > 0:
-        breakdown_field = st.pills('Breakdown OED Field: ', options=oed_fields)
+        breakdown_field = st.pills('Breakdown OED Field: ', options=oed_fields,
+                                   key=f'aalcalc_{p}_oed_filter')
 
     breakdown_field_invalid = False
     if breakdown_field and result[breakdown_field].nunique() > 100:
@@ -841,7 +843,7 @@ def generate_alt_fragment(p, vis, output_type='alt_meanonly'):
     breakdown_field = None
     if oed_fields and len(oed_fields) > 0:
         breakdown_field = st.pills('Breakdown OED Field: ', options=oed_fields,
-                                   key=f'{output_type}_oed_filter')
+                                   key=f'{output_type}_{p}_oed_filter')
 
     breakdown_field_invalid = False
     if breakdown_field and result[breakdown_field].nunique() > 100:
@@ -866,7 +868,7 @@ def generate_alt_fragment(p, vis, output_type='alt_meanonly'):
     if breakdown_field_invalid:
         st.error("Too many values in group field.")
 
-    st.plotly_chart(graph, width='stretch', key=f'{output_type}_graph')
+    st.plotly_chart(graph, width='stretch', key=f'{output_type}_{p}_graph')
 
 @st.fragment
 def generate_alct_fragment(p, vis):
@@ -895,7 +897,7 @@ def generate_alct_fragment(p, vis):
 
 def generate_leccalc_fragment(p, vis, lec_outputs):
     lec_options = [option for option in lec_outputs.keys() if lec_outputs[option]]
-    option = st.pills('Select Output:', options=lec_options)
+    option = st.pills('Select Output:', options=lec_options, key=f'leccalc_{p}_select_output')
 
     if option is None:
         st.info('Output option not selected.')
@@ -907,7 +909,7 @@ def generate_leccalc_fragment(p, vis, lec_outputs):
 
         selected_group = None
         if oed_fields and len(oed_fields) > 0:
-            selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key='leccalc_group_field_pills')
+            selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key=f'leccalc_{p}_group_field_pills')
 
         if selected_group is None:
             selected_group = 'summary_id'
@@ -936,7 +938,8 @@ def generate_leccalc_fragment(p, vis, lec_outputs):
         if len(unique_group) > 5:
             filter_group = st.multiselect(f'Filtered {selected_group} Values:',
                                           options = unique_group,
-                                          default = unique_group[:5])
+                                          default = unique_group[:5],
+                                          key=f'leccalc_{p}_group_filter')
             result_plot = result_plot[result_plot[selected_group].isin(filter_group)]
 
 
@@ -995,7 +998,8 @@ def generate_leccalc_comparison_fragment(perspective, outputs, lec_outputs, name
         return f'{analysis_type}_{loss_type}'
 
     option = st.pills('Select Output:', options=lec_options,
-                      format_func=format_lec_options)
+                      format_func=format_lec_options,
+                      key=f'leccalc_comparison_{perspective}_select_output')
 
     diff_names = len(outputs) - len(names)
     offset = len(names)
@@ -1029,7 +1033,8 @@ def generate_leccalc_comparison_fragment(perspective, outputs, lec_outputs, name
 
     selected_group = None
     if oed_fields and len(oed_fields) > 0:
-        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key='leccalc_group_field_pills')
+        selected_group = st.pills('Grouped OED Field: ', options=oed_fields,
+                                  key=f'leccalc_comparison_{perspective}_group_field_pills')
 
     if selected_group is None:
         selected_group = 'summary_id'
@@ -1066,7 +1071,8 @@ def generate_leccalc_comparison_fragment(perspective, outputs, lec_outputs, name
     if len(unique_group) > 5:
         filter_group = st.multiselect(f'Filtered {selected_group} Values:',
                                       options = unique_group,
-                                      default = unique_group[:5])
+                                      default = unique_group[:5],
+                                      key=f'leccalc_comparison_{perspective}_group_filter')
         for i in range(len(results_plot)):
             results_plot[i] = results_plot[i][results_plot[i][selected_group].isin(filter_group)]
         graphed_group_fields = filter_group
@@ -1162,7 +1168,7 @@ def generate_pltcalc_fragment(p, vis):
 
     selected_group = None
     if oed_fields and len(oed_fields) > 0 :
-        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key='pltcalc_group_field_pills')
+        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key=f'pltcalc_{p}_group_field_pills')
 
     selected_group_invalid = False
     if selected_group and result[selected_group].nunique() > 100:
@@ -1172,7 +1178,7 @@ def generate_pltcalc_fragment(p, vis):
         result[selected_group] = result[selected_group].astype(str)
 
     types = result['type'].unique()
-    selected_type = st.radio('Type filter: ', options=types, index=0)
+    selected_type = st.radio('Type filter: ', options=types, index=0, key=f'pltcalc_{p}_type_filter')
 
     result = result[result['type'] == selected_type]
 
@@ -1208,7 +1214,8 @@ def generate_mplt_fragment(p, vis):
         result[selected_group] = result[selected_group].astype(str)
 
     types = result['SampleType'].unique()
-    selected_type = st.radio('Type filter: ', options=types, index=0, horizontal=True)
+    selected_type = st.radio('Type filter: ', options=types, index=0, horizontal=True,
+                             key=f'mplt_{p}_type_filter')
 
     result = result[result['SampleType'] == selected_type]
 
@@ -1220,7 +1227,8 @@ def generate_mplt_fragment(p, vis):
 
     loss_col = st.radio('Loss Filter: ', options=['MeanLoss', 'MaxLoss',
                                                   'MeanImpactedExposure',
-                                                  'MaxImpactedExposure'], horizontal=True)
+                                                  'MaxImpactedExposure'], horizontal=True,
+                        key=f'mplt_{p}_loss_filter')
 
     with st.spinner('Generating pltcalc...'):
         fig = pltcalc_bar(result, selected_group, date_id=False, loss=loss_col, **date_cols)
@@ -1248,7 +1256,8 @@ def generate_qplt_fragment(p, vis):
     quantiles = result['Quantile'].unique()
     quantile_filter = st.radio('Quantile Filter: ', options=quantiles,
                                horizontal=True,
-                               format_func=lambda x: '{:.2f}'.format(x))
+                               format_func=lambda x: '{:.2f}'.format(x),
+                               key=f'qplt_{p}_quantile_filter')
     date_cols = {
         'year': 'Year',
         'month': 'Month',
@@ -1373,7 +1382,8 @@ def generate_ept_fragment(p, vis):
     if len(unique_group) > 5:
         filter_group = st.multiselect(f'Filtered {selected_group} Values:',
                                       options = unique_group,
-                                      default = unique_group[:5])
+                                      default = unique_group[:5],
+                                      key=f'ept_{p}_group_filter')
         result = result[result[selected_group].isin(filter_group)]
 
     fig = px.line(result, x='ReturnPeriod', y='Loss',
@@ -1477,7 +1487,8 @@ def generate_aalcalc_comparison_fragment(p, outputs, names = None):
     oed_fields = shared_oed_fields(p, outputs)
     breakdown_field = None
     if oed_fields and len(oed_fields) > 0:
-        breakdown_field = st.pills('Breakdown OED Field: ', options=oed_fields)
+        breakdown_field = st.pills('Breakdown OED Field: ', options=oed_fields,
+                                   key=f'aalcalc_comparison_{p}_oed_filter')
 
     breakdown_field_invalid = False
     if breakdown_field and any([r[breakdown_field].nunique() > 100 for r in results]):
@@ -1485,7 +1496,8 @@ def generate_aalcalc_comparison_fragment(p, outputs, names = None):
         breakdown_field = None
 
     types = results[0]['type'].unique()
-    selected_type = st.radio('Type filter: ', options=types, index=0, horizontal=True)
+    selected_type = st.radio('Type filter: ', options=types, index=0, horizontal=True,
+                             key=f'aalcalc_comparison_{p}_type_filter')
 
     for i in range(2):
         results[i] = results[i][results[i]['type'] == selected_type]
