@@ -1,5 +1,10 @@
 '''
 Standalone script for AppTest coverage of `generate_splt_fragment`.
+
+Includes ktools' reserved `SampleId == -1` ("mean_idx") row per
+summary/period group, matching a real SPLT file. Its Loss values are
+deliberately NOT the arithmetic average of that group's positive
+SampleId rows, for the same reason as the SELT fixture.
 '''
 import pandas as pd
 
@@ -7,12 +12,12 @@ from modules.visualisation import OutputInterface
 from pages.components.output import generate_splt_fragment
 
 plt_sample_df = pd.DataFrame({
-    'SummaryId': [1, 1, 2, 2, 1, 1, 2, 2],
-    'SampleId': [1, 2, 1, 2, 1, 2, 1, 2],
-    'Year': [2020, 2020, 2020, 2020, 2021, 2021, 2021, 2021],
-    'Month': [1, 1, 1, 1, 6, 6, 6, 6],
-    'Day': [1, 1, 1, 1, 15, 15, 15, 15],
-    'Loss': [10.0, 20.0, 15.0, 25.0, 5.0, 8.0, 6.0, 9.0],
+    'SummaryId': [1, 1, 1, 2, 2, 2, 1, 1, 1, 2, 2, 2],
+    'SampleId': [1, 2, -1, 1, 2, -1, 1, 2, -1, 1, 2, -1],
+    'Year': [2020, 2020, 2020, 2020, 2020, 2020, 2021, 2021, 2021, 2021, 2021, 2021],
+    'Month': [1, 1, 1, 1, 1, 1, 6, 6, 6, 6, 6, 6],
+    'Day': [1, 1, 1, 1, 1, 1, 15, 15, 15, 15, 15, 15],
+    'Loss': [10.0, 20.0, 12.0, 15.0, 25.0, 17.0, 5.0, 8.0, 6.0, 6.0, 9.0, 7.0],
 })
 
 summary_info_df = pd.DataFrame({

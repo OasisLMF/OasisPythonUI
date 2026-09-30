@@ -759,18 +759,30 @@ def generate_selt_fragment(p, vis, locations=None):
     per-sample loss for each event/summary combination instead of
     Analytical/Sample summary statistics. Supports `table` and `map`
     views, following the same pattern as `generate_qelt_fragment`.
+
+    SELT's `SampleId` column uses ORD's reserved negative "sidx"
+    values for pre-computed per-event/summary statistics rather than
+    real Monte Carlo draws (see
+    https://oasislmf.github.io/2.5.8/ord/explanation/concepts.html#special-sample-indices):
+    -1 is the model's analytically-integrated mean loss - computed by
+    numerical integration over the damage distribution, not a
+    recomputed average of this file's own sample rows - and -5 (only
+    present if the analysis was run with ktools' "all sidx" option) is
+    the maximum sampled loss. Real per-sample draws use positive
+    `SampleId` values (1..N).
     '''
+    MEAN_SIDX = -1
+
     data_df = vis.get(1, p, 'elt_sample')
     oed_fields = vis.oed_fields.get(p) or []
 
     aggregate_label = 'Mean (All Samples)'
-    sample_options = sorted(data_df['SampleId'].unique().tolist())
+    sample_options = sorted(sid for sid in data_df['SampleId'].unique().tolist() if sid > 0)
     sample_filter = st.selectbox('Sample Filter:', options=[aggregate_label] + sample_options,
                                  key=f'selt_{p}_sample_filter')
 
     if sample_filter == aggregate_label:
-        group_cols = ['EventId'] + oed_fields
-        data_df = data_df.groupby(group_cols, as_index=False).agg({'Loss': 'mean'})
+        data_df = data_df[data_df['SampleId'] == MEAN_SIDX]
     else:
         data_df = data_df[data_df['SampleId'] == sample_filter]
 
@@ -1342,7 +1354,17 @@ def generate_splt_fragment(p, vis):
     per-sample period loss instead of Analytical/Sample statistics.
     Follows the same bar-chart pattern as `generate_mplt_fragment` and
     `generate_qplt_fragment`.
+
+    SPLT's `SampleId` column uses ORD's reserved negative "sidx"
+    values for pre-computed per-period/summary statistics rather than
+    real Monte Carlo draws (see
+    https://oasislmf.github.io/2.5.8/ord/explanation/concepts.html#special-sample-indices):
+    -1 is the model's analytically-integrated mean loss, not a
+    recomputed average of this file's own sample rows. Real per-sample
+    draws use positive `SampleId` values (1..N).
     '''
+    MEAN_SIDX = -1
+
     result = vis.get(1, p, 'plt_sample')
     oed_fields = vis.oed_fields.get(p) or []
 
@@ -1358,11 +1380,13 @@ def generate_splt_fragment(p, vis):
         result[selected_group] = result[selected_group].astype(str)
 
     aggregate_label = 'Mean (All Samples)'
-    sample_options = sorted(result['SampleId'].unique().tolist())
+    sample_options = sorted(sid for sid in result['SampleId'].unique().tolist() if sid > 0)
     sample_filter = st.selectbox('Sample Filter:', options=[aggregate_label] + sample_options,
                                  key=f'splt_{p}_sample_filter')
 
-    if sample_filter != aggregate_label:
+    if sample_filter == aggregate_label:
+        result = result[result['SampleId'] == MEAN_SIDX]
+    else:
         result = result[result['SampleId'] == sample_filter]
 
     date_cols = {
@@ -1372,9 +1396,6 @@ def generate_splt_fragment(p, vis):
     }
 
     with st.spinner('Generating pltcalc...'):
-        if sample_filter == aggregate_label:
-            group_cols = [c for c in [selected_group] if c] + list(date_cols.values())
-            result = result.groupby(group_cols, as_index=False).agg({'Loss': 'mean'})
         fig = pltcalc_bar(result, selected_group, date_id=False, loss='Loss', **date_cols)
 
     if selected_group_invalid:
@@ -1462,8 +1483,20 @@ def generate_psept_fragment(p, vis):
     output, plotting a return-period/loss curve per sample. Follows the
     same structure as `generate_ept_fragment`, with an added sample
     dimension.
+
+    PSEPT's `SampleId` column uses ORD's reserved negative "sidx"
+    values for pre-computed statistics alongside the real Monte Carlo
+    draws (see
+    https://oasislmf.github.io/2.5.8/ord/explanation/concepts.html#special-sample-indices),
+    e.g. -1 for the model's analytically-integrated mean loss. Unlike
+    SELT/SPLT, this fragment wants the spread *across real samples*
+    (that's the point of a per-sample EP curve's min/mean/max error
+    bars), so those special rows must be excluded rather than read -
+    left in, -1's precomputed mean would be silently averaged in
+    alongside the real samples as if it were one of them.
     '''
     result = vis.get(1, p, 'psept')
+    result = result[result['SampleId'] > 0]
 
     ep_type_map = {
         1 : 'OEP',
