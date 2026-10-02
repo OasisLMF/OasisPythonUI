@@ -5,9 +5,7 @@
                 "id": 1,
                 "ord_output": {
                   "elt_moment": true,
-                  "ept_full_uncertainty_aep": true,
-                  "ept_full_uncertainty_oep": true,
-                  "return_period_file": true
+                  "alt_meanonly": true
                 }
             }
         ],
