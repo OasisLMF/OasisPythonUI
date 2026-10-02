@@ -9,6 +9,8 @@ from pages.components.common import PERSPECTIVES_MAP
 from pages.components.footer import generate_footer
 from pages.components.output import generate_aalcalc_comparison_fragment, generate_leccalc_comparison_fragment
 from pages.components.output import generate_eltcalc_comparison_fragment, summarise_inputs
+from pages.components.output import generate_pltcalc_comparison_fragment
+from pages.components.output import generate_alt_comparison_fragment
 
 ##########################################################################################
 # Header
@@ -99,6 +101,18 @@ def get_analysis_inputs(ID):
 def get_analysis_outputs(ID):
     return client_interface.analyses.get_file(ID, 'output_file', df=True)
 
+def get_location_df(inputs):
+    '''Return the locations DataFrame from an `input_file` dict, whichever
+    of `location.csv` or `location.parquet` is present.
+    '''
+    if not inputs:
+        return None
+    if 'location.csv' in inputs:
+        return inputs['location.csv']
+    if 'location.parquet' in inputs:
+        return inputs['location.parquet']
+    return None
+
 analysis_settings = []
 model_settings = []
 with cols[0]:
@@ -109,7 +123,7 @@ with cols[0]:
         model_settings.append(client_interface.models.settings.get(model_ids[0]))
 
     with st.spinner('Loading analysis summary...'):
-        summarise_inputs(inputs.get('location.csv', None), analysis_settings[0], model_settings[0], title_prefix='###')
+        summarise_inputs(get_location_df(inputs), analysis_settings[0], model_settings[0], title_prefix='###')
 
 with cols[1]:
     st.write(f"## {selected['name'][1]}")
@@ -119,14 +133,12 @@ with cols[1]:
         model_settings.append(client_interface.models.settings.get(model_ids[1]))
 
     with st.spinner('Loading analysis summary...'):
-        summarise_inputs(inputs.get('location.csv', None), analysis_settings[1], model_settings[1], title_prefix='###')
+        summarise_inputs(get_location_df(inputs), analysis_settings[1], model_settings[1], title_prefix='###')
 
 @st.cache_data
 def get_locations_file(ID):
     inputs = client_interface.analyses.get_file(ID, 'input_file', df=True)
-    if inputs:
-        return inputs.get('location.csv')
-    return None
+    return get_location_df(inputs)
 
 @st.cache_data
 def merge_locations(locations_1, locations_2):
@@ -163,15 +175,28 @@ for p in perspectives:
     summaries = [s.get(f'{p}_summaries', [{}])[0] for s in analysis_settings]
     names = selected['name'].tolist() # 'GUL OUTPUT' SHOULD BE MORE UNDERSTANDABLE FOR NON-EXPERT USERS BY USING TITLE 'GROUND UP LOSS'
 
-    supported_outputs = ['aalcalc', 'eltcalc', 'lec_output']
-    no_outputs = True
-    for output in supported_outputs:
-        if all([s.get(output, False) for s in summaries]):
-            st.write(f"## {PERSPECTIVES_MAP[p]} Output")
-            no_outputs = False
-            break
+    ord_settings = [s.get('ord_output', {}) or {} for s in summaries]
 
-    if no_outputs:
+    ept_settings = [
+        'ept_full_uncertainty_aep',
+        'ept_full_uncertainty_oep',
+        'ept_mean_sample_aep',
+        'ept_mean_sample_oep',
+        'ept_per_sample_mean_aep',
+        'ept_per_sample_mean_oep'
+    ]
+
+    supported_outputs = ['aalcalc', 'eltcalc', 'lec_output']
+    supported_ord_outputs = ['elt_moment', 'elt_quantile', 'plt_moment',
+                            'plt_quantile', 'alt_meanonly', 'alt_period']
+
+    has_legacy = any(all(s.get(output, False) for s in summaries) for output in supported_outputs)
+    has_ord = any(all(o.get(output, False) for o in ord_settings) for output in supported_ord_outputs)
+    has_ept = all(any(o.get(e, False) for e in ept_settings) for o in ord_settings)
+
+    if has_legacy or has_ord or has_ept:
+        st.write(f"## {PERSPECTIVES_MAP[p]} Output")
+    else:
         st.error('No comparison available.')
 
     with st.spinner("Loading data..."):
@@ -202,7 +227,75 @@ for p in perspectives:
         for k in keys:
             if all([lec.get(k, False) for lec in lec_outputs_list]):
                 lec_outputs[k] = True
-        generate_leccalc_comparison_fragment(p, outputs, lec_outputs,
-                                             names=names)
+        generate_leccalc_comparison_fragment(p, outputs, names=names,
+                                             lec_outputs=lec_outputs)
+
+    if all(o.get('elt_moment', False) for o in ord_settings):
+        st.write("### MELT Output")
+        locations = [get_locations_file(id) for id in analysis_ids]
+        locations = merge_locations(*locations)
+        generate_eltcalc_comparison_fragment(p, outputs, names=names,
+                                             locations=locations,
+                                             output_type='elt_moment',
+                                             filter_col='SampleType',
+                                             data_cols=['MeanLoss', 'MeanImpactedExposure', 'MaxImpactedExposure'],
+                                             event_id='EventId',
+                                             name_map={
+                                                 'MeanLoss': 'Mean Loss',
+                                                 'MeanImpactedExposure': 'Mean Impacted Exposure',
+                                                 'MaxImpactedExposure': 'Max Impacted Exposure',
+                                             })
+
+    if all(o.get('elt_quantile', False) for o in ord_settings):
+        st.write("### QELT Output")
+        locations = [get_locations_file(id) for id in analysis_ids]
+        locations = merge_locations(*locations)
+        generate_eltcalc_comparison_fragment(p, outputs, names=names,
+                                             locations=locations,
+                                             output_type='elt_quantile',
+                                             filter_col='Quantile',
+                                             filter_label='Quantile Filter:',
+                                             filter_index=-1,
+                                             data_cols=['Loss'],
+                                             event_id='EventId')
+
+    if all(o.get('plt_moment', False) for o in ord_settings):
+        st.write("### MPLT Output")
+        generate_pltcalc_comparison_fragment(p, outputs, names=names,
+                                             output_type='plt_moment',
+                                             filter_col='SampleType',
+                                             value_col_options=['MeanLoss', 'MaxLoss',
+                                                                'MeanImpactedExposure',
+                                                                'MaxImpactedExposure'])
+
+    if all(o.get('plt_quantile', False) for o in ord_settings):
+        st.write("### QPLT Output")
+        generate_pltcalc_comparison_fragment(p, outputs, names=names,
+                                             output_type='plt_quantile',
+                                             filter_col='Quantile',
+                                             filter_label='Quantile Filter: ',
+                                             filter_format_func=lambda x: '{:.2f}'.format(x),
+                                             value_col='Loss')
+
+    if all(o.get('alt_meanonly', False) for o in ord_settings):
+        st.write("### ALT MeanOnly Output")
+        generate_alt_comparison_fragment(p, outputs, 'alt_meanonly', names=names)
+
+    if all(o.get('alt_period', False) for o in ord_settings):
+        st.write("### PALT Output")
+        generate_alt_comparison_fragment(p, outputs, 'alt_period', names=names)
+
+    if all(any(o.get(e, False) for e in ept_settings) for o in ord_settings):
+        st.write("### EPT Output")
+        ep_type_map = {1: 'OEP', 2: 'OEP TVAR', 3: 'AEP', 4: 'AEP TVAR'}
+        ep_calc_map = {1: 'MeanDR', 2: 'Full', 3: 'PerSampleMean', 4: 'MeanSample'}
+        generate_leccalc_comparison_fragment(p, outputs, names=names,
+                                             output_type='ept',
+                                             filter_specs=[
+                                                 {'col': 'EPType', 'label': 'EP Curve Type: ', 'format_map': ep_type_map},
+                                                 {'col': 'EPCalc', 'label': 'Calculation Method:', 'format_map': ep_calc_map},
+                                             ],
+                                             return_period_col='ReturnPeriod', loss_col='Loss',
+                                             group_col_default='SummaryId')
 
 generate_footer(ui_config)

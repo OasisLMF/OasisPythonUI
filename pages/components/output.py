@@ -530,7 +530,22 @@ def eltcalc_map(map_df, locations, oed_fields=[], map_type=None,
         map_df = elt_group_fields(map_df, group_fields, categorical_cols=oed_fields)
 
         loc_reduced = locations[['LocNumber', 'Longitude', 'Latitude']]
+
+        # LocNumber on the two sides can come in with different dtypes/formatting
+        # (e.g. int vs str, or a stray '.0') - the output's LocNumber is joined in
+        # from the ktools summary-info file, while loc_reduced's comes straight from
+        # the OED location file. Coerce both to string so the join isn't brittle to that.
+        map_df = map_df.astype({'LocNumber': str})
+        loc_reduced = loc_reduced.astype({'LocNumber': str})
+
         map_df = map_df.merge(loc_reduced, how="left", on="LocNumber")
+
+        if map_df['Longitude'].isna().all():
+            st.warning("Could not match any locations to the output's LocNumber values. "
+                       "No map to display.")
+            logger.error("eltcalc_map: heatmap merge on LocNumber matched no rows.")
+            return
+
         map_df = map_df[['Longitude', 'Latitude', intensity_col]]
 
         mv = MapView(map_df, longitude='Longitude', latitude='Latitude',
@@ -578,7 +593,7 @@ def generate_eltcalc_fragment(perspective, output,
                 DataFrame representing `locations.csv` file. Required for `map` view.
 
     '''
-    oed_fields = output.oed_fields.get(perspective, [])
+    oed_fields = output.oed_fields.get(perspective) or []
     eltcalc_result = output.get(1, perspective, 'eltcalc')
 
     tab_names = []
@@ -612,7 +627,7 @@ def generate_eltcalc_fragment(perspective, output,
 @st.fragment
 def generate_melt_fragment(p, vis, locations=None):
     data_df = vis.get(1, p, 'elt_moment')
-    oed_fields = vis.oed_fields.get(p)
+    oed_fields = vis.oed_fields.get(p) or []
 
     # Type filter
     if 'type' in data_df.columns:
@@ -625,7 +640,7 @@ def generate_melt_fragment(p, vis, locations=None):
     if type_col:
         types = data_df[type_col].unique()
         selected_type = st.radio('Type Filter:', options=types, index=0, horizontal=True,
-                                 key=f'melt_elt_ord_type_filter')
+                                 key=f'melt_{p}_type_filter')
         data_df = data_df[data_df[type_col] == selected_type]
 
     map_event_container = st.container()
@@ -640,7 +655,7 @@ def generate_melt_fragment(p, vis, locations=None):
                                              'MaxImpactedExposure'],
                                  data_cols=['MeanLoss','MeanImpactedExposure',
                                             'MaxImpactedExposure'],
-                                 key_prefix='melt',
+                                 key_prefix=f'melt_{p}',
                                  selectable='multi')
 
     selected_events = []
@@ -672,7 +687,7 @@ def generate_melt_fragment(p, vis, locations=None):
                          column_config= {'EventId' : st.column_config.ListColumn('Mapped EventIds')},
                          hide_index=True)
         loss_col = st.radio('Intensity Column:', ['MeanLoss', 'MeanImpactedExposure', 'MaxImpactedExposure'],
-                            index=0, horizontal=True)
+                            index=0, horizontal=True, key=f'melt_{p}_intensity_col')
         eltcalc_map(data_df, locations, oed_fields, map_type,
                     intensity_col=loss_col)
 
@@ -680,11 +695,12 @@ def generate_melt_fragment(p, vis, locations=None):
 @st.fragment
 def generate_qelt_fragment(p, vis, locations=None):
     data_df = vis.get(1, p, 'elt_quantile')
-    oed_fields = vis.oed_fields.get(p)
+    oed_fields = vis.oed_fields.get(p) or []
 
     options = data_df['Quantile'].unique()
     quantile_filter = st.radio("Quantile Filter", options,
-                               horizontal=True, index=len(options) - 1)
+                               horizontal=True, index=len(options) - 1,
+                               key=f'qelt_{p}_quantile_filter')
 
     data_df = data_df[data_df['Quantile'] == quantile_filter]
 
@@ -696,7 +712,7 @@ def generate_qelt_fragment(p, vis, locations=None):
 
     with tabs[0]:
         table_df, selected = elt_ord_table(data_df, perspective=p,
-                                 oed_fields=oed_fields, key_prefix='qelt',
+                                 oed_fields=oed_fields, key_prefix=f'qelt_{p}',
                                  order_cols=['Loss'], data_cols=['Loss'],
                                  selectable="multi")
 
@@ -736,13 +752,90 @@ def generate_qelt_fragment(p, vis, locations=None):
 
 
 @st.fragment
+def generate_selt_fragment(p, vis, locations=None):
+    '''
+    Generate a `elt_sample` (SELT) visualisation. This is the ORD
+    counterpart of the legacy `eltcalc` output, but reports the raw
+    per-sample loss for each event/summary combination instead of
+    Analytical/Sample summary statistics. Supports `table` and `map`
+    views, following the same pattern as `generate_qelt_fragment`.
+
+    SELT's `SampleId` column uses ORD's reserved negative "sidx"
+    values for pre-computed per-event/summary statistics rather than
+    real Monte Carlo draws (see
+    https://oasislmf.github.io/2.5.8/ord/explanation/concepts.html#special-sample-indices):
+    -1 is the model's analytically-integrated mean loss - computed by
+    numerical integration over the damage distribution, not a
+    recomputed average of this file's own sample rows - and -5 (only
+    present if the analysis was run with ktools' "all sidx" option) is
+    the maximum sampled loss. Real per-sample draws use positive
+    `SampleId` values (1..N).
+    '''
+    MEAN_SIDX = -1
+
+    data_df = vis.get(1, p, 'elt_sample')
+    oed_fields = vis.oed_fields.get(p) or []
+
+    aggregate_label = 'Mean (All Samples)'
+    sample_options = sorted(sid for sid in data_df['SampleId'].unique().tolist() if sid > 0)
+    sample_filter = st.selectbox('Sample Filter:', options=[aggregate_label] + sample_options,
+                                 key=f'selt_{p}_sample_filter')
+
+    if sample_filter == aggregate_label:
+        data_df = data_df[data_df['SampleId'] == MEAN_SIDX]
+    else:
+        data_df = data_df[data_df['SampleId'] == sample_filter]
+
+    tab_names = ['table', 'map']
+    with st.container(border=True):
+        tabs = st.tabs([t.title() for t in tab_names])
+
+    with tabs[0]:
+        data_df, selected = elt_ord_table(data_df, perspective=p, oed_fields=oed_fields,
+                                 order_cols=['Loss'], data_cols=['Loss'],
+                                 key_prefix=f'selt_{p}', selectable='multi')
+
+    selected_events = []
+    if selected is not None and not selected.empty:
+        selected_events = selected['EventId'].tolist()
+
+    if locations is None:
+        with tabs[1]:
+            st.error("Map view unavailable.")
+        logger.error("Locations required for Map view")
+        return
+
+    map_type = None
+    if 'LocNumber' in oed_fields and valid_locations(locations):
+        map_type = 'heatmap'
+    elif 'CountryCode' in oed_fields:
+        map_type = 'choropleth'
+
+    map_df = data_df
+    if selected_events:
+        map_df = data_df[data_df['EventId'].isin(selected_events)]
+
+    with tabs[1]:
+        if len(selected_events) > 0:
+            data = pd.DataFrame(
+                {'EventId': [selected_events]}
+            )
+            st.dataframe(data,
+                         column_config={'EventId': st.column_config.ListColumn('Mapped EventIds')},
+                         hide_index=True)
+        eltcalc_map(map_df, locations, oed_fields, map_type,
+                    intensity_col='Loss')
+
+
+@st.fragment
 def generate_aalcalc_fragment(p, vis):
     result = vis.get(1, p, 'aalcalc')
 
-    oed_fields = vis.oed_fields.get(p)
+    oed_fields = vis.oed_fields.get(p) or []
     breakdown_field = None
     if oed_fields and len(oed_fields) > 0:
-        breakdown_field = st.pills('Breakdown OED Field: ', options=oed_fields)
+        breakdown_field = st.pills('Breakdown OED Field: ', options=oed_fields,
+                                   key=f'aalcalc_{p}_oed_filter')
 
     breakdown_field_invalid = False
     if breakdown_field and result[breakdown_field].nunique() > 100:
@@ -773,11 +866,11 @@ def generate_alt_fragment(p, vis, output_type='alt_meanonly'):
     type_field = 'SampleType'
     mean_field = 'MeanLoss'
 
-    oed_fields = vis.oed_fields.get(p)
+    oed_fields = vis.oed_fields.get(p) or []
     breakdown_field = None
     if oed_fields and len(oed_fields) > 0:
         breakdown_field = st.pills('Breakdown OED Field: ', options=oed_fields,
-                                   key=f'{output_type}_oed_filter')
+                                   key=f'{output_type}_{p}_oed_filter')
 
     breakdown_field_invalid = False
     if breakdown_field and result[breakdown_field].nunique() > 100:
@@ -802,11 +895,36 @@ def generate_alt_fragment(p, vis, output_type='alt_meanonly'):
     if breakdown_field_invalid:
         st.error("Too many values in group field.")
 
-    st.plotly_chart(graph, width='stretch', key=f'{output_type}_graph')
+    st.plotly_chart(graph, width='stretch', key=f'{output_type}_{p}_graph')
+
+@st.fragment
+def generate_alct_fragment(p, vis):
+    '''
+    Generate an `alct_convergence` (ALCT) visualisation. ALCT is a
+    diagnostic table reporting sample-convergence statistics for the ALT
+    output and has no direct legacy analogue, so it is rendered as a
+    plain filterable/sortable table rather than a chart.
+    '''
+    result = vis.get(1, p, 'alct_convergence')
+    oed_fields = vis.oed_fields.get(p) or []
+
+    selected_group = None
+    if oed_fields and len(oed_fields) > 0:
+        selected_group = st.pills('Breakdown OED Field: ', options=oed_fields, key=f'alct_{p}_group_field_pills')
+
+    if selected_group:
+        result[selected_group] = result[selected_group].astype(str)
+
+    table_view = DataframeView(result)
+    numeric_cols = result.select_dtypes(include='number').columns
+    for c in numeric_cols:
+        table_view.column_config[c] = st.column_config.NumberColumn(c, format='%.4f')
+    table_view.display()
+
 
 def generate_leccalc_fragment(p, vis, lec_outputs):
     lec_options = [option for option in lec_outputs.keys() if lec_outputs[option]]
-    option = st.pills('Select Output:', options=lec_options)
+    option = st.pills('Select Output:', options=lec_options, key=f'leccalc_{p}_select_output')
 
     if option is None:
         st.info('Output option not selected.')
@@ -814,11 +932,11 @@ def generate_leccalc_fragment(p, vis, lec_outputs):
         analysis_type = '_'.join(option.split('_')[:-1])
         loss_type = option.split('_')[-1]
         result = vis.get(1, p, 'leccalc', analysis_type = analysis_type, loss_type = loss_type)
-        oed_fields = vis.oed_fields.get(p)
+        oed_fields = vis.oed_fields.get(p) or []
 
         selected_group = None
         if oed_fields and len(oed_fields) > 0:
-            selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key='leccalc_group_field_pills')
+            selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key=f'leccalc_{p}_group_field_pills')
 
         if selected_group is None:
             selected_group = 'summary_id'
@@ -847,7 +965,8 @@ def generate_leccalc_fragment(p, vis, lec_outputs):
         if len(unique_group) > 5:
             filter_group = st.multiselect(f'Filtered {selected_group} Values:',
                                           options = unique_group,
-                                          default = unique_group[:5])
+                                          default = unique_group[:5],
+                                          key=f'leccalc_{p}_group_filter')
             result_plot = result_plot[result_plot[selected_group].isin(filter_group)]
 
 
@@ -880,76 +999,124 @@ def generate_leccalc_fragment(p, vis, lec_outputs):
                           log_x=log_x)
         st.plotly_chart(fig)
 
-def generate_leccalc_comparison_fragment(perspective, outputs, lec_outputs, names=[]):
+def generate_leccalc_comparison_fragment(perspective, outputs, names=None,
+                                         output_type='leccalc', lec_outputs=None,
+                                         filter_specs=None,
+                                         return_period_col='return_period', loss_col='loss',
+                                         group_col_default='summary_id'):
     '''
-    Compare outputs from leccalc. Note that 'per_sample' or 'wheatsheaf' plots are not supported.
+    Compare an EP-curve output across two analyses: fetch (for the
+    legacy `leccalc` output, only after the user picks which
+    analysis_type/loss_type file via a "Select Output" pills widget -
+    a single ORD `ept` file already holds every EPType/EPCalc
+    combination, so ORD callers skip straight to fetching), filter to
+    a single value of each spec in `filter_specs`, group by an OED
+    field (or `group_col_default`), and plot return-period/loss curves
+    per analysis (dashed for the first, so near-identical curves stay
+    distinguishable).
+
+    Covers the legacy `leccalc` output (default; 'per_sample'/
+    'wheatsheaf' variants excluded, since they have no single-line
+    EP-curve comparison shape) and the ORD `ept` output.
 
     Parameters
     ----------
-    perspective : str
-                  Perspective of output. 'gul', 'il' or 'ri'
-    outputs : List[OutputInterface]
-              Lists of `OutputInterface` containing the outputs to compare.
-    lec_outputs : List[str]
-                  List of leccalc output types.
-    names : List[str]
-            Names of each analysis references to by `outputs`.
+    output_type : str
+                  `OutputInterface` output type to fetch: `leccalc` (default)
+                  or `ept`.
+    lec_outputs : dict
+                  Required when `output_type == 'leccalc'`: dict of leccalc
+                  output option -> enabled bool (as stored in analysis
+                  settings), used to build the "Select Output" pills.
+    filter_specs : List[dict]
+                   Column filters applied in order (each only rendered when
+                   the column has more than one unique value across the
+                   compared outputs). Each dict has `col`, `label`, and an
+                   optional `format_map` (raw value -> display value).
+                   Defaults to a single `type` filter (legacy leccalc); pass
+                   e.g. `[{'col': 'EPType', 'label': 'EP Curve Type: ', 'format_map': EP_TYPE_MAP},
+                     {'col': 'EPCalc', 'label': 'Calculation Method:', 'format_map': EP_CALC_MAP}]`
+                   for `ept`.
+    return_period_col, loss_col : str
+                                  Return period / loss column names
+                                  (`return_period`/`loss` for legacy,
+                                  `ReturnPeriod`/`Loss` for ORD).
+    group_col_default : str
+                        Column to group by when no OED field is chosen
+                        (`summary_id` for legacy, `SummaryId` for ORD).
     '''
-    lec_options = [option for option in lec_outputs.keys() if lec_outputs[option]]
-    lec_options = [opt for opt in lec_options if opt not in ['wheatsheaf_aep', 'wheatsheaf_oep']]
-
-    def format_lec_options(opt):
-        analysis_type = '_'.join(opt.split('_')[:-1])
-        loss_type = opt.split('_')[-1]
-
-        analysis_type = analysis_type.replace('wheatsheaf', 'per_sample')
-        return f'{analysis_type}_{loss_type}'
-
-    option = st.pills('Select Output:', options=lec_options,
-                      format_func=format_lec_options)
-
-    diff_names = len(outputs) - len(names)
-    offset = len(names)
-    if diff_names > 0:
-        for i in range(diff_names):
-            names.append(f'Analysis {i + offset + 1}')
-
     if len(outputs) > 2:
         st.error('Maximum 2 outputs for comparison')
-        logger.error(f'Too many outputs for leccalc comparison plot.\nOutputs: {outputs}')
+        logger.error(f'Too many outputs for {output_type} comparison plot.\nOutputs: {outputs}')
         return
 
-    if option is None:
-        st.info('Output option not selected.')
-        return
+    if names is None:
+        names = ['Analysis 1', 'Analysis 2']
+    else:
+        names = list(names)
+        diff_names = len(outputs) - len(names)
+        if diff_names > 0:
+            offset = len(names)
+            for i in range(diff_names):
+                names.append(f'Analysis {i + offset + 1}')
 
-    analysis_type = '_'.join(option.split('_')[:-1])
-    loss_type = option.split('_')[-1]
+    if filter_specs is None:
+        filter_specs = [{'col': 'type', 'label': 'Type Filter:'}]
 
-    results = [o.get(1, perspective, 'leccalc', analysis_type = analysis_type, loss_type = loss_type) for o in outputs]
+    if output_type == 'leccalc':
+        lec_options = [option for option in lec_outputs.keys() if lec_outputs[option]]
+        lec_options = [opt for opt in lec_options if opt not in ['wheatsheaf_aep', 'wheatsheaf_oep']]
 
-    types = set()
-    for r in results:
-        types.update(r['type'].unique().tolist())
-    selected_type = st.radio('Type Filter:', options=types, index=0, horizontal=True,
-                             key=f'{perspective}_lec_comparison_type_filter')
-    for i in range(len(results)):
-        results[i] = results[i][results[i]['type'] == selected_type]
+        def format_lec_options(opt):
+            analysis_type = '_'.join(opt.split('_')[:-1])
+            loss_type = opt.split('_')[-1]
+
+            analysis_type = analysis_type.replace('wheatsheaf', 'per_sample')
+            return f'{analysis_type}_{loss_type}'
+
+        option = st.pills('Select Output:', options=lec_options,
+                          format_func=format_lec_options,
+                          key=f'leccalc_comparison_{perspective}_select_output')
+
+        if option is None:
+            st.info('Output option not selected.')
+            return
+
+        analysis_type = '_'.join(option.split('_')[:-1])
+        loss_type = option.split('_')[-1]
+
+        results = [o.get(1, perspective, 'leccalc', analysis_type = analysis_type, loss_type = loss_type) for o in outputs]
+    else:
+        results = [o.get(1, perspective, output_type) for o in outputs]
+
+    for spec in filter_specs:
+        col = spec['col']
+        values = set()
+        for r in results:
+            values.update(r[col].unique().tolist())
+
+        if len(values) > 1:
+            format_map = spec.get('format_map')
+            selected_value = st.radio(spec['label'], options=values, horizontal=True,
+                                      format_func=(lambda x: format_map.get(x, x)) if format_map else (lambda x: x),
+                                      key=f'{perspective}_{output_type}_comparison_{col}_filter')
+            results = [r[r[col] == selected_value] for r in results]
 
     oed_fields = shared_oed_fields(perspective, outputs)
 
     selected_group = None
     if oed_fields and len(oed_fields) > 0:
-        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key='leccalc_group_field_pills')
+        selected_group = st.pills('Grouped OED Field: ', options=oed_fields,
+                                  key=f'{output_type}_comparison_{perspective}_group_field_pills')
 
     if selected_group is None:
-        selected_group = 'summary_id'
+        selected_group = group_col_default
 
-    name_map = {i: names[i] for i in range(2)}
+    name_map = {i: names[i] for i in range(len(names))}
     selected_analysis = st.segmented_control('Analysis Filter:',
                                              options=name_map.keys(),
                                              format_func = lambda x: name_map.get(x, x),
-                                             key=f'{perspective}_lec_name_filter')
+                                             key=f'{perspective}_{output_type}_name_filter')
 
     linestyles = ['dash', None]
     if selected_analysis is not None:
@@ -959,13 +1126,14 @@ def generate_leccalc_comparison_fragment(perspective, outputs, lec_outputs, name
 
     results_plot = []
     for result in results:
-        result_plot = result[[selected_group, 'return_period', 'loss']]
-        result_plot = result_plot.groupby([selected_group, 'return_period'],
-                                          as_index=False).agg({'loss': 'sum'})
-        result_plot = result_plot.sort_values(by=['return_period', 'loss'], ascending=[True, False])
+        result_plot = result[[selected_group, return_period_col, loss_col]]
+        result_plot = result_plot.groupby([selected_group, return_period_col],
+                                          as_index=False).agg({loss_col: 'sum'})
+        result_plot = result_plot.sort_values(by=[return_period_col, loss_col], ascending=[True, False])
         results_plot.append(result_plot)
 
-    log_x = [log10(result_plot['return_period'].max()) - log10(result_plot['return_period'].min()) > 2 for result_plot in results_plot]
+    log_x = [log10(result_plot[return_period_col].max()) - log10(result_plot[return_period_col].min()) > 2
+             for result_plot in results_plot]
     log_x = any(log_x)
 
     unique_group = []
@@ -977,7 +1145,8 @@ def generate_leccalc_comparison_fragment(perspective, outputs, lec_outputs, name
     if len(unique_group) > 5:
         filter_group = st.multiselect(f'Filtered {selected_group} Values:',
                                       options = unique_group,
-                                      default = unique_group[:5])
+                                      default = unique_group[:5],
+                                      key=f'{output_type}_comparison_{perspective}_group_filter')
         for i in range(len(results_plot)):
             results_plot[i] = results_plot[i][results_plot[i][selected_group].isin(filter_group)]
         graphed_group_fields = filter_group
@@ -990,7 +1159,7 @@ def generate_leccalc_comparison_fragment(perspective, outputs, lec_outputs, name
         for i, field in enumerate(graphed_group_fields):
             curr_result = result[result[selected_group] == field]
             hover_title = f'{name} - {field}'
-            fig.add_trace(go.Scatter(x=curr_result['return_period'], y=curr_result['loss'], name=field, legendgroup=name,
+            fig.add_trace(go.Scatter(x=curr_result[return_period_col], y=curr_result[loss_col], name=field, legendgroup=name,
                                      legendgrouptitle_text=name,
                                      line=dict(color=colors[i % len(colors)], dash=linestyles[j % 2]),
                                      hovertemplate= hover_title + '<br>Return Period: %{x}'+
@@ -999,13 +1168,13 @@ def generate_leccalc_comparison_fragment(perspective, outputs, lec_outputs, name
         j += 1
 
     fig.update_layout(
-        xaxis=dict(title=dict(text='Loss'), type="log" if log_x else None),
-        yaxis=dict(title=dict(text='Return Period')),
+        xaxis=dict(title=dict(text='Return Period'), type="log" if log_x else None),
+        yaxis=dict(title=dict(text='Loss')),
         hovermode='closest',
         showlegend=True
     )
 
-    st.plotly_chart(fig)
+    st.plotly_chart(fig, key=f'{output_type}_comparison_{perspective}_graph')
 
 @st.cache_data(show_spinner='Creating pltcalc bar')
 def pltcalc_bar(result, selected_group=None, number_shown=10, date_id = False,
@@ -1069,11 +1238,11 @@ def pltcalc_bar(result, selected_group=None, number_shown=10, date_id = False,
 @st.fragment
 def generate_pltcalc_fragment(p, vis):
     result = vis.get(1, p, 'pltcalc')
-    oed_fields = vis.oed_fields.get(p)
+    oed_fields = vis.oed_fields.get(p) or []
 
     selected_group = None
     if oed_fields and len(oed_fields) > 0 :
-        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key='pltcalc_group_field_pills')
+        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key=f'pltcalc_{p}_group_field_pills')
 
     selected_group_invalid = False
     if selected_group and result[selected_group].nunique() > 100:
@@ -1083,7 +1252,7 @@ def generate_pltcalc_fragment(p, vis):
         result[selected_group] = result[selected_group].astype(str)
 
     types = result['type'].unique()
-    selected_type = st.radio('Type filter: ', options=types, index=0)
+    selected_type = st.radio('Type filter: ', options=types, index=0, key=f'pltcalc_{p}_type_filter')
 
     result = result[result['type'] == selected_type]
 
@@ -1105,7 +1274,7 @@ def generate_pltcalc_fragment(p, vis):
 @st.fragment
 def generate_mplt_fragment(p, vis):
     result = vis.get(1, p, 'plt_moment')
-    oed_fields = vis.oed_fields.get(p)
+    oed_fields = vis.oed_fields.get(p) or []
 
     selected_group = None
     if oed_fields and len(oed_fields) > 0 :
@@ -1119,7 +1288,8 @@ def generate_mplt_fragment(p, vis):
         result[selected_group] = result[selected_group].astype(str)
 
     types = result['SampleType'].unique()
-    selected_type = st.radio('Type filter: ', options=types, index=0, horizontal=True)
+    selected_type = st.radio('Type filter: ', options=types, index=0, horizontal=True,
+                             key=f'mplt_{p}_type_filter')
 
     result = result[result['SampleType'] == selected_type]
 
@@ -1131,7 +1301,8 @@ def generate_mplt_fragment(p, vis):
 
     loss_col = st.radio('Loss Filter: ', options=['MeanLoss', 'MaxLoss',
                                                   'MeanImpactedExposure',
-                                                  'MaxImpactedExposure'], horizontal=True)
+                                                  'MaxImpactedExposure'], horizontal=True,
+                        key=f'mplt_{p}_loss_filter')
 
     with st.spinner('Generating pltcalc...'):
         fig = pltcalc_bar(result, selected_group, date_id=False, loss=loss_col, **date_cols)
@@ -1143,7 +1314,7 @@ def generate_mplt_fragment(p, vis):
 @st.fragment
 def generate_qplt_fragment(p, vis):
     result = vis.get(1, p, 'plt_quantile')
-    oed_fields = vis.oed_fields.get(p)
+    oed_fields = vis.oed_fields.get(p) or []
 
     selected_group = None
     if oed_fields and len(oed_fields) > 0 :
@@ -1159,7 +1330,8 @@ def generate_qplt_fragment(p, vis):
     quantiles = result['Quantile'].unique()
     quantile_filter = st.radio('Quantile Filter: ', options=quantiles,
                                horizontal=True,
-                               format_func=lambda x: '{:.2f}'.format(x))
+                               format_func=lambda x: '{:.2f}'.format(x),
+                               key=f'qplt_{p}_quantile_filter')
     date_cols = {
         'year': 'Year',
         'month': 'Month',
@@ -1173,6 +1345,63 @@ def generate_qplt_fragment(p, vis):
     if selected_group_invalid:
         st.error("Too many values in group field.")
     st.plotly_chart(fig)
+
+@st.fragment
+def generate_splt_fragment(p, vis):
+    '''
+    Generate a `plt_sample` (SPLT) visualisation. This is the ORD
+    counterpart of the legacy `pltcalc` output, reporting the raw
+    per-sample period loss instead of Analytical/Sample statistics.
+    Follows the same bar-chart pattern as `generate_mplt_fragment` and
+    `generate_qplt_fragment`.
+
+    SPLT's `SampleId` column uses ORD's reserved negative "sidx"
+    values for pre-computed per-period/summary statistics rather than
+    real Monte Carlo draws (see
+    https://oasislmf.github.io/2.5.8/ord/explanation/concepts.html#special-sample-indices):
+    -1 is the model's analytically-integrated mean loss, not a
+    recomputed average of this file's own sample rows. Real per-sample
+    draws use positive `SampleId` values (1..N).
+    '''
+    MEAN_SIDX = -1
+
+    result = vis.get(1, p, 'plt_sample')
+    oed_fields = vis.oed_fields.get(p) or []
+
+    selected_group = None
+    if oed_fields and len(oed_fields) > 0:
+        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key=f'splt_{p}_group_field_pills')
+
+    selected_group_invalid = False
+    if selected_group and result[selected_group].nunique() > 100:
+        selected_group_invalid = True
+        selected_group = None
+    elif selected_group:
+        result[selected_group] = result[selected_group].astype(str)
+
+    aggregate_label = 'Mean (All Samples)'
+    sample_options = sorted(sid for sid in result['SampleId'].unique().tolist() if sid > 0)
+    sample_filter = st.selectbox('Sample Filter:', options=[aggregate_label] + sample_options,
+                                 key=f'splt_{p}_sample_filter')
+
+    if sample_filter == aggregate_label:
+        result = result[result['SampleId'] == MEAN_SIDX]
+    else:
+        result = result[result['SampleId'] == sample_filter]
+
+    date_cols = {
+        'year': 'Year',
+        'month': 'Month',
+        'day': 'Day'
+    }
+
+    with st.spinner('Generating pltcalc...'):
+        fig = pltcalc_bar(result, selected_group, date_id=False, loss='Loss', **date_cols)
+
+    if selected_group_invalid:
+        st.error("Too many values in group field.")
+    st.plotly_chart(fig)
+
 
 @st.fragment
 def generate_ept_fragment(p, vis):
@@ -1193,25 +1422,28 @@ def generate_ept_fragment(p, vis):
     }
 
     type_options = result['EPType'].unique()
-    calc_options = result['EPCalc'].unique()
 
     if len(type_options) > 1:
         selected_type = st.radio('EP Curve Type: ', options=type_options, horizontal=True,
-                                 format_func= lambda x: ep_type_map.get(x, x))
+                                 format_func= lambda x: ep_type_map.get(x, x),
+                                 key=f'ept_{p}_type_filter')
 
         result = result[result['EPType'] == selected_type]
+
+    calc_options = result['EPCalc'].unique()
 
     selected_calc = None
     if len(calc_options) > 1:
         selected_calc = st.radio("Calculation Method:", options=calc_options, horizontal=True,
-                                 format_func=lambda x: ep_calc_map.get(x, x))
+                                 format_func=lambda x: ep_calc_map.get(x, x),
+                                 key=f'ept_{p}_calc_filter')
         result = result[result['EPCalc'] == selected_calc]
 
-    oed_fields = vis.oed_fields.get(p)
+    oed_fields = vis.oed_fields.get(p) or []
 
     selected_group = None
     if oed_fields and len(oed_fields) > 0 :
-        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key=f'qplt_{p}_group_field_pills')
+        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key=f'ept_{p}_group_field_pills')
 
     if selected_group is None:
         selected_group = 'SummaryId'
@@ -1233,13 +1465,105 @@ def generate_ept_fragment(p, vis):
     if len(unique_group) > 5:
         filter_group = st.multiselect(f'Filtered {selected_group} Values:',
                                       options = unique_group,
-                                      default = unique_group[:5])
+                                      default = unique_group[:5],
+                                      key=f'ept_{p}_group_filter')
         result = result[result[selected_group].isin(filter_group)]
 
     fig = px.line(result, x='ReturnPeriod', y='Loss',
                   color=selected_group, markers=False,
                   labels = {'ReturnPeriod': 'Return Period'},
                   log_x=log_x)
+    st.plotly_chart(fig)
+
+@st.fragment
+def generate_psept_fragment(p, vis):
+    '''
+    Generate a `psept` (Per Sample EPT) visualisation. This is the ORD
+    counterpart of the legacy `leccalc` `wheatsheaf`/per-sample EP curve
+    output, plotting a return-period/loss curve per sample. Follows the
+    same structure as `generate_ept_fragment`, with an added sample
+    dimension.
+
+    PSEPT's `SampleId` column uses ORD's reserved negative "sidx"
+    values for pre-computed statistics alongside the real Monte Carlo
+    draws (see
+    https://oasislmf.github.io/2.5.8/ord/explanation/concepts.html#special-sample-indices),
+    e.g. -1 for the model's analytically-integrated mean loss. Unlike
+    SELT/SPLT, this fragment wants the spread *across real samples*
+    (that's the point of a per-sample EP curve's min/mean/max error
+    bars), so those special rows must be excluded rather than read -
+    left in, -1's precomputed mean would be silently averaged in
+    alongside the real samples as if it were one of them.
+    '''
+    result = vis.get(1, p, 'psept')
+    result = result[result['SampleId'] > 0]
+
+    ep_type_map = {
+        1 : 'OEP',
+        2 : 'OEP TVAR',
+        3 : 'AEP',
+        4 : 'AEP TVAR'
+    }
+
+    type_options = result['EPType'].unique()
+
+    if len(type_options) > 1:
+        selected_type = st.radio('EP Curve Type: ', options=type_options, horizontal=True,
+                                 format_func= lambda x: ep_type_map.get(x, x),
+                                 key=f'psept_{p}_type_filter')
+
+        result = result[result['EPType'] == selected_type]
+
+    oed_fields = vis.oed_fields.get(p) or []
+
+    selected_group = None
+    if oed_fields and len(oed_fields) > 0 :
+        selected_group = st.pills('Grouped OED Field: ', options=oed_fields, key=f'psept_{p}_group_field_pills')
+
+    if selected_group is None:
+        selected_group = 'SummaryId'
+
+    result = result[[selected_group, 'SampleId', 'ReturnPeriod', 'Loss']]
+    result = result.groupby([selected_group, 'SampleId', 'ReturnPeriod'],
+                            as_index=False).agg({'Loss': 'sum'})
+
+    result_plot = result.groupby([selected_group, 'ReturnPeriod'], as_index=False).agg(
+        min_loss=('Loss', 'min'),
+        max_loss=('Loss', 'max'),
+        mean_loss=('Loss', 'mean'))
+
+    max_return_period = result_plot['ReturnPeriod'].max()
+    unique_group = result_plot[result_plot['ReturnPeriod'] == max_return_period].sort_values(by='mean_loss', ascending=False)
+    unique_group = unique_group[selected_group].tolist()
+
+    result_plot = result_plot.sort_values(by=['ReturnPeriod', 'mean_loss'], ascending=[True, False])
+    log_x = log10(result_plot['ReturnPeriod'].max()) - log10(result_plot['ReturnPeriod'].min()) > 2
+
+    all_selected = result_plot[selected_group].unique().tolist()
+    unique_group += [e for e in all_selected if e not in unique_group]
+
+    if len(unique_group) > 5:
+        filter_group = st.multiselect(f'Filtered {selected_group} Values:',
+                                      options = unique_group,
+                                      default = unique_group[:5],
+                                      key=f'psept_{p}_group_filter')
+        result_plot = result_plot[result_plot[selected_group].isin(filter_group)]
+
+    fig = go.Figure()
+    for item in result_plot[selected_group].unique().tolist():
+        result_item = result_plot[result_plot[selected_group] == item]
+        fig.add_trace(go.Scatter(
+            x = result_item['ReturnPeriod'],
+            y = result_item['mean_loss'],
+            error_y = {'array': result_item['max_loss'] - result_item['mean_loss'],
+                       'arrayminus': result_item['mean_loss'] - result_item['min_loss']},
+            name = item))
+    fig.update_layout(
+        xaxis = dict(title = dict(text = 'Return Period'), type='log' if log_x else None),
+        yaxis = dict(title = dict(text = 'Loss')),
+        legend_title_text=selected_group,
+        showlegend=True
+    )
     st.plotly_chart(fig)
 
 def shared_oed_fields(p, outputs):
@@ -1258,7 +1582,8 @@ def generate_aalcalc_comparison_fragment(p, outputs, names = None):
     oed_fields = shared_oed_fields(p, outputs)
     breakdown_field = None
     if oed_fields and len(oed_fields) > 0:
-        breakdown_field = st.pills('Breakdown OED Field: ', options=oed_fields)
+        breakdown_field = st.pills('Breakdown OED Field: ', options=oed_fields,
+                                   key=f'aalcalc_comparison_{p}_oed_filter')
 
     breakdown_field_invalid = False
     if breakdown_field and any([r[breakdown_field].nunique() > 100 for r in results]):
@@ -1266,7 +1591,8 @@ def generate_aalcalc_comparison_fragment(p, outputs, names = None):
         breakdown_field = None
 
     types = results[0]['type'].unique()
-    selected_type = st.radio('Type filter: ', options=types, index=0, horizontal=True)
+    selected_type = st.radio('Type filter: ', options=types, index=0, horizontal=True,
+                             key=f'aalcalc_comparison_{p}_type_filter')
 
     for i in range(2):
         results[i] = results[i][results[i]['type'] == selected_type]
@@ -1302,26 +1628,77 @@ def generate_aalcalc_comparison_fragment(p, outputs, names = None):
         st.error("Too many values in group field.")
 
 def generate_eltcalc_comparison_fragment(perspective, outputs, names=None,
-                                         locations=None):
-    results = [o.get(1, perspective, 'eltcalc') for o in outputs]
+                                         locations=None, output_type='eltcalc',
+                                         filter_col='type', filter_label='Type Filter:',
+                                         filter_index=0, data_cols=None, event_id='event_id',
+                                         name_map=None, intensity_col=None):
+    '''
+    Compare an event-level-table output across two analyses: filter to
+    a single value of `filter_col`, then show a `table`/`map` view.
+    Covers the legacy `eltcalc` output and every ORD `elt_*` output
+    that shares the same "single equality filter, per-event value
+    columns" shape (MELT/`elt_moment`, QELT/`elt_quantile`) - only the
+    output type, filter column/widget and value columns differ:
+
+    - `eltcalc` (default): `type` (Analytical/Sample), `mean`/`exposure_value`.
+    - MELT (`elt_moment`): `SampleType` (Analytical/Sample), PascalCase
+      `MeanLoss`/`MeanImpactedExposure`/`MaxImpactedExposure`.
+    - QELT (`elt_quantile`): `Quantile`, PascalCase `Loss`.
+
+    `elt_sample` (SELT) is not covered here: its single-analysis view
+    supports aggregating across all samples rather than just filtering
+    to one, which doesn't fit this "filter to a single value" shape.
+
+    Parameters
+    ----------
+    output_type : str
+                  `OutputInterface` output type to fetch, e.g. `eltcalc`,
+                  `elt_moment`, `elt_quantile`.
+    filter_col : str
+                 Column filtered to a single selected value.
+    filter_label : str
+                   Label for the filter radio.
+    filter_index : int
+                   Default selected index of the filter radio. Negative
+                   values count from the end (e.g. `-1` is the last option),
+                   matching Python list indexing.
+    data_cols : List[str]
+                Value columns to display/sum and use as the map intensity
+                column. Defaults to `['mean', 'exposure_value']`.
+    event_id : str
+               Event ID column name (`event_id` for legacy, `EventId` for ORD).
+    name_map : dict
+               Column name -> display name overrides for the table.
+    intensity_col : str
+                    Map intensity column. Defaults to `data_cols[0]`.
+    '''
+    if data_cols is None:
+        data_cols = ['mean', 'exposure_value']
+    if name_map is None:
+        name_map = {}
+    if intensity_col is None:
+        intensity_col = data_cols[0]
+
+    results = [o.get(1, perspective, output_type) for o in outputs]
     oed_fields = shared_oed_fields(perspective, outputs)
 
-    types = results[0]['type'].unique()
+    options = results[0][filter_col].unique()
+    if filter_index < 0:
+        filter_index += len(options)
 
-    selected_type = st.radio('Type Filter:', options=types, index=0, horizontal=True,
-                             key=f'{perspective}_elt_comparison_type_filter')
+    selected_filter = st.radio(filter_label, options=options, index=filter_index, horizontal=True,
+                               key=f'{perspective}_{output_type}_comparison_filter')
 
     for i in range(len(results)):
-        results[i] = results[i][results[i]['type'] == selected_type]
+        results[i] = results[i][results[i][filter_col] == selected_filter]
         results[i]['name'] = names[i] if names[i] else f'Analysis {i+1}'
         results[i]['loc_analysis_id'] = i + 1
 
-
-    name_map = {i: names[i] for i in range(2)}
+    analysis_map = {i: names[i] for i in range(2)}
     selected_analysis = st.segmented_control('Analysis Filter:',
-                                             options=name_map.keys(),
-                                             format_func = lambda x: name_map.get(x, x),
-                                             key=f'{perspective}_elt_name_filter')
+                                             options=analysis_map.keys(),
+                                             format_func = lambda x: analysis_map.get(x, x),
+                                             key=f'{perspective}_{output_type}_name_filter')
 
     if selected_analysis is not None:
         result = results[selected_analysis]
@@ -1332,15 +1709,10 @@ def generate_eltcalc_comparison_fragment(perspective, outputs, names=None,
 
     with table_tab:
         result, selected = elt_ord_table(result, perspective=perspective, oed_fields=oed_fields,
-                                 order_cols=['mean','exposure_value'],
-                                 data_cols = ['mean', 'exposure_value'],
-                                 key_prefix=f'{perspective}_elt', event_id='event_id',
+                                 order_cols=data_cols, data_cols=data_cols,
+                                 key_prefix=f'{perspective}_{output_type}', event_id=event_id,
                                  additional_cols=['name'],
-                                 name_map = {
-                                        'mean': 'Mean',
-                                        'exposure_value': 'Exposure Value',
-                                        'name': 'Analysis Name'
-                                    },
+                                 name_map = {**name_map, 'name': 'Analysis Name'},
                                  selectable='multi')
 
     with map_tab:
@@ -1356,4 +1728,159 @@ def generate_eltcalc_comparison_fragment(perspective, outputs, names=None,
             map_type = 'choropleth'
 
         eltcalc_map(result, locations, oed_fields, map_type=map_type,
-                    intensity_col='mean', group_fields=['loc_analysis_id'])
+                    intensity_col=intensity_col, group_fields=['loc_analysis_id'])
+
+def generate_pltcalc_comparison_fragment(p, outputs, names=None, output_type='plt_moment',
+                                         filter_col='SampleType', filter_label='Type Filter:',
+                                         filter_index=0, filter_format_func=None,
+                                         value_col='Loss', value_col_options=None):
+    '''
+    Compare total period-loss across two analyses: filter to a single
+    value of `filter_col`, aggregate a loss column by analysis name
+    (and, optionally, a breakdown OED field), then show a bar chart.
+    Mirrors generate_aalcalc_comparison_fragment's bar-chart-by-
+    analysis-name pattern (rather than generate_mplt_fragment's/
+    generate_qplt_fragment's per-period ranking, which has no natural
+    two-analysis equivalent). Covers both PLT-family ORD outputs:
+
+    - MPLT (`plt_moment`, default): `SampleType` (Analytical/Sample),
+      loss column chosen from `value_col_options`
+      (MeanLoss/MaxLoss/MeanImpactedExposure/MaxImpactedExposure).
+    - QPLT (`plt_quantile`): `Quantile`, fixed `Loss` column.
+
+    Parameters
+    ----------
+    output_type : str
+                  `OutputInterface` output type to fetch.
+    filter_col : str
+                 Column filtered to a single selected value.
+    filter_label : str
+                   Label for the filter radio.
+    filter_index : int
+                   Default selected index of the filter radio. Negative
+                   values count from the end, matching Python list indexing.
+    filter_format_func : callable
+                         Optional display formatter for the filter radio's options.
+    value_col : str
+                Loss column to aggregate and plot, when `value_col_options`
+                is not given.
+    value_col_options : List[str]
+                        If given, renders a "Loss Filter" radio letting the
+                        user choose the loss column from these options,
+                        instead of using the fixed `value_col`.
+    '''
+    results = [o.get(1, p, output_type) for o in outputs]
+
+    oed_fields = shared_oed_fields(p, outputs)
+    breakdown_field = None
+    if oed_fields and len(oed_fields) > 0:
+        breakdown_field = st.pills('Breakdown OED Field: ', options=oed_fields,
+                                   key=f'{output_type}_{p}_comparison_oed_filter')
+
+    breakdown_field_invalid = False
+    if breakdown_field and any([r[breakdown_field].nunique() > 100 for r in results]):
+        breakdown_field_invalid = True
+        breakdown_field = None
+
+    options = results[0][filter_col].unique()
+    if filter_index < 0:
+        filter_index += len(options)
+
+    selected_filter = st.radio(filter_label, options=options, index=filter_index, horizontal=True,
+                               format_func=filter_format_func if filter_format_func else (lambda x: x),
+                               key=f'{output_type}_{p}_comparison_filter')
+
+    for i in range(len(results)):
+        results[i] = results[i][results[i][filter_col] == selected_filter]
+
+    if value_col_options:
+        value_col = st.radio('Loss Filter: ', options=value_col_options, horizontal=True,
+                             key=f'{output_type}_{p}_comparison_value_col')
+
+    group_field = []
+    if breakdown_field:
+        for i in range(len(results)):
+            results[i][breakdown_field] = results[i][breakdown_field].astype(str)
+        group_field += [breakdown_field]
+
+    results = list(map(lambda x: x.loc[:, group_field + [value_col]], results))
+
+    if len(group_field) > 0:
+        results = list(map(lambda x: x.groupby(group_field, as_index=False).agg({value_col: 'sum'}), results))
+
+    if names is None:
+        names = ['Analysis 1', 'Analysis 2']
+
+    for i in range(len(results)):
+        results[i]['name'] = names[i]
+
+    results = pd.concat(results)
+    if breakdown_field is None:
+        results = results.groupby('name', as_index=False).agg({value_col: 'sum'})
+
+    graph = px.bar(results, x='name', y=value_col, color=breakdown_field,
+                   labels = {value_col: value_col, 'name': 'Analysis Name'},
+                   color_discrete_sequence= px.colors.sequential.RdBu,
+                   category_orders={'name': names})
+    st.plotly_chart(graph, width='stretch', key=f'{output_type}_{p}_comparison_graph')
+
+    if breakdown_field_invalid:
+        st.error("Too many values in group field.")
+
+def generate_alt_comparison_fragment(p, outputs, output_type='alt_meanonly', names=None):
+    '''
+    Compare `alt_meanonly`/`alt_period` (ALT) outputs across two
+    analyses. Generalises generate_aalcalc_comparison_fragment for the
+    ORD `SampleType`/`MeanLoss` columns used by generate_alt_fragment.
+    '''
+    results = [o.get(1, p, output_type) for o in outputs]
+    type_field = 'SampleType'
+    mean_field = 'MeanLoss'
+
+    oed_fields = shared_oed_fields(p, outputs)
+    breakdown_field = None
+    if oed_fields and len(oed_fields) > 0:
+        breakdown_field = st.pills('Breakdown OED Field: ', options=oed_fields,
+                                   key=f'{output_type}_{p}_comparison_oed_filter')
+
+    breakdown_field_invalid = False
+    if breakdown_field and any([r[breakdown_field].nunique() > 100 for r in results]):
+        breakdown_field_invalid = True
+        breakdown_field = None
+
+    types = results[0][type_field].unique()
+    selected_type = st.radio('Type filter: ', options=types, index=0, horizontal=True,
+                             key=f'{output_type}_{p}_comparison_type_filter')
+
+    for i in range(len(results)):
+        results[i] = results[i][results[i][type_field] == selected_type]
+
+    group_field = []
+    if breakdown_field:
+        for i in range(len(results)):
+            results[i][breakdown_field] = results[i][breakdown_field].astype(str)
+        group_field += [breakdown_field]
+
+    results = list(map(lambda x: x.loc[:, group_field + [mean_field]], results))
+
+    if len(group_field) > 0:
+        results = list(map(lambda x: x.groupby(group_field, as_index=False).agg({mean_field: 'sum'}), results))
+
+    if names is None:
+        names = ['Analysis 1', 'Analysis 2']
+
+    for i in range(len(results)):
+        results[i]['name'] = names[i]
+
+    results = pd.concat(results)
+    if breakdown_field is None:
+        results = results.groupby('name', as_index=False).agg({mean_field: 'sum'})
+
+    graph = px.bar(results, x='name', y=mean_field, color=breakdown_field,
+                   labels = {mean_field: mean_field, 'name': 'Analysis Name'},
+                   color_discrete_sequence= px.colors.sequential.RdBu,
+                   category_orders={'name': names})
+    st.plotly_chart(graph, width='stretch', key=f'{output_type}_{p}_comparison_graph')
+
+    if breakdown_field_invalid:
+        st.error("Too many values in group field.")

@@ -46,8 +46,9 @@ class OutputInterface:
                       - `pltcalc`
                       Currently supported ORD output types:
                       - elt_sample, elt_quantile, elt_moment
+                      - plt_sample, plt_quantile, plt_moment
                       - alt_meanonly, alt_period, alct_convergence
-                      - ept (all ept outputs)
+                      - ept (all ept outputs), psept (per sample ept outputs)
         **kwargs : Additional options `output_type`.
                    For `leccalc`the following keys and options are expected:
                        `analysis_type`: `full_uncertainty`, `sample_mean`, `wheatsheaf`, `wheatsheaf_mean`
@@ -64,7 +65,7 @@ class OutputInterface:
                              'elt_sample', 'elt_moment', 'elt_quantile',
                              'plt_sample', 'plt_moment', 'plt_quantile',
                              'alt_meanonly', 'alt_period', 'alct_convergence',
-                             'ept'
+                             'ept', 'psept'
                              ]
         assert output_type in supported_outputs, 'Output type not supported'
         assert perspective in ['gul', 'il', 'ri'], 'Perspective not valid'
@@ -187,4 +188,8 @@ class OutputInterface:
 
     @staticmethod
     def generate_ept(results, **kwargs):
+        return results
+
+    @staticmethod
+    def generate_psept(results, **kwargs):
         return results

@@ -21,6 +21,10 @@ from json import JSONDecodeError
 import json
 
 from pages.components.output import generate_eltcalc_fragment, generate_leccalc_fragment, generate_pltcalc_fragment, model_summary, summarise_inputs, generate_aalcalc_fragment
+from pages.components.output import generate_melt_fragment, generate_qelt_fragment, generate_selt_fragment
+from pages.components.output import generate_mplt_fragment, generate_qplt_fragment, generate_splt_fragment
+from pages.components.output import generate_alt_fragment, generate_alct_fragment
+from pages.components.output import generate_ept_fragment, generate_psept_fragment
 from pages.components.process import add_model_names_to_models, add_model_names_to_models_cached, enrich_analyses, enrich_portfolios
 
 logger = get_session_logger()
@@ -342,7 +346,7 @@ with run_container:
             if 'location.csv' in input_file:
                 locations = input_file.get('location.csv')
             elif 'location.parquet' in input_file:
-                locations = input_file.get('locations.parquet')
+                locations = input_file.get('location.parquet')
             else:
                 locations = None
             a_settings = ci.analyses.settings.get(analysis_id)
@@ -393,6 +397,74 @@ with run_container:
                 if summaries_settings[0].get('pltcalc'):
                     st.write("### PLT Output")
                     generate_pltcalc_fragment(perspective, output_interface)
+                    st.write('---')
+
+                ord_settings = summaries_settings[0].get('ord_output', {})
+
+                if ord_settings.get('elt_moment', False):
+                    st.write("### MELT Output")
+                    generate_melt_fragment(perspective, output_interface, locations=locations)
+                    st.write('---')
+
+                if ord_settings.get('elt_quantile', False):
+                    st.write("### QELT Output")
+                    generate_qelt_fragment(perspective, output_interface, locations=locations)
+                    st.write('---')
+
+                if ord_settings.get('elt_sample', False):
+                    st.write("### SELT Output")
+                    generate_selt_fragment(perspective, output_interface, locations=locations)
+                    st.write('---')
+
+                if ord_settings.get('plt_moment', False):
+                    st.write("### MPLT Output")
+                    generate_mplt_fragment(perspective, output_interface)
+                    st.write('---')
+
+                if ord_settings.get('plt_quantile', False):
+                    st.write("### QPLT Output")
+                    generate_qplt_fragment(perspective, output_interface)
+                    st.write('---')
+
+                if ord_settings.get('plt_sample', False):
+                    st.write("### SPLT Output")
+                    generate_splt_fragment(perspective, output_interface)
+                    st.write('---')
+
+                if ord_settings.get('alt_meanonly', False):
+                    st.write("### ALT MeanOnly Output")
+                    generate_alt_fragment(perspective, output_interface, 'alt_meanonly')
+                    st.write('---')
+
+                if ord_settings.get('alt_period', False):
+                    st.write("### PALT Output")
+                    generate_alt_fragment(perspective, output_interface, 'alt_period')
+                    st.write('---')
+
+                if ord_settings.get('alct_convergence', False):
+                    st.write("### ALCT Output")
+                    generate_alct_fragment(perspective, output_interface)
+                    st.write('---')
+
+                ept_settings = [
+                    'ept_full_uncertainty_aep',
+                    'ept_full_uncertainty_oep',
+                    'ept_mean_sample_aep',
+                    'ept_mean_sample_oep',
+                    'ept_per_sample_mean_aep',
+                    'ept_per_sample_mean_oep'
+                ]
+
+                if any(ord_settings.get(e, False) for e in ept_settings):
+                    st.write("### EPT Output")
+                    generate_ept_fragment(perspective, output_interface)
+                    st.write('---')
+
+                psept_settings = ['psept_aep', 'psept_oep']
+
+                if any(ord_settings.get(e, False) for e in psept_settings):
+                    st.write("### PSEPT Output")
+                    generate_psept_fragment(perspective, output_interface)
                     st.write('---')
 
             if a_settings['gul_output']:

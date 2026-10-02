@@ -4,13 +4,14 @@ from modules.client import ClientInterface
 from modules.nav import SidebarNav
 from modules.authorisation import validate_page
 import pandas as pd
-import altair as alt
 
 from pages.components.footer import generate_footer
 from pages.components.output import generate_alt_fragment, generate_eltcalc_fragment, generate_qplt_fragment
 from pages.components.output import generate_leccalc_fragment, generate_melt_fragment, generate_mplt_fragment
 from pages.components.output import generate_pltcalc_fragment, generate_qelt_fragment, summarise_inputs
 from pages.components.output import generate_aalcalc_fragment, generate_ept_fragment
+from pages.components.output import generate_selt_fragment, generate_splt_fragment
+from pages.components.output import generate_alct_fragment, generate_psept_fragment
 from modules.visualisation import OutputInterface
 
 st.set_page_config(
@@ -121,6 +122,14 @@ with st.spinner("Loading visualisations..."):
             with expander:
                 generate_qelt_fragment(p, vis, locations=locations)
 
+        if ord_settings.get("elt_sample", False):
+            expander = st.expander("SELT Output")
+            with expander:
+                locations = None
+                if inputs:
+                    locations = inputs.get('location.csv')
+                generate_selt_fragment(p, vis, locations=locations)
+
         if ord_settings.get("plt_moment", False):
             expander = st.expander("MPLT Output")
             with expander:
@@ -130,6 +139,11 @@ with st.spinner("Loading visualisations..."):
             expander = st.expander("QPLT Output")
             with expander:
                 generate_qplt_fragment(p, vis)
+
+        if ord_settings.get("plt_sample", False):
+            expander = st.expander("SPLT Output")
+            with expander:
+                generate_splt_fragment(p, vis)
 
         if ord_settings.get("alt_meanonly", False):
             expander = st.expander("ALT MeanOnly")
@@ -141,6 +155,11 @@ with st.spinner("Loading visualisations..."):
             with expander:
                 generate_alt_fragment(p, vis, 'alt_period')
 
+        if ord_settings.get("alct_convergence", False):
+            expander = st.expander("ALCT Output")
+            with expander:
+                generate_alct_fragment(p, vis)
+
         ept_settings = [
             'ept_full_uncertainty_aep',
             'ept_full_uncertainty_oep',
@@ -150,11 +169,16 @@ with st.spinner("Loading visualisations..."):
             'ept_per_sample_mean_oep'
         ]
 
-        ept_outputs = [e for e in ept_settings if ord_settings.get(e, False)]
-
         if any([ord_settings.get(e, False) for e in ept_settings]):
             expander = st.expander("EPT Output")
             with expander:
                 generate_ept_fragment(p, vis)
+
+        psept_settings = ['psept_aep', 'psept_oep']
+
+        if any([ord_settings.get(e, False) for e in psept_settings]):
+            expander = st.expander("PSEPT Output")
+            with expander:
+                generate_psept_fragment(p, vis)
 
 generate_footer(ui_config)
