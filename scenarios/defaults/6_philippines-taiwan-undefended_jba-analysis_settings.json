@@ -4,7 +4,7 @@
             {
                 "ord_output": {
                   "elt_moment": true,
-                  "alt_period": true
+                  "alt_meanonly": true
                 },
                 "id": 1
             }
@@ -13,7 +13,7 @@
         "il_output": false,
         "model_settings": {
          },
-        "model_name_id": "PHTY-U",
+        "model_name_id": "PHTY-Undefended",
         "model_supplier_id": "JBA",
         "number_of_samples": 10
 }
