@@ -12,7 +12,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CERT_DIR="$SCRIPT_DIR/../certs"
+CERT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)/certs"
 HOSTNAME="${OASIS_UI_HOSTNAME:-ui.oasis.local}"
 CRT="$CERT_DIR/ui.crt"
 KEY="$CERT_DIR/ui.key"
