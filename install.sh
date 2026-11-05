@@ -296,7 +296,16 @@ echo "--- Waiting for services to be healthy ---"
 
 # Wait for core services
 echo "  -> Waiting for server..."
-docker compose $COMPOSE_FILES exec -T server sh -c 'for i in $(seq 1 60); do curl -sf http://localhost:8000/healthcheck/ > /dev/null 2>&1 && exit 0; sleep 5; done; exit 1' || {
+# The api_server image (2.5.9+) has no shell or curl, so poll from the host using its python3.
+server_ready() {
+    for i in $(seq 1 60); do
+        docker compose $COMPOSE_FILES exec -T server python3 -c \
+            "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthcheck/')" > /dev/null 2>&1 && return 0
+        sleep 5
+    done
+    return 1
+}
+server_ready || {
     echo "  WARNING: Server health check timed out. Check logs with: docker compose $COMPOSE_FILES logs server"
 }
 
