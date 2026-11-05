@@ -1,4 +1,5 @@
 from copy import deepcopy
+from types import SimpleNamespace
 
 from requests import Response
 from requests.exceptions import HTTPError
@@ -129,6 +130,8 @@ class MockModelsEndpoint(MockEndpoint):
 class MockApiClient:
     def __init__(self, username="", password="",
                  portfolios=None, models=None, analyses=None, **kwargs):
+        # Token used by pages that cache per user (st.cache_data hash_funcs)
+        self.api = SimpleNamespace(tkn_access='mock-access-token')
         # Copy so tests mutating endpoint data can't leak into shared fixtures
         self.portfolios = MockEndpoint(deepcopy(portfolios))
         self.models = MockModelsEndpoint(deepcopy(models))

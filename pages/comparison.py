@@ -94,11 +94,11 @@ expander = st.expander('Analysis Summary')
 with expander:
     cols = st.columns(2)
 @st.cache_data
-def get_analysis_inputs(ID):
+def get_analysis_inputs(ID, modified=None):  # `modified` busts the cache after a re-run
     return client_interface.analyses.get_file(ID, 'input_file', df=True)
 
 @st.cache_data
-def get_analysis_outputs(ID):
+def get_analysis_outputs(ID, modified=None):  # `modified` busts the cache after a re-run
     return client_interface.analyses.get_file(ID, 'output_file', df=True)
 
 def get_location_df(inputs):
@@ -118,7 +118,7 @@ model_settings = []
 with cols[0]:
     st.write(f"## {selected['name'][0]}")
     with st.spinner("Loading data..."):
-        inputs = get_analysis_inputs(analysis_ids[0])
+        inputs = get_analysis_inputs(analysis_ids[0], selected['modified'][0])
         analysis_settings.append(client.analyses.settings.get(analysis_ids[0]).json())
         model_settings.append(client_interface.models.settings.get(model_ids[0]))
 
@@ -128,7 +128,7 @@ with cols[0]:
 with cols[1]:
     st.write(f"## {selected['name'][1]}")
     with st.spinner("Loading data..."):
-        inputs = get_analysis_inputs(analysis_ids[1])
+        inputs = get_analysis_inputs(analysis_ids[1], selected['modified'][1])
         analysis_settings.append(client.analyses.settings.get(analysis_ids[1]).json())
         model_settings.append(client_interface.models.settings.get(model_ids[1]))
 
@@ -200,7 +200,8 @@ for p in perspectives:
         st.error('No comparison available.')
 
     with st.spinner("Loading data..."):
-        outputs = [OutputInterface(get_analysis_outputs(id)) for id in analysis_ids]
+        outputs = [OutputInterface(get_analysis_outputs(id, modified))
+                   for id, modified in zip(analysis_ids, selected['modified'])]
 
     for output, s in zip(outputs, summaries):
         oed_fields = s.get('oed_fields', None)
