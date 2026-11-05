@@ -152,7 +152,11 @@ echo ""
 # ============================================================================
 
 echo "--- Configuring HTTPS ---"
+cert_fingerprint() { cat "$SCRIPT_DIR/certs/ui.crt" 2>/dev/null | sha256sum; }
+CERT_BEFORE="$(cert_fingerprint)"
 bash "$SCRIPT_DIR/scripts/generate-certs.sh"
+# Traefik only reloads certificates when its config changes, so restart it after deploy if needed
+[ "$(cert_fingerprint)" != "$CERT_BEFORE" ] && CERT_CHANGED=true || CERT_CHANGED=false
 if [ "$OASIS_PROTOCOL" = "https" ]; then
     export OASIS_WEB_ENTRY_MIDDLEWARE="https-redirect@file"
     echo "  -> Browsers using http:// are redirected to https://"
@@ -296,6 +300,11 @@ echo "--- Deploying services ---"
 
 # Start all services
 docker compose $COMPOSE_FILES up -d
+
+if [ "$CERT_CHANGED" = true ]; then
+    echo "  -> Certificate changed: restarting traefik to load it"
+    docker compose $COMPOSE_FILES restart traefik
+fi
 
 echo ""
 

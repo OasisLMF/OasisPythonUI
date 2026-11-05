@@ -30,7 +30,7 @@ fi
 
 if command -v mkcert >/dev/null 2>&1; then
     echo "  -> Creating certificate for ${HOSTNAME} with mkcert"
-    mkcert -cert-file "$CRT" -key-file "$KEY" "$HOSTNAME" localhost 127.0.0.1 >/dev/null
+    mkcert -cert-file "$CRT" -key-file "$KEY" "$HOSTNAME" localhost 127.0.0.1 >/dev/null 2>&1
     echo "     If your browser still warns, run 'mkcert -install' once to trust mkcert's CA."
     exit 0
 fi
