@@ -263,6 +263,8 @@ services:
       - OASIS_SERVICE_USERNAME_OR_ID=${OASIS_SERVICE_USERNAME_OR_ID:-}
       - OASIS_SERVICE_PASSWORD_OR_SECRET=${OASIS_SERVICE_PASSWORD_OR_SECRET:-}
       - SCENARIOS_UI_CONFIG=scenarios/ui-config.json
+      # Number of model workers in this file: setup waits for all to register
+      - SCENARIOS_MIN_MODELS=14
     volumes:
       # Portfolio paths in scenarios/portfolios.json are relative to /usr/src/app
       - ./OasisPiWind/:/usr/src/app/OasisPiWind:ro
