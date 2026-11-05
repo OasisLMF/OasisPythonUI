@@ -34,6 +34,18 @@ class OutputInterface:
         return self._request_to_summary_info_fname(level, perspective, self.file_prefixes.get(perspective, '')) \
             in self.output_file_dict
 
+    def fields_available(self, perspective, oed_fields, summary_level=None):
+        '''Whether outputs can be broken down by `oed_fields`: either a
+        summary-info file exists, or the outputs already contain the fields
+        (written by pytools join-summary-info).'''
+        if self.has_summary_info(perspective, summary_level):
+            return True
+        level = summary_level or self.summary_level(perspective)
+        stem = f"{perspective}_{self.file_prefixes.get(perspective, '')}S{level}_"
+        files = [df for name, df in self.output_file_dict.items()
+                 if name.startswith(stem) and not name.endswith('summary-info.csv')]
+        return bool(files) and all(set(oed_fields) <= set(df.columns) for df in files)
+
     def set_oed_fields(self, perspective, oed_fields):
         self.oed_fields[perspective] = oed_fields
 
@@ -106,6 +118,9 @@ class OutputInterface:
             summary_info = self.output_file_dict.get(
                 self._request_to_summary_info_fname(summary_level, perspective, prefix))
             results = self.add_oed_fields(results, summary_info, oed_fields)
+            missing = [f for f in oed_fields if f not in results.columns]
+            if missing:
+                logger.warning(f'{fname}: no summary info for {missing}')
             kwargs['oed_fields'] = oed_fields
 
         result = getattr(self, f'generate_{output_type}')(results, **kwargs)
@@ -139,6 +154,14 @@ class OutputInterface:
 
     @staticmethod
     def add_oed_fields(results, summary_info, oed_fields):
+        '''Join OED group fields onto `results` from the summary-info file.
+
+        Fields already in `results` (joined by pytools join-summary-info) are
+        left as they are; without a summary-info file nothing is joined.
+        '''
+        oed_fields = [f for f in oed_fields if f not in results.columns]
+        if not oed_fields or summary_info is None:
+            return results
         summary_info = summary_info.set_index('summary_id')
         summary_info = summary_info[oed_fields]
         if 'summary_id' in results.columns:

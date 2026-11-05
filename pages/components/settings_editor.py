@@ -74,9 +74,47 @@ def _parse_events(text):
     return ids or None, ','.join(ranges) or None, None
 
 
-def perspective_availability(model_settings, portfolio):
-    '''Which perspectives can be run, with a reason for those that can't.'''
-    valid = list(model_settings.get('model_settings', {}).get('valid_output_perspectives') or PERSPECTIVES)
+def selected_option(model_settings, setting, option_id):
+    '''The option dict chosen for a categorical model setting (e.g. the event set), or {}.'''
+    options = model_settings.get('model_settings', {}).get(setting, {}).get('options', [])
+    return next((o for o in options if o.get('id') == option_id), {})
+
+
+def valid_metrics(model_settings, event_set=None):
+    '''Output metrics the model supports (None = no restriction).
+
+    An event set's `valid_metrics` overrides the model's `valid_output_metrics`.
+    '''
+    return (event_set or {}).get('valid_metrics') or \
+        model_settings.get('model_settings', {}).get('valid_output_metrics') or None
+
+
+def metric_allowed(flag, metrics):
+    '''Whether an ORD output flag is allowed by a `valid_metrics` list.
+
+    Entries may name a flag exactly (`elt_sample`), a table family (`elt`,
+    `plt`, `alt`, `ept`, `psept`), or a loss type (`aep`, `oep`).
+    '''
+    if not metrics:
+        return True
+    family = flag.split('_')[0]
+    if flag.startswith('alct'):
+        family = 'alt'
+    loss_type = flag.rsplit('_', 1)[-1]
+    return flag in metrics or family in metrics or (loss_type in ('aep', 'oep') and loss_type in metrics)
+
+
+def default_ord_outputs(metrics=None):
+    return {o: True for o in DEFAULT_ORD_OUTPUTS if metric_allowed(o, metrics)}
+
+
+def perspective_availability(model_settings, portfolio, event_set=None):
+    '''Which perspectives can be run, with a reason for those that can't.
+
+    An event set's `valid_perspectives` overrides the model's `valid_output_perspectives`.
+    '''
+    valid = list((event_set or {}).get('valid_perspectives')
+                 or model_settings.get('model_settings', {}).get('valid_output_perspectives') or PERSPECTIVES)
     # The model settings schema has no 'rl': ceded reinsurance follows 'ri'
     if 'ri' in valid and 'rl' not in valid:
         valid.append('rl')
@@ -86,7 +124,8 @@ def perspective_availability(model_settings, portfolio):
     reasons = {}
     for p in PERSPECTIVES:
         if p not in valid:
-            reasons[p] = 'Not supported by this model.'
+            reasons[p] = ('Not supported by the selected event set.' if (event_set or {}).get('valid_perspectives')
+                          else 'Not supported by this model.')
         elif p in ('il', 'ri', 'rl') and not has['accounts_file']:
             reasons[p] = 'The portfolio has no accounts file.'
         elif p in ('ri', 'rl') and not (has['reinsurance_info_file'] and has['reinsurance_scope_file']):
@@ -102,7 +141,7 @@ def default_settings(model, model_settings):
         'number_of_samples': model_settings.get('model_default_samples',
                                                 schemas.analysis_property('number_of_samples').get('default', 10)),
         'gul_output': True,
-        'gul_summaries': [{'id': 1, 'ord_output': {o: True for o in DEFAULT_ORD_OUTPUTS}}],
+        'gul_summaries': [{'id': 1, 'ord_output': default_ord_outputs(valid_metrics(model_settings))}],
     }
 
 
@@ -195,8 +234,10 @@ def general_section(base, model_settings, key):
 
         entry = schemas.analysis_property('join_summary_info')
         out['join_summary_info'] = st.toggle(
-            _label(entry, 'Join summary info'), value=bool(base.get('join_summary_info', False)),
-            help=entry.get('description'), key=f'{key}_join_summary_info')
+            _label(entry, 'Join summary info'), value=bool(base.get('join_summary_info', True)),
+            help=f"{entry.get('description', '')} Writes the group-by fields into each output file, "
+                 "so results can be broken down without a separate summary-info lookup. On by default.",
+            key=f'{key}_join_summary_info')
 
     return {k: v for k, v in out.items() if v is not None}, errors
 
@@ -317,20 +358,23 @@ def _levels_state_key(key, scope):
     return f'{key}_levels_{scope}'
 
 
-def _init_levels(key, scope, summaries):
+def _init_levels(key, scope, summaries, metrics=None):
     '''Track summary levels for `scope` ('all' or a perspective) in session state.'''
     state_key = _levels_state_key(key, scope)
     if state_key not in st.session_state:
         levels = [deepcopy(s) for s in (summaries or [])]
         if not levels:
-            levels = [{'id': 1, 'ord_output': {o: True for o in DEFAULT_ORD_OUTPUTS}}]
+            levels = [{'id': 1, 'ord_output': default_ord_outputs(metrics)}]
         st.session_state[state_key] = levels
     return st.session_state[state_key]
 
 
-def summary_levels_editor(key, scope, summaries, field_options):
-    '''Edit a list of summary levels (group-by fields + ORD outputs).'''
-    levels = _init_levels(key, scope, summaries)
+def summary_levels_editor(key, scope, summaries, field_options, metrics=None):
+    '''Edit a list of summary levels (group-by fields + ORD outputs).
+
+    `metrics` (from `valid_metrics`) disables outputs the model doesn't support.
+    '''
+    levels = _init_levels(key, scope, summaries, metrics)
     flags = schemas.ord_output_options()
     result = []
 
@@ -360,12 +404,15 @@ def summary_levels_editor(key, scope, summaries, field_options):
                 with col:
                     st.markdown(f'<small>**{group}**</small>', unsafe_allow_html=True)
                     for k in keys:
+                        unsupported = not metric_allowed(k, metrics)
                         # oasislmf only writes the ALCT alongside the period ALT (PALT)
                         needs_palt = k == 'alct_convergence' and 'alt_period' not in selected
-                        help_text = flags[k][1] + (' Requires PALT.' if needs_palt else '')
-                        if col.checkbox(flags[k][0], value=bool(ord_output.get(k)) and not needs_palt,
-                                        help=help_text, disabled=needs_palt, key=f'{wkey}_{k}') \
-                                and not needs_palt:
+                        blocked = unsupported or needs_palt
+                        help_text = flags[k][1] + (' Not supported by this model.' if unsupported else
+                                                   ' Requires PALT.' if needs_palt else '')
+                        if col.checkbox(flags[k][0], value=bool(ord_output.get(k)) and not blocked,
+                                        help=help_text, disabled=blocked, key=f'{wkey}_{k}') \
+                                and not blocked:
                             selected.append(k)
 
             new_level = {k: v for k, v in level.items() if k not in ('ord_output', 'oed_fields')}
@@ -389,15 +436,19 @@ def summary_levels_editor(key, scope, summaries, field_options):
 
     if st.button('Add summary level', icon=':material/add:', key=f'{key}_{scope}_add'):
         next_id = max([lv['id'] for lv in levels] + [0]) + 1
-        levels.append({'id': next_id, 'ord_output': {o: True for o in DEFAULT_ORD_OUTPUTS}})
+        levels.append({'id': next_id, 'ord_output': default_ord_outputs(metrics)})
         st.rerun()
 
     return result
 
 
-def outputs_section(base, model_settings, portfolio, key, portfolio_fields=()):
+def outputs_section(base, model_settings, portfolio, key, portfolio_fields=(), event_set=None):
     out, errors = {}, []
-    unavailable = perspective_availability(model_settings, portfolio)
+    unavailable = perspective_availability(model_settings, portfolio, event_set)
+    metrics = valid_metrics(model_settings, event_set)
+    if metrics:
+        st.caption(f"This model {'event set ' if (event_set or {}).get('valid_metrics') else ''}"
+                   f"supports these outputs only: {', '.join(metrics)}.")
 
     st.markdown('**Loss perspectives**')
     cols = st.columns(len(PERSPECTIVES))
@@ -424,14 +475,14 @@ def outputs_section(base, model_settings, portfolio, key, portfolio_fields=()):
     same = st.toggle('Use the same outputs for every perspective', value=same_default,
                      key=f'{key}_same_outputs')
     if same:
-        levels = summary_levels_editor(key, 'all', first, field_options)
+        levels = summary_levels_editor(key, 'all', first, field_options, metrics)
         for p in enabled:
             out[f'{p}_summaries'] = deepcopy(levels)
     else:
         tabs = st.tabs([PERSPECTIVE_LABELS[p] for p in enabled])
         for p, tab in zip(enabled, tabs):
             with tab:
-                out[f'{p}_summaries'] = summary_levels_editor(key, p, existing[p] or first, field_options)
+                out[f'{p}_summaries'] = summary_levels_editor(key, p, existing[p] or first, field_options, metrics)
 
     with st.expander('Advanced output options'):
         flag = (schemas.analysis_settings_schema()['definitions']['output_summaries']['items']
@@ -470,7 +521,8 @@ def analysis_settings_editor(model, model_settings, portfolio, base_settings, ke
     with model_tab:
         ms, ms_errors = model_options_section(base, model_settings, key)
     with outputs_tab:
-        outputs, output_errors = outputs_section(base, model_settings, portfolio, key, portfolio_fields)
+        event_set = selected_option(model_settings, 'event_set', ms.get('event_set'))
+        outputs, output_errors = outputs_section(base, model_settings, portfolio, key, portfolio_fields, event_set)
 
     # Start from the template so keys the editor doesn't manage are kept
     settings = {k: v for k, v in base.items()

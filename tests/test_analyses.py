@@ -83,3 +83,23 @@ def test_create_and_run_analysis(mock_api_client, request):
     assert created['status'] == 'INPUTS_GENERATION_QUEUED'
     # Name defaults to "<portfolio> – <model>"
     assert created['name'] == f"{config.portfolios_data[0]['name']} – {config.models_data[0]['model_id']}"
+
+
+def _template_options(client, request):
+    at = page_app(PAGE, client, {NEW_ANALYSIS_DEFAULTS: {'portfolio': request.config.portfolio_ID}})
+    assert not at.exception
+    return at.selectbox(key=f'new_{request.config.model_ID}_template').options
+
+
+def test_defaults_files_only_without_platform_templates(mock_api_client, request, monkeypatch):
+    monkeypatch.setattr('modules.settings.get_analyses_settings',
+                        lambda **kwargs: ['defaults/1_model_supplier-analysis_settings.json'])
+
+    # No platform templates: the bundled defaults file is offered
+    assert 'Default file: 1_model_supplier-analysis_settings.json' in _template_options(mock_api_client, request)
+
+    # With a platform template, only the template is offered
+    mock_api_client.models.setting_templates.data[request.config.model_ID] = [{'id': 3, 'name': 'Standard'}]
+    options = _template_options(mock_api_client, request)
+    assert options[0] == 'Template: Standard'
+    assert not any(o.startswith('Default file') for o in options)

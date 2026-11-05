@@ -313,6 +313,8 @@ with run_container:
                 analysis_settings['number_of_samples'] = number_of_samples
 
                 try:
+                    # Write group-by fields into the outputs (pytools join-summary-info)
+                    analysis_settings.setdefault('join_summary_info', True)
                     client_interface.upload_settings(selected['id'], analysis_settings)
                 except (JSONDecodeError, HTTPError) as e:
                     logger.error(e)

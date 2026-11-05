@@ -45,7 +45,8 @@ def test_model_parameters_use_their_defaults(editor):
 
 def test_controls_match_parameter_types(editor):
     at = editor
-    assert at.selectbox(key='test_editor_ms_event_set').options == ['p – Probabilistic', 'h – Historic']
+    assert at.selectbox(key='test_editor_ms_event_set').options == \
+        ['p – Probabilistic', 'h – Historic', 'r – Restricted']
     assert at.toggle(key='test_editor_param_use_surge').value is True
     slider = at.slider(key='test_editor_param_demand_surge')
     assert (slider.min, slider.max, slider.step) == (1.0, 2.0, 0.05)
@@ -242,3 +243,60 @@ def test_rl_perspective_needs_reinsurance_files(editor):
     rl = editor.checkbox(key='test_editor_rl_output')
     assert rl.label == 'Ceded to reinsurance (RL)'
     assert rl.disabled  # fixture portfolio has no RI files
+
+
+def test_metric_allowed():
+    from pages.components.settings_editor import metric_allowed
+    assert metric_allowed('elt_sample', None)
+    assert metric_allowed('elt_sample', ['elt'])
+    assert not metric_allowed('plt_sample', ['elt'])
+    assert metric_allowed('ept_full_uncertainty_aep', ['ept'])
+    assert metric_allowed('psept_oep', ['oep'])
+    assert not metric_allowed('psept_aep', ['oep'])
+    assert metric_allowed('alct_convergence', ['alt'])
+    assert metric_allowed('alt_meanonly', ['alt_meanonly'])
+    assert not metric_allowed('alt_period', ['alt_meanonly'])
+
+
+def _restricted_editor(model_overrides, event_set=None):
+    at = AppTest.from_file(APP, default_timeout=30)
+    at.session_state['model_settings_overrides'] = model_overrides
+    if event_set:
+        at.session_state['base_settings'] = {'model_settings': {'event_set': event_set},
+                                             'gul_output': True}
+    return at.run()
+
+
+def test_model_valid_output_metrics_restrict_outputs():
+    at = _restricted_editor({'valid_output_metrics': ['elt', 'ept']})
+    assert not at.exception
+    assert not at.checkbox(key='test_editor_all_1_elt_sample').disabled
+    assert at.checkbox(key='test_editor_all_1_plt_sample').disabled
+    assert at.checkbox(key='test_editor_all_1_alt_meanonly').disabled
+
+    # Defaults only include supported outputs
+    ord_output = at.session_state['editor_settings']['gul_summaries'][0]['ord_output']
+    assert {k for k, v in ord_output.items() if v is True} == \
+        {'elt_moment', 'ept_full_uncertainty_aep', 'ept_full_uncertainty_oep'}
+    assert at.session_state['editor_valid']
+
+
+def test_event_set_overrides_metrics_and_perspectives():
+    at = _restricted_editor({'valid_output_metrics': ['elt', 'ept']}, event_set='r')
+    assert not at.exception
+    # The 'r' event set only supports PLTs and GUL
+    assert at.checkbox(key='test_editor_all_1_plt_sample').disabled is False
+    assert at.checkbox(key='test_editor_all_1_elt_sample').disabled
+    assert at.checkbox(key='test_editor_il_output').disabled
+
+
+def test_join_summary_info_on_by_default(editor):
+    assert editor.session_state['editor_settings']['join_summary_info'] is True
+
+
+def test_join_summary_info_respects_template():
+    at = AppTest.from_file(APP, default_timeout=30)
+    at.session_state['base_settings'] = {'join_summary_info': False, 'gul_output': True,
+                                         'gul_summaries': [{'id': 1}]}
+    at.run()
+    assert at.session_state['editor_settings']['join_summary_info'] is False

@@ -130,3 +130,29 @@ def test_output_interface_reads_prefixed_rl_files():
     vis.set_file_prefix('rl', 'IP1_')
     assert vis.get(1, 'rl', 'ept').equals(ept)
     assert not vis.has_summary_info('rl', 1)
+
+
+def test_join_summary_info_outputs_are_not_joined_twice():
+    import pandas as pd
+    from modules.visualisation import OutputInterface
+    # Output already carries LocNumber (pytools join-summary-info) and there's no summary-info file
+    ept = pd.DataFrame({'SummaryId': [1, 2], 'LocNumber': ['a', 'b'], 'EPCalc': [2, 2], 'EPType': [1, 1],
+                        'ReturnPeriod': [10.0, 10.0], 'Loss': [5.0, 6.0]})
+    vis = OutputInterface({'rl_IP1_S1_ept.csv': ept})
+    vis.set_file_prefix('rl', 'IP1_')
+    vis.set_oed_fields('rl', ['LocNumber'])
+
+    assert vis.fields_available('rl', ['LocNumber'], 1)
+    assert not vis.fields_available('rl', ['CountryCode'], 1)
+    result = vis.get(1, 'rl', 'ept')
+    assert list(result.columns) == list(ept.columns)  # no LocNumber_ duplicate
+
+
+def test_summary_info_join_still_used_when_fields_missing():
+    import pandas as pd
+    from modules.visualisation import OutputInterface
+    ept = pd.DataFrame({'SummaryId': [1], 'EPCalc': [2], 'EPType': [1], 'ReturnPeriod': [10.0], 'Loss': [5.0]})
+    info = pd.DataFrame({'summary_id': [1], 'LocNumber': ['a']})
+    vis = OutputInterface({'gul_S1_ept.csv': ept, 'gul_S1_summary-info.csv': info})
+    vis.set_oed_fields('gul', ['LocNumber'])
+    assert list(vis.get(1, 'gul', 'ept')['LocNumber']) == ['a']

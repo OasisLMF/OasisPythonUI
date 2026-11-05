@@ -92,9 +92,11 @@ def template_picker(model, key, current=None):
             f"Template: {t.get('name') or t['id']}",
             lambda t=t: ci.models.setting_templates.get_contents(model['id'], t['id']))
 
-    for path in get_analyses_settings(model_name_id=model['model_id'], supplier_id=model['supplier_id']):
-        sources[f'file_{path}'] = (f'Default file: {Path(path).name}',
-                                   lambda path=path: json.loads(Path(path).read_text()))
+    # Bundled defaults/ files are only a fallback for models without platform templates
+    if not templates:
+        for path in get_analyses_settings(model_name_id=model['model_id'], supplier_id=model['supplier_id']):
+            sources[f'file_{path}'] = (f'Default file: {Path(path).name}',
+                                       lambda path=path: json.loads(Path(path).read_text()))
 
     for a in sorted(analyses, key=lambda a: a['id'], reverse=True):
         if a['model'] == model['id'] and a.get('settings') and (not current or a['id'] != current.get('_id')):

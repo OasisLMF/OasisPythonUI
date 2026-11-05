@@ -107,7 +107,7 @@ def render_results(settings, outputs, locations=None):
             vis.set_file_prefix(p, prefix)
 
             oed_fields = summary.get('oed_fields') or None
-            if oed_fields and not vis.has_summary_info(p, level_id):
+            if oed_fields and not vis.fields_available(p, oed_fields, level_id):
                 st.caption(f"Breakdown by {', '.join(oed_fields)} isn't available here: the run produced "
                            "no summary-info file for this perspective, so results are shown by SummaryId.")
                 oed_fields = None

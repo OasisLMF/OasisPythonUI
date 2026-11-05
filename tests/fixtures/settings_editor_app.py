@@ -18,7 +18,8 @@ MODEL_SETTINGS = {
     'model_settings': {
         'event_set': {
             'name': 'Event Set', 'desc': 'Event set selection', 'default': 'p',
-            'options': [{'id': 'p', 'desc': 'Probabilistic'}, {'id': 'h', 'desc': 'Historic'}],
+            'options': [{'id': 'p', 'desc': 'Probabilistic'}, {'id': 'h', 'desc': 'Historic'},
+                        {'id': 'r', 'desc': 'Restricted', 'valid_metrics': ['plt'], 'valid_perspectives': ['gul']}],
         },
         'valid_output_perspectives': ['gul', 'il'],
         'boolean_parameters': [{'name': 'use_surge', 'desc': 'Include storm surge', 'default': True}],
@@ -41,6 +42,9 @@ MODEL_SETTINGS = {
 
 # Accounts file but no reinsurance files: IL possible, RI not
 PORTFOLIO = {'id': 1, 'name': 'p', 'location_file': {'stored': 'l.csv'}, 'accounts_file': {'stored': 'a.csv'}}
+
+# Tests can add model settings (e.g. valid_output_metrics) via session state
+MODEL_SETTINGS['model_settings'].update(st.session_state.get('model_settings_overrides', {}))
 
 settings, valid, problems = analysis_settings_editor(
     MODEL, MODEL_SETTINGS, PORTFOLIO, st.session_state.get('base_settings'), key='test_editor',
