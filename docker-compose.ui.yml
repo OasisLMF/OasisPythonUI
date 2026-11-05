@@ -25,6 +25,9 @@ services:
       - API_AUTH_TYPE=${API_AUTH_TYPE}
       - OASIS_HOSTNAME=${OASIS_UI_HOSTNAME}
       - OASIS_PROTOCOL=${OASIS_PROTOCOL:-http}
+      # Service account (set by install.sh from .env); falls back to .streamlit/secrets.toml
+      - OASIS_SERVICE_USERNAME_OR_ID=${OASIS_SERVICE_USERNAME_OR_ID:-}
+      - OASIS_SERVICE_PASSWORD_OR_SECRET=${OASIS_SERVICE_PASSWORD_OR_SECRET:-}
     volumes:
       - ${UI_DEFAULTS:-./defaults/}:/usr/src/app/defaults/
       - ${UI_CONFIG:-./ui-config.json}:/usr/src/app/ui-config.json:ro

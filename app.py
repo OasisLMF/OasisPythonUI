@@ -3,6 +3,7 @@ from modules.authorisation import (
     get_auth_type, exchange_session_token
 )
 import streamlit as st
+from modules.credentials import service_client_kwargs
 from modules.client import ClientInterface
 from modules.nav import SidebarNav
 from oasis_data_manager.errors import OasisException
@@ -45,10 +46,7 @@ if auth_type != 'simple' and "client_interface" not in st.session_state:
 
 if ui_config.skip_login:
     with st.spinner("Loading platform..."):
-        if auth_type != 'simple':
-            client_interface = ClientInterface(auth_type="oidc", client_id=st.secrets["client_id"], client_secret=st.secrets["client_secret"])
-        else:
-            client_interface = ClientInterface(auth_type="simple", username=st.secrets["user"], password=st.secrets["password"])
+        client_interface = ClientInterface(**service_client_kwargs())
     st.session_state["client"] = client_interface.client
 
 cols = st.columns([0.1, 0.8, 0.1])

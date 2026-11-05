@@ -1,4 +1,9 @@
-import streamlit as st
+import sys
+from pathlib import Path
+
+# Allow `python scripts/<script>.py` to import the UI's modules package
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from modules.credentials import service_client_kwargs  # noqa: E402
 import logging
 from oasislmf.platform_api.client import APIClient
 from oasis_data_manager.errors import OasisException
@@ -27,22 +32,13 @@ def initialise_client(max_retries=1, retry_interval=5):
     """Initialise APIClient with retries whilst waiting for the server to come online."""
     logger.info("Initialising client")
     api_url = os.environ.get('API_URL', 'http://ui.oasis.local/api')
-    auth_type = st.secrets.get('auth_type', 'simple')
-    if auth_type == "simple":
-        user = st.secrets.get('user', 'admin')
-        password = st.secrets.get('password', 'password')
-    else:  # Use service client_credentials auth for OIDC
-        client_id = st.secrets.get('client_id', 'oasis-service')
-        client_secret = st.secrets.get('client_secret', 'serviceNotSoSecret')
+    credentials = service_client_kwargs()
 
     retry_count = 0
 
     while True:
         try:
-            if auth_type == "simple":
-                client = APIClient(api_url=api_url, username=user, password=password, auth_type="simple")
-            else:
-                client = APIClient(api_url=api_url, client_id=client_id, client_secret=client_secret, auth_type="oidc")
+            client = APIClient(api_url=api_url, **credentials)
             break
         except (ConnectionError, OasisException) as e:
             logger.error(f'Retry: {retry_count + 1}/{max_retries}.\nFailed to load client: {e}')
