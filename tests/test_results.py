@@ -156,3 +156,20 @@ def test_summary_info_join_still_used_when_fields_missing():
     vis = OutputInterface({'gul_S1_ept.csv': ept, 'gul_S1_summary-info.csv': info})
     vis.set_oed_fields('gul', ['LocNumber'])
     assert list(vis.get(1, 'gul', 'ept')['LocNumber']) == ['a']
+
+
+def test_parquet_outputs_are_found():
+    import pandas as pd
+    from modules.visualisation import OutputInterface
+    ept = pd.DataFrame({'SummaryId': [1], 'EPCalc': [2], 'EPType': [1], 'ReturnPeriod': [10.0], 'Loss': [5.0]})
+    vis = OutputInterface({'gul_S1_ept.parquet': ept})
+    assert vis.has_output('gul', 'ept')
+    assert vis.get(1, 'gul', 'ept').equals(ept)
+    assert not vis.has_output('gul', 'elt_sample')
+
+
+def test_missing_requested_output_shows_message():
+    from streamlit.testing.v1 import AppTest
+    at = AppTest.from_file('tests/fixtures/missing_output_app.py').run()
+    assert not at.exception
+    assert 'the run did not produce it' in at.info[0].value
