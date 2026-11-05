@@ -199,8 +199,8 @@ deploy, including redeploys over an existing installation.
 | `API_AUTH_TYPE` | Auth mode: `simple`, `keycloak`, or `authentik` | `authentik` |
 | `OASIS_UI_HOSTNAME` | Hostname the UI and proxy listen on | `ui.oasis.local` |
 | `OASIS_PROTOCOL` | `http` or `https` | `http` |
-| `VERS_API` | Oasis server image tag | `2.5` |
-| `VERS_WORKER` | Oasis worker image tag | `2.5` |
+| `VERS_API` | Oasis server image tag | `2.5.9` |
+| `VERS_WORKER` | Oasis worker image tag | `2.5.9` |
 | `VERS_UI` | Python UI image tag | `latest` |
 
 See the `.env.*` templates for the full list with inline comments.
