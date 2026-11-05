@@ -263,6 +263,24 @@ through the Keycloak admin console at `/auth/` (`keycloak` / `password`).
 Edit `oidc/authentik/users.yaml` and re-run `./install.sh`, or add users
 through the Authentik admin console at `/authentik/` (`akadmin` / `password`).
 
+## Development
+
+Pull requests run the **Code Quality** workflow (`.github/workflows/code-quality.yml`),
+which mirrors OasisLMF's checks:
+
+- `ruff check .` - pyflakes checks and docstring style (rules in `pyproject.toml`)
+- `autopep8 --diff --exit-code` - PEP8 formatting, 150 character lines
+- `pytest` - the test suite
+
+To run them locally:
+
+```bash
+pip install -r requirements.txt pytest ruff autopep8
+python -m pytest -q
+ruff check --fix .
+autopep8 --in-place --recursive --max-line-length 150 --ignore E402 --exclude OasisPiWind .
+```
+
 ## Troubleshooting
 
 Usually first thing to try before anything is clearing browser cache/cookies for the hostname.
