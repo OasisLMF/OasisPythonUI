@@ -20,8 +20,8 @@ ui_config = retrieve_ui_config()
 validate_page("Comparison")
 
 st.set_page_config(
-    page_title = "Comparison",
-    layout = "centered"
+    page_title="Comparison",
+    layout="centered"
 )
 
 cols = st.columns([0.1, 0.8, 0.1])
@@ -54,12 +54,12 @@ cols = st.columns(2)
 selected = []
 with cols[0]:
     selected_analysis = st.selectbox("Select Analysis 1", options=analyses,
-                            format_func= lambda x : x['name'], index=None)
+                                     format_func=lambda x: x['name'], index=None)
     if selected_analysis:
         selected.append(selected_analysis)
 with cols[1]:
     selected_analysis = st.selectbox("Select Analysis 2", options=analyses,
-                            format_func= lambda x : x['name'], index=None)
+                                     format_func=lambda x: x['name'], index=None)
     if selected_analysis:
         selected.append(selected_analysis)
 
@@ -93,18 +93,22 @@ Annual Average Loss has been estimated; 'eltcalc' denotes that the per-event los
 expander = st.expander('Analysis Summary')
 with expander:
     cols = st.columns(2)
+
+
 @st.cache_data
 def get_analysis_inputs(ID, modified=None):  # `modified` busts the cache after a re-run
     return client_interface.analyses.get_file(ID, 'input_file', df=True)
+
 
 @st.cache_data
 def get_analysis_outputs(ID, modified=None):  # `modified` busts the cache after a re-run
     return client_interface.analyses.get_file(ID, 'output_file', df=True)
 
+
 def get_location_df(inputs):
-    '''Return the locations DataFrame from an `input_file` dict, whichever
+    """Return the locations DataFrame from an `input_file` dict, whichever
     of `location.csv` or `location.parquet` is present.
-    '''
+    """
     if not inputs:
         return None
     if 'location.csv' in inputs:
@@ -112,6 +116,7 @@ def get_location_df(inputs):
     if 'location.parquet' in inputs:
         return inputs['location.parquet']
     return None
+
 
 analysis_settings = []
 model_settings = []
@@ -135,15 +140,16 @@ with cols[1]:
     with st.spinner('Loading analysis summary...'):
         summarise_inputs(get_location_df(inputs), analysis_settings[1], model_settings[1], title_prefix='###')
 
+
 @st.cache_data
 def get_locations_file(ID):
     inputs = client_interface.analyses.get_file(ID, 'input_file', df=True)
     return get_location_df(inputs)
 
+
 @st.cache_data
 def merge_locations(locations_1, locations_2):
-    '''Concatenate locations for comparison and add `loc_analysis_id` identifier.
-    '''
+    """Concatenate locations for comparison and add `loc_analysis_id` identifier."""
     if locations_1 is None or locations_2 is None:
         return None
 
@@ -163,6 +169,7 @@ def merge_locations(locations_1, locations_2):
 
     return locations
 
+
 perspectives = ['gul', 'il', 'ri']
 
 st.write("# Loss estimates")
@@ -173,7 +180,7 @@ for p in perspectives:
         continue
 
     summaries = [s.get(f'{p}_summaries', [{}])[0] for s in analysis_settings]
-    names = selected['name'].tolist() # 'GUL OUTPUT' SHOULD BE MORE UNDERSTANDABLE FOR NON-EXPERT USERS BY USING TITLE 'GROUND UP LOSS'
+    names = selected['name'].tolist()  # 'GUL OUTPUT' SHOULD BE MORE UNDERSTANDABLE FOR NON-EXPERT USERS BY USING TITLE 'GROUND UP LOSS'
 
     ord_settings = [s.get('ord_output', {}) or {} for s in summaries]
 
@@ -188,7 +195,7 @@ for p in perspectives:
 
     supported_outputs = ['aalcalc', 'eltcalc', 'lec_output']
     supported_ord_outputs = ['elt_moment', 'elt_quantile', 'plt_moment',
-                            'plt_quantile', 'alt_meanonly', 'alt_period']
+                             'plt_quantile', 'alt_meanonly', 'alt_period']
 
     has_legacy = any(all(s.get(output, False) for s in summaries) for output in supported_outputs)
     has_ord = any(all(o.get(output, False) for o in ord_settings) for output in supported_ord_outputs)

@@ -47,7 +47,7 @@ def close_editor(editor_key=None):
 
 
 def portfolio_fields(portfolio):
-    '''Columns of the portfolio's location and accounts files (for grouping losses).'''
+    """Columns of the portfolio's location and accounts files (for grouping losses)."""
     fields = []
     for file_type in ['location_file', 'accounts_file']:
         try:
@@ -61,7 +61,7 @@ def portfolio_fields(portfolio):
 
 
 def start_run(analysis, regenerate=False):
-    '''Run an analysis, generating inputs first if needed.'''
+    """Run an analysis, generating inputs first if needed."""
     if regenerate or analysis['status'] not in RUNNABLE_WITH_INPUTS:
         ci.generate_and_run(analysis['id'])
     else:
@@ -73,11 +73,11 @@ def start_run(analysis, regenerate=False):
 ##########################################################################################
 
 def template_picker(model, key, current=None):
-    '''Choose what to base the analysis settings on.
+    """Choose what to base the analysis settings on.
 
     Returns:
         (source_id, settings) — settings is None for "model defaults".
-    '''
+    """
     sources = {}
     if current:
         sources['current'] = ('Current analysis settings', lambda: current)
@@ -102,7 +102,7 @@ def template_picker(model, key, current=None):
         if a['model'] == model['id'] and a.get('settings') and (not current or a['id'] != current.get('_id')):
             # `modified` in the id so an edited analysis isn't served from cache
             sources[f"analysis_{a['id']}_{a.get('modified')}"] = (f"Copy of analysis: {a['name']}",
-                                              lambda a=a: analysis_settings(ci, a))
+                                                                  lambda a=a: analysis_settings(ci, a))
 
     sources['model'] = ('Model defaults', lambda: None)
     sources['upload'] = ('Upload a settings file…', None)

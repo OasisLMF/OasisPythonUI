@@ -25,7 +25,7 @@ from pages.components.output import generate_melt_fragment, generate_qelt_fragme
 from pages.components.output import generate_mplt_fragment, generate_qplt_fragment, generate_splt_fragment
 from pages.components.output import generate_alt_fragment, generate_alct_fragment
 from pages.components.output import generate_ept_fragment, generate_psept_fragment
-from pages.components.process import add_model_names_to_models, add_model_names_to_models_cached, enrich_analyses, enrich_portfolios
+from pages.components.process import add_model_names_to_models_cached, enrich_analyses, enrich_portfolios
 
 logger = get_session_logger()
 
@@ -37,8 +37,8 @@ ui_config = retrieve_ui_config()
 validate_page("Scenarios")
 
 st.set_page_config(
-    page_title = "Scenarios",
-    layout = "centered"
+    page_title="Scenarios",
+    layout="centered"
 )
 
 cols = st.columns([0.1, 0.8, 0.1])
@@ -88,11 +88,11 @@ with create_container:
     models = client_interface.models.get(df=True)
     models = models.set_index('id', drop=False)
     models = add_model_names_to_models_cached(models, client_interface)
-    display_cols = [ 'model_name', 'supplier_id' ]
+    display_cols = ['model_name', 'supplier_id']
     column_config = {
-            'model_name': 'Scenarios Footprint',
-            'supplier_id': 'Supplier'
-            }
+        'model_name': 'Scenarios Footprint',
+        'supplier_id': 'Supplier'
+    }
 
     model_view = DataframeView(models, selectable='single', display_cols=display_cols, column_config=column_config)
     selected_model = model_view.display()
@@ -151,7 +151,7 @@ with create_container:
     cols = st.columns([0.25, 0.25, 0.25, 0.25])
 
     with cols[0]:
-        with st.popover("Create Analysis", disabled=not enable_popover, help=msg,  width='stretch'):
+        with st.popover("Create Analysis", disabled=not enable_popover, help=msg, width='stretch'):
             if enable_popover:
                 resp = create_analysis_form(portfolios=[selected_portfolio.to_dict()], models=[selected_model.to_dict()])
                 if resp:
@@ -193,12 +193,13 @@ with create_container:
         enable_model_details = validation.is_valid(selected_model)
 
         if st.button("Scenario Details", disabled=not enable_model_details,
-                     help = validation.get_message(), width='stretch'):
+                     help=validation.get_message(), width='stretch'):
             try:
                 model_settings = client_interface.models.settings.get(selected_model['id'])
             except HTTPError as e:
                 logger.error(e)
                 model_settings = {}
+
             @st.dialog("Scenario Details", width="large")
             def model_details_dialog():
                 model_summary(selected_model, model_settings, detail_level="full")
@@ -221,7 +222,7 @@ with run_container:
 
         completed_statuses = ['RUN_COMPLETED', 'RUN_CANCELLED', 'RUN_ERROR', 'INPUTS_GENERATION_ERROR']
         running_statuses = ['RUN_QUEUED', 'RUN_STARTED', 'INPUTS_GENERATION_QUEUED',
-                          'INPUTS_GENERATION_STARTED',]
+                            'INPUTS_GENERATION_STARTED',]
 
         running_analyses = analyses[analyses['status'].isin(running_statuses)]
         if not re_handler.is_refreshing() and not running_analyses.empty:
@@ -239,12 +240,11 @@ with run_container:
 
         display_cols = ['name', 'status', 'portfolio_name', 'model_name', 'model_supplier']
 
-
         column_config = {
-                'name': 'Analysis Name',
-                'model_name': 'Scenarios Footprint',
-                'supplier_id': 'Supplier'
-                }
+            'name': 'Analysis Name',
+            'model_name': 'Scenarios Footprint',
+            'supplier_id': 'Supplier'
+        }
 
         analyses_view = DataframeView(analyses, display_cols=display_cols, selectable='single',
                                       column_config=column_config)
@@ -256,10 +256,10 @@ with run_container:
         cols = st.columns([0.5, 0.5])
 
         oed_group = cols[0].pills("Group Output by:",
-                             [ "Portfolio", "Country", "Location"], selection_mode="multi")
+                                  ["Portfolio", "Country", "Location"], selection_mode="multi")
 
         number_of_samples = cols[1].number_input('Number of Samples per event:', min_value=1,
-                                            max_value=1000, value=10)
+                                                 max_value=1000, value=10)
 
         group_to_code = {
             'Portfolio': 'PortNumber',
@@ -283,7 +283,7 @@ with run_container:
 
         run_started = False
         with columns[0]:
-            if st.button('Run', disabled = not run_enabled, help=msg, width='stretch'):
+            if st.button('Run', disabled=not run_enabled, help=msg, width='stretch'):
                 try:
                     # Load from platform
                     templates = client_interface.models.setting_templates.get(selected['model'])
@@ -296,7 +296,7 @@ with run_container:
                     logger.error(f"Failed to load template from platform for model {model_name_id}")
 
                     # Load from defaults/
-                    analysis_settings = get_analyses_settings(model_name_id = model_name_id)[0]
+                    analysis_settings = get_analyses_settings(model_name_id=model_name_id)[0]
 
                     with open(analysis_settings, 'r') as f:
                         analysis_settings = json.load(f)
@@ -339,7 +339,6 @@ with run_container:
 
         # Download button
         @st.dialog("Output", width="large")
-
         def display_outputs(ci, analysis_id, model_id):
             st.markdown('# Analysis Summary')
             st.markdown('This section summarises the input data for this analysis, including the total values contained in the portfolio, and analysis / output settings.')
@@ -355,7 +354,6 @@ with run_container:
             model_settings = ci.models.settings.get(model_id)
             summarise_inputs(locations, a_settings, model_settings)
 
-
             st.markdown('# Results Summary')
             st.markdown('This section summarises the results.')
             st.markdown('''Ground Up Loss (gul) is the estimated direct cost of damage to the buildings in the selected portfolio due to the selected event scenario.
@@ -367,7 +365,7 @@ with run_container:
             # Graphs from output
 
             @st.cache_data(show_spinner="Fetching output data...")
-            def get_output_file(analysis_id, modified_time): # don't use cache if analysis modified
+            def get_output_file(analysis_id, modified_time):  # don't use cache if analysis modified
                 return ci.analyses.get_file(analysis_id, 'output_file', df=True)
 
             modified_time = ci.analyses.get(analysis_id).get('modified', None)
@@ -493,7 +491,6 @@ with run_container:
                                data=fdata,
                                file_name=fname)
 
-
         valid_statuses = ['RUN_COMPLETED']
         validations = ValidationGroup()
         validations.add_validation(NotNoneValidation('Analysis'), selected)
@@ -501,9 +498,8 @@ with run_container:
         download_enabled = validations.is_valid()
 
         with columns[1]:
-            if st.button("Show Output", width='stretch', disabled = not download_enabled):
+            if st.button("Show Output", width='stretch', disabled=not download_enabled):
                 display_outputs(client_interface, selected["id"], selected['model'])
-
 
     if len(client_interface.analyses.get()) == 0:
         st.error("No analyses found.")

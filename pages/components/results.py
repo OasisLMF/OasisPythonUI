@@ -1,6 +1,4 @@
-'''
-Render the outputs of a completed analysis, driven by its analysis settings.
-'''
+"""Render the outputs of a completed analysis, driven by its analysis settings."""
 import re
 
 import streamlit as st
@@ -23,7 +21,7 @@ PSEPT_FLAGS = ['psept_aep', 'psept_oep']
 
 
 def _sections(summary, locations):
-    '''(title, render-callable) for each output enabled in a summary level.'''
+    """(title, render-callable) for each output enabled in a summary level."""
     ord_settings = summary.get('ord_output', {})
     sections = []
 
@@ -60,13 +58,13 @@ def _sections(summary, locations):
 
 
 def render_results(settings, outputs, locations=None):
-    '''Visualise analysis outputs.
+    """Visualise analysis outputs.
 
     Args:
         settings: the analysis settings used for the run.
         outputs: `{filename: DataFrame}` from the analysis output file.
         locations: optional location DataFrame used for maps.
-    '''
+    """
     if not outputs:
         st.info('No output files were found for this analysis.')
         return
@@ -133,10 +131,10 @@ def level_label(level):
 
 
 def inuring_priorities(outputs, perspective, level_id):
-    '''File prefixes for the inuring priorities present, final ('') first.
+    """File prefixes for the inuring priorities present, final ('') first.
 
     e.g. `['', 'IP1_']` for ri_S1_* and ri_IP1_S1_*, or `['IP1_']` for rl_IP1_S1_*.
-    '''
+    """
     pattern = re.compile(rf'^{perspective}_(IP\d+_)?S{level_id}_')
     found = {m.group(1) or '' for name in outputs if (m := pattern.match(name))}
     return sorted(found, key=lambda pre: (pre != '', int(pre[2:-1]) if pre else 0))

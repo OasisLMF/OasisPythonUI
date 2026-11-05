@@ -1,5 +1,6 @@
 import streamlit as st
 
+
 class RefreshHandler:
     q_name = "refresh_1"
     refresh_bool = "refreshing"
@@ -56,7 +57,7 @@ class RefreshHandler:
             st.rerun()
 
     def run_every(self):
-        run_every=None
+        run_every = None
         if not RefreshHandler.queue_empty():
             run_every = self.interval
 

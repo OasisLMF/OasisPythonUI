@@ -21,6 +21,7 @@ class MockEndpoint:
     `get(ID)` looks records up by their `id` field (falling back to list
     position for records without one), matching the real API.
     '''
+
     def __init__(self, json_data=None):
         self.json_data = [] if json_data is None else json_data
         # Sub-endpoints wrapped by `modules.client` interfaces
@@ -81,6 +82,7 @@ class MockFileEndpoint:
 
     Missing files raise a 404 `HTTPError`, as the API does.
     '''
+
     def __init__(self):
         self.files = {}
 
@@ -107,6 +109,7 @@ class MockText:
 
 class MockSubEndpoint:
     '''Sub-endpoint (e.g. `analyses.settings`) keyed by parent ID.'''
+
     def __init__(self, data=None, missing=None):
         self.data = {} if data is None else data
         self.missing = {} if missing is None else missing

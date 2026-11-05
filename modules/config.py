@@ -6,6 +6,7 @@ import logging
 logger = logging.getLogger(__name__)
 OASIS_UI_CONFIG = "ui-config.json"
 
+
 class UIConfig():
     """Class to hold config information for the UI. Loads the infomation from
     OASIS_UI_CONFIG environment variabel (defaults to `ui-config.json`).
@@ -17,6 +18,7 @@ class UIConfig():
         of exposure sets the model should correspond to.
         skip_login (bool): If True skip the login redirection.
     """
+
     def __init__(self):
         config_path = os.getenv("OASIS_UI_CONFIG", OASIS_UI_CONFIG)
 
@@ -35,10 +37,10 @@ class UIConfig():
 
 
 def retrieve_ui_config():
-    '''Retrieve ui config.
+    """Retrieve ui config.
 
     First checks `session_state` and if not present loads from file.
-    '''
+    """
     if 'ui-config' in st.session_state:
         logger.info("Loading ui-config from session_state.")
         return st.session_state['ui-config']

@@ -6,6 +6,7 @@ from pages.components.common import get_page_path
 
 logger = get_session_logger()
 
+
 def generate_footer(ui_config=None):
     if ui_config is None:
         ui_config = retrieve_ui_config()
@@ -16,7 +17,7 @@ def generate_footer(ui_config=None):
     assert "path" in ui_config.footer, "No footer path in config."
 
     try:
-        with open(ui_config.footer.get("path") , "r") as f:
+        with open(ui_config.footer.get("path"), "r") as f:
             footer_txt = f.read()
 
         page_path = get_page_path()

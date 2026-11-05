@@ -4,6 +4,7 @@ from modules.client import ClientInterface
 from tests.mocks import MockApiClient
 from streamlit.testing.v1 import AppTest
 
+
 @pytest.fixture(autouse=True)
 def no_requests(monkeypatch):
     """Remove requests.sessions.Session.request for all tests."""
@@ -13,7 +14,7 @@ def no_requests(monkeypatch):
 def pytest_configure(config):
     config.portfolio_ID = 2
     config.portfolios_data = [{
-        'id' : config.portfolio_ID,
+        'id': config.portfolio_ID,
         'name': 'string',
         "created": "2023-05-26T06:48:52.524821Z",
         "modified": "2023-05-26T06:48:52.524821Z",
@@ -47,6 +48,7 @@ def pytest_configure(config):
         }
     ]
 
+
 @pytest.fixture()
 def mock_api_client(request):
     config = request.config
@@ -60,9 +62,10 @@ def mock_api_client(request):
     })
     return client
 
+
 @pytest.fixture()
 def mock_client_interface(mock_api_client):
-    return ClientInterface(client = mock_api_client)
+    return ClientInterface(client=mock_api_client)
 
 
 def page_app(path, client, state=None):
@@ -79,4 +82,3 @@ def page_app(path, client, state=None):
 @pytest.fixture()
 def mock_app_test(mock_api_client):
     return page_app("pages/analyses.py", mock_api_client)
-

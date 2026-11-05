@@ -1,29 +1,11 @@
-from modules.authorisation import quiet_login, validate_page, handle_login
-from oasis_data_manager.errors import OasisException
-import tarfile
-from io import BytesIO
-from pathlib import Path
-from requests.exceptions import HTTPError
+from modules.authorisation import quiet_login, validate_page
 import streamlit as st
 from modules.nav import SidebarNav
 from modules.config import retrieve_ui_config
-from modules.rerun import RefreshHandler
-from modules.settings import get_analyses_settings
-from pages.components.display import DataframeView, MapView
-from pages.components.create import create_analysis_form
 from pages.components.footer import generate_footer
-from pages.components.output import valid_locations
-from modules.validation import KeyInValuesValidation, NotNoneValidation, ValidationGroup, IsNoneValidation
-from modules.visualisation import OutputInterface
-import time
-from json import JSONDecodeError
-import json
-from modules.client import ClientInterface
 import logging
 import os
 
-from pages.components.output import generate_eltcalc_fragment, generate_leccalc_fragment, generate_pltcalc_fragment, model_summary, summarise_inputs, generate_aalcalc_fragment
-from pages.components.process import enrich_analyses, enrich_portfolios
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +18,8 @@ ui_config = retrieve_ui_config()
 validate_page("User Guide")
 
 st.set_page_config(
-    page_title = "User Guide",
-    layout = "centered"
+    page_title="User Guide",
+    layout="centered"
 )
 
 cols = st.columns([0.1, 0.8, 0.1])
@@ -231,7 +213,6 @@ st.markdown("""
 """)
 
 
-
 if os.path.exists("images/STguide_6_Output.png"):
     # Display the image
     st.image("images/STguide_6_Output.png")
@@ -247,7 +228,6 @@ else:
     st.warning(f"Image file '{"STguide_7_ResultsSummary.png"}' not found. Please check the file path and try again.")
 
 
-
 st.markdown("""
   - There is also an option to download the results as a compressed tar file at the bottom of the screen
 """)
@@ -258,7 +238,6 @@ if os.path.exists("images/STguide_8_downloadOption.png"):
 else:
     # Display a warning message
     st.warning(f"Image file '{"STguide_8_downloadOption.png"}' not found. Please check the file path and try again.")
-
 
 
 # Interpreting Results
@@ -316,8 +295,6 @@ if os.path.exists("images/STguide_11_outputTbloption.png"):
 else:
     # Display a warning message
     st.warning(f"Image file '{"STguide_11_outputTbloption.png"}' not found. Please check the file path and try again.")
-
-
 
 
 # Scenario Comparison

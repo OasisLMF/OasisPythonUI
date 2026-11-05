@@ -8,7 +8,6 @@ import logging
 from requests import HTTPError
 
 
-
 def main():
     parser = argparse.ArgumentParser(prog='analysis-prune',
                                      description='Script to delete old analyses.')
@@ -82,5 +81,6 @@ def main():
             except HTTPError:
                 logger.error(f'Failed to delete: {id}.')
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     main()
