@@ -5,15 +5,19 @@
 A web-based UI utilising [Streamlit](https://github.com/streamlit/streamlit) to
 manage exposure data and run modeling workflows on the OasisLMF platform.
 
-The current version of the UI contains the following pages:
+The standard UI (`ui-config.json`) has three pages:
 
-- `/analyses` - View and create portfolios and analyses.
-- `/dashboard` - View the output of completed analyses.
-- `/scenarios` - Simplified UI which allows for the running of analyses using previously loaded portfolios & models.
-- `/comparison` - Compare the outputs of two completed analyses.
-- `/scenariosGuide` - User guide for the scenarios and comparison pages.
+- `/analyses` - Browse analyses and their results, and create, configure and run new ones.
+- `/portfolios` - Create portfolios, manage their OED files and explore their exposure.
+- `/models` - Browse the models registered on the platform and their settings.
 
-Which pages appear in the sidebar is controlled by `ui-config.json`.
+Analysis settings are edited with controls generated from the ODS-tools
+analysis and model settings schemas, and validated before they are saved.
+
+The Scenarios UI (`scenarios/ui-config.json`) is configured separately and adds
+the `/scenarios`, `/comparison` and `/scenariosGuide` pages.
+
+Which pages appear in the sidebar is controlled by the UI config file.
 
 ## Prerequisites
 

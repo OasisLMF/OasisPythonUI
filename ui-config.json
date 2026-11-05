@@ -1,12 +1,10 @@
 {
   "pages" : [
-    {"path": "pages/scenariosGuide.py", "label": "User Guide"},
-    {"path": "pages/scenarios.py", "label": "Scenarios"},
-    {"path": "pages/comparison.py", "label": "Comparison"},
-    {"path": "pages/analyses.py", "label": "Analyses"},
-    {"path": "pages/dashboard.py", "label": "Dashboard"}
+    {"path": "pages/analyses.py", "label": "Analyses", "icon": ":material/analytics:"},
+    {"path": "pages/portfolios.py", "label": "Portfolios", "icon": ":material/folder_open:"},
+    {"path": "pages/models.py", "label": "Models", "icon": ":material/deployed_code:"}
   ],
-  "post_login_page": "pages/scenariosGuide.py",
+  "post_login_page": "pages/analyses.py",
   "model_map": {
   },
   "skip_login": false

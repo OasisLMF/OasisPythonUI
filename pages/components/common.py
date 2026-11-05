@@ -28,3 +28,87 @@ def get_page_path():
     """Get the current page path from streamlit context.
     """
     return PurePosixPath(urlparse(st.context.url).path).parts[-1]
+
+
+##########################################################################################
+# Status helpers
+##########################################################################################
+
+STATUS_ICONS = {
+    'NEW': '🆕',
+    'INPUTS_GENERATION_QUEUED': '⏳',
+    'INPUTS_GENERATION_STARTED': '⏳',
+    'INPUTS_GENERATION_CANCELLED': '⛔',
+    'INPUTS_GENERATION_ERROR': '❌',
+    'READY': '🟢',
+    'RUN_QUEUED': '⏳',
+    'RUN_STARTED': '⏳',
+    'RUN_COMPLETED': '✅',
+    'RUN_CANCELLED': '⛔',
+    'RUN_ERROR': '❌',
+}
+
+IN_PROGRESS_STATUSES = ['INPUTS_GENERATION_QUEUED', 'INPUTS_GENERATION_STARTED',
+                        'RUN_QUEUED', 'RUN_STARTED']
+ERROR_STATUSES = ['INPUTS_GENERATION_ERROR', 'RUN_ERROR']
+
+
+def format_status(status):
+    '''e.g. `RUN_COMPLETED` -> `✅ Run completed`.'''
+    if not isinstance(status, str):
+        return ''
+    label = status.replace('_', ' ').capitalize()
+    return f"{STATUS_ICONS.get(status, '')} {label}".strip()
+
+
+def analysis_progress(analysis):
+    '''Fraction of sub-tasks completed for a running analysis, or None.'''
+    counts = analysis.get('status_count') or {}
+    total = counts.get('TOTAL') or 0
+    if total == 0:
+        return None
+    return counts.get('COMPLETED', 0) / total
+
+
+##########################################################################################
+# Tables and selection
+##########################################################################################
+
+def selectable_table(df, columns, state_key, column_config=None, key=None, height='auto'):
+    '''Show `df` as a single-row selectable table and remember the selected `id`.
+
+    The selection is stored in `st.session_state[state_key]` so that other
+    pages can preselect a record (set the key, then `st.switch_page`).
+
+    Returns:
+        The selected record id, or None.
+    '''
+    key = key or f'{state_key}_table'
+    ids = df['id'].tolist() if not df.empty else []
+
+    def on_select():
+        rows = st.session_state[key].selection.rows
+        st.session_state[state_key] = ids[rows[0]] if rows else None
+
+    st.dataframe(df, key=key, on_select=on_select, selection_mode='single-row',
+                 hide_index=True, column_order=columns, column_config=column_config or {},
+                 width='stretch', height=height)
+
+    selected = st.session_state.get(state_key)
+    return selected if selected in ids else None
+
+
+def open_record(page, state_key, record_id):
+    '''Navigate to `page` with `record_id` preselected.'''
+    st.session_state[state_key] = record_id
+    st.switch_page(page)
+
+
+SELECTED_PORTFOLIO = 'selected_portfolio_id'
+SELECTED_MODEL = 'selected_model_id'
+SELECTED_ANALYSIS = 'selected_analysis_id'
+NEW_ANALYSIS_DEFAULTS = 'new_analysis_defaults'
+
+PORTFOLIOS_PAGE = 'pages/portfolios.py'
+MODELS_PAGE = 'pages/models.py'
+ANALYSES_PAGE = 'pages/analyses.py'

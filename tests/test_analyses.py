@@ -1,99 +1,85 @@
-from streamlit.testing.v1 import AppTest
 import tests.mocks as m
+from tests.conftest import page_app
 
-from modules.client import ClientInterface
+from pages.components.common import NEW_ANALYSIS_DEFAULTS, SELECTED_ANALYSIS
 
-
-def analyses_app(client):
-    at = AppTest.from_file("app.py", default_timeout=30)
-    at.session_state["client"] = client
-    at.session_state["client_interface"] = ClientInterface(client=client)
-    at.switch_page("pages/analyses.py")
-    return at.run()
+PAGE = 'pages/analyses.py'
 
 
 def test_empty_analyses_page():
-    at = analyses_app(m.MockApiClient())
+    at = page_app(PAGE, m.MockApiClient())
 
     assert not at.exception
-
-    # Empty portfolios table shows only the name column
-    portfolios_df = at.dataframe[0].value
-    assert portfolios_df.empty
-    assert list(portfolios_df.columns) == ['name']
-    assert at.button[0].label == 'Create Portfolio'
-
-    assert [t.label for t in at.tabs] == ['Run Analysis', 'Create Analysis']
-
-    info = [i.value for i in at.info]
-    assert 'No analyses.' in info
-    assert 'Ensure portfolios and models are loaded.' in info
+    assert at.title[0].value == 'Analyses'
+    assert at.button[0].label == 'New analysis'
+    assert 'No analyses yet. Create one to get started.' in [i.value for i in at.info]
 
 
-def test_display_portfolio(mock_app_test, request):
-    at = mock_app_test
-
-    portfolios_df = at.dataframe[0].value
-    expected_names = [p['name'] for p in request.config.portfolios_data]
-    assert list(portfolios_df['name']) == expected_names
-
-
-def test_display_analyses(mock_app_test, request):
+def test_analyses_table(mock_app_test, request):
     config = request.config
     at = mock_app_test
-    analysis = config.analyses_data[0]
+    assert not at.exception
 
-    analyses_df = at.dataframe[1].value
-    assert len(analyses_df) == 1
-    row = analyses_df.iloc[0]
-
+    table = at.dataframe[0].value
+    assert len(table) == 1
+    row = table.iloc[0]
     assert row['id'] == config.analyses_ID
-    assert row['name'] == analysis['name']
-    assert row['status'] == analysis['status']
-    # Enriched from the portfolios / models endpoints
+    assert row['name'] == config.analyses_data[0]['name']
+    assert row['status_label'] == '🆕 New'
     assert row['portfolio_name'] == config.portfolios_data[0]['name']
-    assert row['model_id'] == config.models_data[0]['model_id']
-    assert row['model_supplier'] == config.models_data[0]['supplier_id']
+    assert row['model_name'] == config.models_data[0]['model_id']
 
 
-def test_create_portfolio_button_opens_dialog(mock_app_test):
-    at = mock_app_test
-
-    at = at.button[0].click().run()
+def test_selected_analysis_shows_detail(mock_api_client, request):
+    at = page_app(PAGE, mock_api_client, {SELECTED_ANALYSIS: request.config.analyses_ID})
 
     assert not at.exception
-    assert at.text_input(key='portfolio_name').label == 'Portfolio Name'
+    assert at.subheader[0].value == request.config.analyses_data[0]['name']
+    assert [t.label for t in at.tabs] == ['Results', 'Settings', 'Inputs', 'Logs']
+    # No settings yet, so it can't be run
+    run = [b for b in at.button if b.label == 'Run'][0]
+    assert run.disabled
 
 
-def test_create_portfolio_form_requires_name():
-    at = AppTest.from_file("tests/fixtures/create_portfolio_form_app.py").run()
+def test_new_analysis_view_from_portfolio(mock_api_client, request):
+    config = request.config
+    at = page_app(PAGE, mock_api_client, {NEW_ANALYSIS_DEFAULTS: {'portfolio': config.portfolio_ID}})
 
-    at = at.button[0].click().run()
-
-    assert 'Name' in at.error[0].value
-    assert 'form_data' not in at.session_state
-
-
-def test_create_portfolio_form_returns_data():
-    at = AppTest.from_file("tests/fixtures/create_portfolio_form_app.py").run()
-
-    at = at.text_input(key='portfolio_name').input('new-portfolio').run()
-    at = at.button[0].click().run()
-
-    assert not at.error
-    form_data = at.session_state['form_data']
-    assert form_data['name'] == 'new-portfolio'
-    assert form_data['location_file'] is None
+    assert not at.exception
+    assert at.subheader[0].value == 'New analysis'
+    assert at.selectbox(key='new_analysis_portfolio').value == config.portfolio_ID
+    # Only one model, so it is preselected
+    assert at.selectbox(key='new_analysis_model').value == config.model_ID
+    assert [t.label for t in at.tabs] == ['General', 'Model options', 'Outputs', 'Review']
 
 
-def test_create_analyses_form(mock_app_test, request):
-    at = mock_app_test
-    create_tab = at.tabs[1]
+def test_create_analysis(mock_api_client, request):
+    config = request.config
+    at = page_app(PAGE, mock_api_client, {NEW_ANALYSIS_DEFAULTS: {'portfolio': config.portfolio_ID}})
 
-    portfolio_select = create_tab.selectbox[0].options
-    assert len(portfolio_select) == len(request.config.portfolios_data)
-    assert request.config.portfolios_data[0]['name'] in portfolio_select[0]
+    at.text_input(key='new_analysis_name').input('my analysis').run()
+    [b for b in at.button if b.label == 'Create only'][0].click().run()
 
-    model_select = create_tab.selectbox[1].options
-    assert len(model_select) == len(request.config.models_data)
-    assert request.config.models_data[0]['supplier_id'] in model_select[0]
+    assert not at.exception
+    created = [a for a in mock_api_client.analyses.json_data if a['name'] == 'my analysis']
+    assert len(created) == 1
+    assert created[0]['status'] == 'NEW'
+    settings = mock_api_client.analyses.settings.data[created[0]['id']]
+    assert settings['model_name_id'] == config.models_data[0]['model_id']
+    assert settings['gul_output'] is True
+    # Back on the list with the new analysis selected
+    assert at.session_state[SELECTED_ANALYSIS] == created[0]['id']
+    assert at.session_state['analyses_view'] is None
+
+
+def test_create_and_run_analysis(mock_api_client, request):
+    config = request.config
+    at = page_app(PAGE, mock_api_client, {NEW_ANALYSIS_DEFAULTS: {'portfolio': config.portfolio_ID}})
+
+    [b for b in at.button if b.label == 'Create and run'][0].click().run()
+
+    assert not at.exception
+    created = mock_api_client.analyses.json_data[-1]
+    assert created['status'] == 'INPUTS_GENERATION_QUEUED'
+    # Name defaults to "<portfolio> – <model>"
+    assert created['name'] == f"{config.portfolios_data[0]['name']} – {config.models_data[0]['model_id']}"

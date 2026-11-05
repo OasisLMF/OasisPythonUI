@@ -116,6 +116,13 @@ class AnalysesEndpointInterface(EndpointInterface):
             return None
 
 
+    def cancel(self, ID):
+        return self.endpoint.cancel(ID)
+
+    def delete(self, ID):
+        return self.endpoint.delete(ID)
+
+
 class PortfoliosEndpointInterface(EndpointInterface):
     '''
     Interface for portfolios endpoint of the Oasis APIClient.
@@ -137,6 +144,29 @@ class PortfoliosEndpointInterface(EndpointInterface):
     def get_reinsurance_scope_file(self, ID, df=False):
         return self.get_file(ID, "reinsurance_scope_file", df)
 
+    FILE_TYPES = {
+        'location_file': 'Location',
+        'accounts_file': 'Accounts',
+        'reinsurance_info_file': 'Reinsurance info',
+        'reinsurance_scope_file': 'Reinsurance scope',
+    }
+
+    def upload_file(self, ID, file_type, file_bytes, filename):
+        '''Attach (or replace) one of the portfolio's OED files.'''
+        assert file_type in self.FILE_TYPES, f'Unknown portfolio file type {file_type}'
+        content_type = 'application/octet-stream' if filename.endswith('.parquet') else 'text/csv'
+        return getattr(self.endpoint, file_type).upload_byte(ID, file_bytes, filename, content_type)
+
+    def delete_file(self, ID, file_type):
+        assert file_type in self.FILE_TYPES, f'Unknown portfolio file type {file_type}'
+        return getattr(self.endpoint, file_type).delete(ID)
+
+    def rename(self, ID, name):
+        return self.endpoint.update(ID, name)
+
+    def delete(self, ID):
+        return self.endpoint.delete(ID)
+
     def create(self, name, location_file=None, accounts_file=None,
                reinsurance_info_file=None, reinsurance_scope_file=None):
         '''
@@ -152,17 +182,20 @@ class PortfoliosEndpointInterface(EndpointInterface):
         reinsurance_scope_file : UploadedFile
         '''
 
-        def prepare_upload_f(fname, fbytes):
-            if fbytes is None:
+        def prepare_upload_f(fname, upload):
+            if upload is None:
                 return None
-            return {'name': fname, 'bytes': fbytes}
+            # Keep the uploaded file's own name (and so its extension) where available
+            name = getattr(upload, 'name', None) or fname
+            data = upload.getvalue() if hasattr(upload, 'getvalue') else upload
+            return {'name': name, 'bytes': data}
 
         location_f = prepare_upload_f('location_file', location_file)
         accounts_f = prepare_upload_f('accounts_file', accounts_file)
         ri_info_f = prepare_upload_f('reinsurance_info_file', reinsurance_info_file)
         ri_scope_f = prepare_upload_f('reinsurance_scope_file', reinsurance_scope_file)
 
-        self.client.upload_inputs(portfolio_name=name,
+        return self.client.upload_inputs(portfolio_name=name,
                                   location_fp=location_f,
                                   accounts_fp=accounts_f,
                                   ri_info_fp=ri_info_f,
