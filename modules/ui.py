@@ -1,6 +1,4 @@
-'''
-Shared page scaffolding and feedback helpers for the standard UI pages.
-'''
+"""Shared page scaffolding and feedback helpers for the standard UI pages."""
 import json
 import logging
 
@@ -17,7 +15,7 @@ _FLASH_KEY = '_flash_messages'
 
 
 def page_setup(label, title=None):
-    '''Configure, authorise and add navigation to a page.
+    """Configure, authorise and add navigation to a page.
 
     Args:
         label: page label as configured in `ui-config.json`.
@@ -25,7 +23,7 @@ def page_setup(label, title=None):
 
     Returns:
         ClientInterface for the logged-in session.
-    '''
+    """
     ui_config = retrieve_ui_config()
     st.set_page_config(page_title=f'{label} · Oasis', layout='wide')
     validate_page(label)
@@ -37,7 +35,7 @@ def page_setup(label, title=None):
 
 
 def flash(message, icon='✅'):
-    '''Queue a toast to show after the next rerun (st.toast alone is lost on rerun).'''
+    """Queue a toast to show after the next rerun (st.toast alone is lost on rerun)."""
     st.session_state.setdefault(_FLASH_KEY, []).append((message, icon))
 
 
@@ -47,7 +45,7 @@ def show_flash():
 
 
 def api_error_message(error):
-    '''Human readable message for an API error, including the server's reason.'''
+    """Human readable message for an API error, including the server's reason."""
     if isinstance(error, HTTPError) and error.response is not None:
         try:
             detail = error.response.json()

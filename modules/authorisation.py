@@ -1,6 +1,4 @@
-'''
-Module to handle authorisation.
-'''
+"""Module to handle authorisation."""
 import os
 import requests
 from requests.exceptions import HTTPError
@@ -42,8 +40,9 @@ def logout():
 def handle_login(skip_login=False):
     """Handle the redirect behaviour for login or initalise if login skipped.
 
-    Parameters:
-        skip_login (bool): If True, login user
+    Args:
+        skip_login (bool): If True, log in with the service credentials instead of
+            redirecting to the login page.
     """
     if "client_interface" in st.session_state:
         return

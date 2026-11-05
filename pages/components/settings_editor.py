@@ -1,11 +1,10 @@
-'''
-Schema-driven analysis settings editor.
+"""Schema-driven analysis settings editor.
 
 Controls are generated from the ODS-tools analysis settings schema (general
 options and output flags) and from the selected model's settings (run options
 and model parameters). `analysis_settings_editor` returns the assembled
 settings dict on every rerun; the caller decides when to save it.
-'''
+"""
 import json
 from copy import deepcopy
 
@@ -25,7 +24,7 @@ def _label(entry, fallback):
 
 
 def _parse_number_list(text, cast):
-    '''Parse "10, 50, 100" into a list of numbers. Returns (values, error).'''
+    """Parse "10, 50, 100" into a list of numbers. Returns (values, error)."""
     if not text or not text.strip():
         return None, None
     try:
@@ -46,11 +45,11 @@ def _events_text(event_ids, event_ranges):
 
 
 def _parse_events(text):
-    '''Parse "1, 5, 100-120" into (event_ids, event_ranges, error).
+    """Parse "1, 5, 100-120" into (event_ids, event_ranges, error).
 
     Single ids go to `event_ids` and hyphenated ranges to `event_ranges`;
     oasislmf combines the two.
-    '''
+    """
     if not text or not text.strip():
         return None, None, None
     ids, ranges = [], []
@@ -75,26 +74,26 @@ def _parse_events(text):
 
 
 def selected_option(model_settings, setting, option_id):
-    '''The option dict chosen for a categorical model setting (e.g. the event set), or {}.'''
+    """The option dict chosen for a categorical model setting (e.g. the event set), or {}."""
     options = model_settings.get('model_settings', {}).get(setting, {}).get('options', [])
     return next((o for o in options if o.get('id') == option_id), {})
 
 
 def valid_metrics(model_settings, event_set=None):
-    '''Output metrics the model supports (None = no restriction).
+    """Output metrics the model supports (None = no restriction).
 
     An event set's `valid_metrics` overrides the model's `valid_output_metrics`.
-    '''
+    """
     return (event_set or {}).get('valid_metrics') or \
         model_settings.get('model_settings', {}).get('valid_output_metrics') or None
 
 
 def metric_allowed(flag, metrics):
-    '''Whether an ORD output flag is allowed by a `valid_metrics` list.
+    """Whether an ORD output flag is allowed by a `valid_metrics` list.
 
     Entries may name a flag exactly (`elt_sample`), a table family (`elt`,
     `plt`, `alt`, `ept`, `psept`), or a loss type (`aep`, `oep`).
-    '''
+    """
     if not metrics:
         return True
     family = flag.split('_')[0]
@@ -109,10 +108,10 @@ def default_ord_outputs(metrics=None):
 
 
 def perspective_availability(model_settings, portfolio, event_set=None):
-    '''Which perspectives can be run, with a reason for those that can't.
+    """Which perspectives can be run, with a reason for those that can't.
 
     An event set's `valid_perspectives` overrides the model's `valid_output_perspectives`.
-    '''
+    """
     valid = list((event_set or {}).get('valid_perspectives')
                  or model_settings.get('model_settings', {}).get('valid_output_perspectives') or PERSPECTIVES)
     # The model settings schema has no 'rl': ceded reinsurance follows 'ri'
@@ -134,7 +133,7 @@ def perspective_availability(model_settings, portfolio, event_set=None):
 
 
 def default_settings(model, model_settings):
-    '''Minimal starting settings for a model when no template is used.'''
+    """Minimal starting settings for a model when no template is used."""
     return {
         'model_supplier_id': model['supplier_id'],
         'model_name_id': model['model_id'],
@@ -146,11 +145,11 @@ def default_settings(model, model_settings):
 
 
 def group_field_options(model_settings, extra=(), portfolio_fields=()):
-    '''OED fields offered for grouping losses.
+    """OED fields offered for grouping losses.
 
     Common grouping fields and those the model suggests come first, followed
     by every other column in the portfolio's OED files (alphabetically).
-    '''
+    """
     data_settings = model_settings.get('data_settings', {})
     fields = list(DEFAULT_GROUP_FIELDS)
     for f in [*data_settings.get('damage_group_fields', []), *data_settings.get('hazard_group_fields', []),
@@ -236,7 +235,7 @@ def general_section(base, model_settings, key):
         out['join_summary_info'] = st.toggle(
             _label(entry, 'Join summary info'), value=bool(base.get('join_summary_info', True)),
             help=f"{entry.get('description', '')} Writes the group-by fields into each output file, "
-                 "so results can be broken down without a separate summary-info lookup. On by default.",
+            "so results can be broken down without a separate summary-info lookup. On by default.",
             key=f'{key}_join_summary_info')
 
     return {k: v for k, v in out.items() if v is not None}, errors
@@ -359,7 +358,7 @@ def _levels_state_key(key, scope):
 
 
 def _init_levels(key, scope, summaries, metrics=None):
-    '''Track summary levels for `scope` ('all' or a perspective) in session state.'''
+    """Track summary levels for `scope` ('all' or a perspective) in session state."""
     state_key = _levels_state_key(key, scope)
     if state_key not in st.session_state:
         levels = [deepcopy(s) for s in (summaries or [])]
@@ -370,10 +369,10 @@ def _init_levels(key, scope, summaries, metrics=None):
 
 
 def summary_levels_editor(key, scope, summaries, field_options, metrics=None):
-    '''Edit a list of summary levels (group-by fields + ORD outputs).
+    """Edit a list of summary levels (group-by fields + ORD outputs).
 
     `metrics` (from `valid_metrics`) disables outputs the model doesn't support.
-    '''
+    """
     levels = _init_levels(key, scope, summaries, metrics)
     flags = schemas.ord_output_options()
     result = []
@@ -501,7 +500,7 @@ def outputs_section(base, model_settings, portfolio, key, portfolio_fields=(), e
 ##########################################################################################
 
 def analysis_settings_editor(model, model_settings, portfolio, base_settings, key, portfolio_fields=()):
-    '''Render the editor and return `(settings, valid, problems)`.
+    """Render the editor and return `(settings, valid, problems)`.
 
     Args:
         model: model record from the API.
@@ -510,7 +509,7 @@ def analysis_settings_editor(model, model_settings, portfolio, base_settings, ke
         base_settings: settings to start from (template / existing settings).
         key: unique widget key prefix. Change it to reset the editor.
         portfolio_fields: columns in the portfolio's OED files, offered for grouping.
-    '''
+    """
     base = deepcopy(base_settings) if base_settings else default_settings(model, model_settings)
 
     general_tab, model_tab, outputs_tab, review_tab = st.tabs(
@@ -554,6 +553,6 @@ def analysis_settings_editor(model, model_settings, portfolio, base_settings, ke
 
 
 def reset_editor(key):
-    '''Clear editor state stored under `key` (e.g. after saving).'''
+    """Clear editor state stored under `key` (e.g. after saving)."""
     for k in [k for k in st.session_state if str(k).startswith(f'{key}_')]:
         del st.session_state[k]

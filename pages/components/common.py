@@ -1,32 +1,30 @@
-"""
-File containig some common methods for `pages/`.
-"""
+"""File containig some common methods for `pages/`."""
 import streamlit as st
 from urllib.parse import urlparse
 from pathlib import PurePosixPath
 
 PERSPECTIVES_MAP = {
-        'gul': 'Ground Up Loss',
-        'il': 'Insured Loss',
-        'ri': 'Reinsured Loss'
-        }
+    'gul': 'Ground Up Loss',
+    'il': 'Insured Loss',
+    'ri': 'Reinsured Loss'
+}
 
 STATUS_COLORS = {
-        'NEW': 'green',
-        'READY': 'green',
-        'RUN_STARTED': 'goldenrod',
-        'RUN_QUEUED': 'goldenrod',
-        'RUN_CANCELLED': 'darkred',
-        'RUN_ERROR': 'darkred',
-        'INPUTS_GENERATION_QUEUED': 'goldenrod',
-        'INPUTS_GENERATION_STARTED': 'goldenrod',
-        'INPUTS_GENERATION_CANCELLED': 'darkred',
-        'INPUTS_GENERATION_ERROR': 'darkred'
-        }
+    'NEW': 'green',
+    'READY': 'green',
+    'RUN_STARTED': 'goldenrod',
+    'RUN_QUEUED': 'goldenrod',
+    'RUN_CANCELLED': 'darkred',
+    'RUN_ERROR': 'darkred',
+    'INPUTS_GENERATION_QUEUED': 'goldenrod',
+    'INPUTS_GENERATION_STARTED': 'goldenrod',
+    'INPUTS_GENERATION_CANCELLED': 'darkred',
+    'INPUTS_GENERATION_ERROR': 'darkred'
+}
+
 
 def get_page_path():
-    """Get the current page path from streamlit context.
-    """
+    """Get the current page path from streamlit context."""
     return PurePosixPath(urlparse(st.context.url).path).parts[-1]
 
 
@@ -54,7 +52,7 @@ ERROR_STATUSES = ['INPUTS_GENERATION_ERROR', 'RUN_ERROR']
 
 
 def format_status(status):
-    '''e.g. `RUN_COMPLETED` -> `✅ Run completed`.'''
+    """e.g. `RUN_COMPLETED` -> `✅ Run completed`."""
     if not isinstance(status, str):
         return ''
     label = status.replace('_', ' ').capitalize()
@@ -62,12 +60,12 @@ def format_status(status):
 
 
 def analysis_progress(analysis):
-    '''Progress of a running analysis as `(fraction or None, description)`.
+    """Progress of a running analysis as `(fraction or None, description)`.
 
     Uses the events completed during the loss calculation when the worker
     reports them (needs `OASIS_ANALYSIS_STATUS_URL` set on the worker),
     otherwise the sub-task counts.
-    '''
+    """
     events_total = analysis.get('num_events_total') or 0
     events_done = analysis.get('num_events_complete') or 0
     if analysis.get('status') == 'RUN_STARTED' and events_total:
@@ -82,10 +80,10 @@ def analysis_progress(analysis):
 
 
 def current_task(sub_tasks):
-    '''Name of the sub-task(s) being worked on, e.g. "Generate losses chunk 0".
+    """Name of the sub-task(s) being worked on, e.g. "Generate losses chunk 0".
 
     Falls back to the next queued task when nothing has started yet.
-    '''
+    """
     started = [t.get('name') for t in sub_tasks if t.get('status') == 'STARTED' and t.get('name')]
     if started:
         return ', '.join(dict.fromkeys(started))
@@ -98,14 +96,14 @@ def current_task(sub_tasks):
 ##########################################################################################
 
 def selectable_table(df, columns, state_key, column_config=None, key=None, height='auto'):
-    '''Show `df` as a single-row selectable table and remember the selected `id`.
+    """Show `df` as a single-row selectable table and remember the selected `id`.
 
     The selection is stored in `st.session_state[state_key]` so that other
     pages can preselect a record (set the key, then `st.switch_page`).
 
     Returns:
         The selected record id, or None.
-    '''
+    """
     key = key or f'{state_key}_table'
     ids = df['id'].tolist() if not df.empty else []
 
@@ -122,7 +120,7 @@ def selectable_table(df, columns, state_key, column_config=None, key=None, heigh
 
 
 def open_record(page, state_key, record_id):
-    '''Navigate to `page` with `record_id` preselected.'''
+    """Navigate to `page` with `record_id` preselected."""
     st.session_state[state_key] = record_id
     st.switch_page(page)
 

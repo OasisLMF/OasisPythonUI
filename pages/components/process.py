@@ -8,6 +8,7 @@ from modules.logging import get_session_logger
 
 logger = get_session_logger()
 
+
 def number_rows(portfolio_ids, client_interface, filename='location_file', col_name='number_rows'):
     data = {'id': [], col_name: []}
     for id in portfolio_ids:
@@ -29,8 +30,10 @@ def number_rows(portfolio_ids, client_interface, filename='location_file', col_n
 def number_locations(portfolio_ids, client_interface):
     return number_rows(portfolio_ids, client_interface, filename='location_file', col_name='number_locations')
 
+
 def number_accounts(portfolio_ids, client_interface):
     return number_rows(portfolio_ids, client_interface, filename='accounts_file', col_name='number_accounts')
+
 
 def portfolio_files(portfolios):
     enriched = portfolios['id'].to_frame()
@@ -73,6 +76,7 @@ def enrich_analyses_with_portfolios(analyses, portfolios):
 
     return analyses
 
+
 def enrich_analyses_with_models(analyses, models):
     cols = ['id', 'model_id', 'supplier_id']
     if 'model_name' in models:
@@ -81,6 +85,7 @@ def enrich_analyses_with_models(analyses, models):
     analyses = analyses.set_index('model').join(models.set_index('id')).reset_index(names='model')
 
     return analyses
+
 
 def enrich_analyses(analyses, portfolios=None, models=None):
     # add portfolio names
@@ -102,13 +107,13 @@ def add_model_names_to_models_cached(models: pd.DataFrame,
 
 
 def add_model_names_to_models(models, ci, col_name='model_name'):
-    '''Add the model names to models. Note the model `id` should be the index of the models.
+    """Add the model names to models. Note the model `id` should be the index of the models.
 
     Args:
         models (DataFrame): dataframe containing models endpoint output
         ci (ClientInterface): intialised client interface
         col_name (str) : column name for model names
-    '''
+    """
     models[col_name] = ''
     for model_id, _ in models.iterrows():
         try:
@@ -120,4 +125,3 @@ def add_model_names_to_models(models, ci, col_name='model_name'):
     models[col_name] = models[col_name].fillna(models['model_id'])
 
     return models
-

@@ -1,6 +1,7 @@
 from pathlib import Path
 import re
 
+
 def get_analyses_settings(defaults_path=None, model_id=None, model_name_id=None,
                           supplier_id=None):
     if defaults_path is None:

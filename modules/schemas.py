@@ -1,10 +1,9 @@
-'''
-Access to the ODS-tools analysis / model settings JSON schemas.
+"""Access to the ODS-tools analysis / model settings JSON schemas.
 
 The schemas are the source of truth for labels, descriptions, defaults and
 the available output options, so the UI follows ods_tools upgrades rather
 than hard-coding them.
-'''
+"""
 import json
 from functools import lru_cache
 from pathlib import Path
@@ -62,18 +61,18 @@ def model_settings_schema():
 
 
 def analysis_property(key):
-    '''Schema entry for a top-level analysis settings key (`{}` if unknown).'''
+    """Schema entry for a top-level analysis settings key (`{}` if unknown)."""
     return analysis_settings_schema()['properties'].get(key, {})
 
 
 def model_settings_property(key):
-    '''Schema entry for a key under the model settings `model_settings` section.'''
+    """Schema entry for a key under the model settings `model_settings` section."""
     props = model_settings_schema()['properties']['model_settings'].get('properties', {})
     return props.get(key, {})
 
 
 def model_property(key):
-    '''Schema entry for a top-level model settings key.'''
+    """Schema entry for a top-level model settings key."""
     return model_settings_schema()['properties'].get(key, {})
 
 
@@ -82,11 +81,11 @@ def title(schema_entry, fallback):
 
 
 def ord_output_options():
-    '''Boolean ORD output flags from the schema as `{key: (title, description)}`.
+    """Boolean ORD output flags from the schema as `{key: (title, description)}`.
 
     Excludes the non-table flags (`parquet_format`, `alct_confidence`,
     `return_period_file`), which are handled separately.
-    '''
+    """
     props = (analysis_settings_schema()['definitions']['output_summaries']
              ['items']['properties']['ord_output']['properties'])
     skip = {'parquet_format', 'alct_confidence', 'return_period_file'}
@@ -113,7 +112,7 @@ DEFAULT_ORD_OUTPUTS = ['elt_moment', 'alt_meanonly', 'ept_full_uncertainty_aep',
 
 
 def validate_analysis_settings(settings):
-    '''Validate analysis settings against the ODS analysis settings schema.
+    """Validate analysis settings against the ODS analysis settings schema.
 
     The model-derived schema (`AnalysisSettingHandler.make(model_setting_json=...)`)
     isn't used: in ods_tools 5.0.x it rejects the event/footprint set selectors
@@ -122,5 +121,5 @@ def validate_analysis_settings(settings):
 
     Returns:
         (bool, dict): validity and `{field: [messages]}`.
-    '''
+    """
     return AnalysisSettingHandler.make().validate(settings, raise_error=False)

@@ -1,6 +1,4 @@
-'''
-Schema-driven display of a model's settings (`model_settings.json`).
-'''
+"""Schema-driven display of a model's settings (`model_settings.json`)."""
 import json
 
 import pandas as pd
@@ -64,7 +62,7 @@ def model_perils(settings):
 
 
 def model_options(settings):
-    '''Categorical selectors (event set, footprint set, ...) and their options.'''
+    """Categorical selectors (event set, footprint set, ...) and their options."""
     ms = settings.get('model_settings', {})
     found = False
     for key in CATEGORICAL_MODEL_SETTINGS:
@@ -88,7 +86,7 @@ def model_options(settings):
 
 
 def model_parameters(settings):
-    '''User-settable model parameters, grouped as the model defines.'''
+    """User-settable model parameters, grouped as the model defines."""
     ms = settings.get('model_settings', {})
     rows = []
     for key, kind in PARAMETER_TYPES.items():

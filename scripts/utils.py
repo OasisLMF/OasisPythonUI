@@ -24,9 +24,7 @@ def parse_initialise_args(**kwargs):
 
 
 def initialise_client(max_retries=1, retry_interval=5):
-    '''
-    Initialise APIClient with retries whilst waiting for the server to come online.
-    '''
+    """Initialise APIClient with retries whilst waiting for the server to come online."""
     logger.info("Initialising client")
     api_url = os.environ.get('API_URL', 'http://ui.oasis.local/api')
     auth_type = st.secrets.get('auth_type', 'simple')

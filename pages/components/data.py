@@ -1,11 +1,10 @@
-'''
-Loading and shaping platform records for the standard UI pages.
+"""Loading and shaping platform records for the standard UI pages.
 
 List endpoints are always fetched fresh. Larger payloads (exposure files,
 analysis inputs/outputs) are cached per session, keyed on the record's
 `modified` timestamp, so they refresh after any change but are not shared
 between users.
-'''
+"""
 import logging
 import re
 
@@ -23,7 +22,7 @@ _CACHE_MAX = 20
 
 
 def session_cached(key, loader):
-    '''Return `loader()` cached in this session under `key`.'''
+    """Return `loader()` cached in this session under `key`."""
     cache = st.session_state.setdefault(_CACHE_KEY, {})
     if key not in cache:
         if len(cache) >= _CACHE_MAX:
@@ -56,7 +55,7 @@ _FILE_PATTERNS = [
 
 
 def guess_file_type(filename):
-    '''Guess the portfolio file type from an uploaded file's name (or None).'''
+    """Guess the portfolio file type from an uploaded file's name (or None)."""
     name = filename.lower()
     for file_type, pattern in _FILE_PATTERNS:
         if re.search(pattern, name):
@@ -65,7 +64,7 @@ def guess_file_type(filename):
 
 
 def portfolios_df(portfolios, analyses=None):
-    '''Portfolio records as a DataFrame with file-presence and analysis-count columns.'''
+    """Portfolio records as a DataFrame with file-presence and analysis-count columns."""
     rows = []
     for p in portfolios:
         row = {'id': p['id'], 'name': p['name'],
@@ -81,7 +80,7 @@ def portfolios_df(portfolios, analyses=None):
 
 
 def portfolio_file_df(ci, portfolio, file_type):
-    '''Dataframe of one of a portfolio's OED files (cached until it changes).'''
+    """Dataframe of one of a portfolio's OED files (cached until it changes)."""
     if not (portfolio.get(file_type) or {}).get('stored'):
         return None
     key = ('portfolio_file', portfolio['id'], file_type, portfolio.get('modified'),
@@ -94,7 +93,7 @@ def portfolio_file_df(ci, portfolio, file_type):
 ##########################################################################################
 
 def model_settings(ci, model_id):
-    '''Model settings dict ({} if the model has none registered).'''
+    """Model settings dict ({} if the model has none registered)."""
     try:
         return ci.models.settings.get(model_id) or {}
     except HTTPError as e:
@@ -140,7 +139,7 @@ def cached_model_settings(ci, model):
 ##########################################################################################
 
 def analyses_df(analyses, portfolios, models_frame):
-    '''Analysis records enriched with portfolio and model names.'''
+    """Analysis records enriched with portfolio and model names."""
     portfolio_names = {p['id']: p['name'] for p in portfolios}
     model_names = dict(zip(models_frame['id'], models_frame['name'])) if not models_frame.empty else {}
     rows = []
@@ -173,6 +172,6 @@ def analysis_settings(ci, analysis):
 
 
 def analysis_files(ci, analysis, file_type):
-    '''Input or output files for an analysis as `{filename: DataFrame}`.'''
+    """Input or output files for an analysis as `{filename: DataFrame}`."""
     key = (file_type, analysis['id'], analysis.get('modified'))
     return session_cached(key, lambda: ci.analyses.get_file(analysis['id'], file_type, df=True) or {})

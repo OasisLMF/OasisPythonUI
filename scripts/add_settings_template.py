@@ -9,6 +9,7 @@ from utils import LOG_LEVEL
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=LOG_LEVEL)
 
+
 def add_model_analysis_settings(client, model_id, analysis_settings_path):
     models = client.models.search({'model_id': str(model_id)}).json()
     if not models:
@@ -61,5 +62,5 @@ def main():
                                     model_analysis_config["settings_path"])
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()

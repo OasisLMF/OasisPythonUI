@@ -14,7 +14,7 @@ logger = get_session_logger()
 
 
 def tar_to_zip(tar_bytes):
-    '''Repack a (gzipped) tar archive as a zip archive, keeping paths.'''
+    """Repack a (gzipped) tar archive as a zip archive, keeping paths."""
     out = io.BytesIO()
     with tarfile.open(fileobj=io.BytesIO(tar_bytes), mode='r:*') as tar, \
             zipfile.ZipFile(out, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
@@ -29,9 +29,7 @@ def tar_to_zip(tar_bytes):
 
 
 class JsonEndpointInterface:
-    '''
-    Abstract class for handling a endpoint of the Oasis APIClient restricted to json output.
-    '''
+    """Abstract class for handling a endpoint of the Oasis APIClient restricted to json output."""
 
     def __init__(self, client, endpoint_name='portfolios'):
         self.endpoint = getattr(client, endpoint_name)
@@ -41,9 +39,7 @@ class JsonEndpointInterface:
 
 
 class SettingsTemplateInterface:
-    '''
-    Class for handling interactions with the SettingsTemplateEndpoint of the Oasis APIClient
-    '''
+    """Class for handling interactions with the SettingsTemplateEndpoint of the Oasis APIClient"""
 
     def __init__(self, client):
         self.endpoint = getattr(client, 'setting_templates', None)
@@ -60,10 +56,9 @@ class SettingsTemplateInterface:
 
 
 class EndpointInterface:
-    '''
-    Abstract class for handling a endpoint of the Oasis APIClient. Includes
+    """Abstract class for handling a endpoint of the Oasis APIClient. Includes
     handling both file and json endpoints.
-    '''
+    """
 
     def __init__(self, client, endpoint_name='portfolios'):
         self.endpoint = getattr(client, endpoint_name)
@@ -92,9 +87,7 @@ class EndpointInterface:
 
 
 class ModelsEndpointInterface(EndpointInterface):
-    '''
-    Interface for models endpoint of the Oasis APIClient.
-    '''
+    """Interface for models endpoint of the Oasis APIClient."""
 
     def __init__(self, client):
         super().__init__(client, endpoint_name='models')
@@ -103,17 +96,14 @@ class ModelsEndpointInterface(EndpointInterface):
 
 
 class AnalysesEndpointInterface(EndpointInterface):
-    '''
-    Interface for analyses endpoint of the Oasis APIClient.
-    '''
+    """Interface for analyses endpoint of the Oasis APIClient."""
 
     def __init__(self, client):
         super().__init__(client, endpoint_name='analyses')
         self.settings = JsonEndpointInterface(self.endpoint, endpoint_name='settings')
 
     def get_traceback(self, ID, error_type='input_generation'):
-        '''
-        Get the contents of the traceback file if it exists
+        """Get the contents of the traceback file if it exists
 
         Parameters
         ----------
@@ -125,7 +115,7 @@ class AnalysesEndpointInterface(EndpointInterface):
         Returns
         -------
         `str` contents of traceback file or `None` if the file does not exist.
-        '''
+        """
         traceback_endpoint = error_type + '_traceback_file'
 
         try:
@@ -134,12 +124,11 @@ class AnalysesEndpointInterface(EndpointInterface):
             logger.error(e)
             return None
 
-
     def cancel(self, ID):
         return self.endpoint.cancel(ID)
 
     def sub_tasks(self, ID):
-        '''Sub-tasks of an analysis run (name, status, ...); [] if unavailable.'''
+        """Sub-tasks of an analysis run (name, status, ...); [] if unavailable."""
         try:
             return self.endpoint.sub_task_list(ID).json() or []
         except (HTTPError, ValueError) as e:
@@ -151,9 +140,7 @@ class AnalysesEndpointInterface(EndpointInterface):
 
 
 class PortfoliosEndpointInterface(EndpointInterface):
-    '''
-    Interface for portfolios endpoint of the Oasis APIClient.
-    '''
+    """Interface for portfolios endpoint of the Oasis APIClient."""
 
     def __init__(self, client):
         super().__init__(client, "portfolios")
@@ -179,7 +166,7 @@ class PortfoliosEndpointInterface(EndpointInterface):
     }
 
     def upload_file(self, ID, file_type, file_bytes, filename):
-        '''Attach (or replace) one of the portfolio's OED files.'''
+        """Attach (or replace) one of the portfolio's OED files."""
         assert file_type in self.FILE_TYPES, f'Unknown portfolio file type {file_type}'
         content_type = 'application/octet-stream' if filename.endswith('.parquet') else 'text/csv'
         return getattr(self.endpoint, file_type).upload_byte(ID, file_bytes, filename, content_type)
@@ -196,18 +183,21 @@ class PortfoliosEndpointInterface(EndpointInterface):
 
     def create(self, name, location_file=None, accounts_file=None,
                reinsurance_info_file=None, reinsurance_scope_file=None):
-        '''
-        Create a portfolio using the `UploadedFile` objects created when using the `st.file_uploader`.
+        """Create a portfolio using the `UploadedFile` objects created when using the `st.file_uploader`.
 
         Parameters
         ----------
         name : str
                Name for the assigned portfolio
         location_file : UploadedFile
+               OED location file.
         accounts_file : UploadedFile
+               OED accounts file.
+        reinsurance_info_file : UploadedFile
+               OED reinsurance info file.
         reinsurance_scope_file : UploadedFile
-        reinsurance_scope_file : UploadedFile
-        '''
+               OED reinsurance scope file.
+        """
 
         def prepare_upload_f(fname, upload):
             if upload is None:
@@ -223,22 +213,21 @@ class PortfoliosEndpointInterface(EndpointInterface):
         ri_scope_f = prepare_upload_f('reinsurance_scope_file', reinsurance_scope_file)
 
         return self.client.upload_inputs(portfolio_name=name,
-                                  location_fp=location_f,
-                                  accounts_fp=accounts_f,
-                                  ri_info_fp=ri_info_f,
-                                  ri_scope_fp=ri_scope_f)
+                                         location_fp=location_f,
+                                         accounts_fp=accounts_f,
+                                         ri_info_fp=ri_info_f,
+                                         ri_scope_fp=ri_scope_f)
 
 
 class ClientInterface:
-    '''
-    Wrapper interface around the Oasis APIClient.
+    """Wrapper interface around the Oasis APIClient.
 
     Attributes:
         client: Instance of the `APIClient` from `oasislmf.platform_api.client`.
         portfolios: Interface for managing portfolios.
         analyses: Interface for managing analyses.
         models: Interface for managing models.
-    '''
+    """
 
     def __init__(self, client=None, auth_type=None, username=None, password=None, access_token=None, refresh_token=None, client_id=None, client_secret=None):
         api_url = os.environ.get('API_URL', 'http://localhost:8000')
@@ -265,8 +254,7 @@ class ClientInterface:
         return resp
 
     def create_and_generate_analysis(self, portfolio_id, model_id, analysis_name):
-        '''Create the analysis and run input generation.
-        '''
+        """Create the analysis and run input generation."""
         resp = self.create_analysis(portfolio_id, model_id, analysis_name)
         resp = self.generate(resp["id"])
 
@@ -276,27 +264,23 @@ class ClientInterface:
         self.client.upload_settings(analysis_id, analysis_settings)
 
     def run(self, analysis_id):
-        '''Run the analysis specified by `analysis_id`.
-        '''
+        """Run the analysis specified by `analysis_id`."""
         return self.client.analyses.run(analysis_id)
 
     def generate(self, analysis_id):
-        '''Run input generation of `analysis_id`.
-        '''
+        """Run input generation of `analysis_id`."""
         return self.client.analyses.generate(analysis_id)
 
     def generate_and_run(self, analysis_id):
-        '''Generate input files and run the analysis specified by `analysis_id`.
-        '''
+        """Generate input files and run the analysis specified by `analysis_id`."""
         return self.client.analyses.generate_and_run(analysis_id)
 
     def download_output_zip(self, analysis_id):
-        '''Analysis outputs as zip bytes (the API serves a .tar.gz).'''
+        """Analysis outputs as zip bytes (the API serves a .tar.gz)."""
         return tar_to_zip(self.download_output(analysis_id))
 
     def download_output(self, analysis_id):
-        '''Retrieve the output files from a given analysis specified by `analysis_id`.
-        '''
+        """Retrieve the output files from a given analysis specified by `analysis_id`."""
         with tempfile.TemporaryDirectory() as tmpdir:
             self.client.download_output(analysis_id, download_path=tmpdir)
             fname = os.listdir(tmpdir)[0]
