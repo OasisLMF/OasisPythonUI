@@ -24,6 +24,10 @@ def main():
     parser.add_argument('--password', help='Password for oasislmf client.',
                         default='password')
 
+    parser.add_argument('--keep-tag', action='append', default=[],
+                        help='Never delete analyses whose name ends with this tag, e.g. "[showcase]". '
+                             'Can be given more than once.')
+
     parser.add_argument('--log', help='Set logging level.', default='WARNING')
     parser.add_argument('--retry_time', help='Time between retries (s).', default=60, type=int)
     parser.add_argument('--n_retries', help='Number of retries.', default=30, type=int)
@@ -56,6 +60,7 @@ def main():
             time.sleep(args.retry_time)
 
     old_analyses = client.analyses.search(metadata={'created__lt': week_ago}).json()
+    old_analyses = [a for a in old_analyses if not any(a['name'].endswith(t) for t in args.keep_tag)]
     analysis_ids = [a['id'] for a in old_analyses]
 
     confirmed = 'n'

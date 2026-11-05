@@ -24,11 +24,16 @@ def add_model_analysis_settings(client, model_id, analysis_settings_path):
     with open(analysis_settings_path, "r") as f:
         analysis_settings_json = json.load(f)
 
-    # send post to make template
+    # Reuse an existing template of the same name so re-running updates it
     model_pk = models[0]["id"]
-    data = {"name": f"{model_id}_default_settings"}
-    resp = client.models.setting_templates.post(model_pk, data=data).json()
-    template_id = resp["id"]
+    name = f"{model_id}_default_settings"
+    existing = [t for t in client.models.setting_templates.get(model_pk).json() if t.get("name") == name]
+    if existing:
+        template_id = existing[0]["id"]
+        logger.info(f"Updating existing template {name} ({template_id})")
+    else:
+        resp = client.models.setting_templates.post(model_pk, data={"name": name}).json()
+        template_id = resp["id"]
 
     # send post with content
     logger.info(f"[ ] Uploading analysis settings template for {model_id}...")

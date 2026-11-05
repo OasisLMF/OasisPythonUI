@@ -250,3 +250,24 @@ services:
     volumes:
       - ${SCENARIOS_PATH}/IPE/FranceHail/:/home/worker/model
       - filestore-data:/shared-fs:rw
+
+  # Loads the scenario portfolios, settings templates and showcase analyses
+  # (scripts/scenarios_setup.sh). Idempotent, so it runs on every deploy.
+  scenarios-setup:
+    image: ${PYTHONUI_IMG:-coreoasis/oasispythonui_app}:${VERS_UI:-latest}
+    restart: "no"
+    entrypoint: ["bash", "scripts/scenarios_setup.sh"]
+    environment:
+      - API_URL=http://server:8000
+      - API_AUTH_TYPE=${API_AUTH_TYPE:-simple}
+      - OASIS_SERVICE_USERNAME_OR_ID=${OASIS_SERVICE_USERNAME_OR_ID:-}
+      - OASIS_SERVICE_PASSWORD_OR_SECRET=${OASIS_SERVICE_PASSWORD_OR_SECRET:-}
+      - SCENARIOS_UI_CONFIG=scenarios/ui-config.json
+    volumes:
+      # Portfolio paths in scenarios/portfolios.json are relative to /usr/src/app
+      - ./OasisPiWind/:/usr/src/app/OasisPiWind:ro
+      - ${SCENARIOS_PATH}:/usr/src/Scenarios:ro
+      - ${UI_STREAMLIT:-./.streamlit/}:/usr/src/app/.streamlit:ro
+    depends_on:
+      server:
+        condition: service_healthy

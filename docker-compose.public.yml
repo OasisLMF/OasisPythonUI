@@ -1,0 +1,70 @@
+# ============================================================================
+# Public, credential-free Scenarios demo
+# ============================================================================
+# Added by install.sh when OASIS_PUBLIC_DEMO=true (see .env.scenarios). Use
+# with the scenarios model set and simple auth.
+#
+# - The UI runs the Scenarios app (scenarios_app.py) instead of the standard UI:
+#   visitors can run pre-loaded scenarios but cannot upload or delete anything.
+# - Only Traefik's http/https ports are published. The API, websocket,
+#   databases and broker have no host ports and no public routes, so the
+#   platform is only reachable through the UI.
+# - Visitors' runs are pruned daily; showcase runs are kept.
+# ============================================================================
+
+services:
+  traefik:
+    ports: !override
+      - "${OASIS_HTTP_PORT-80}:80"
+      - "${OASIS_HTTPS_PORT-443}:443"
+
+  server:
+    ports: !reset []
+    labels:
+      - "traefik.enable=false"
+
+  server-websocket:
+    ports: !reset []
+    labels:
+      - "traefik.enable=false"
+
+  server-db:
+    ports: !reset []
+
+  celery-db:
+    ports: !reset []
+
+  broker:
+    ports: !reset []
+
+  channel-layer:
+    ports: !reset []
+
+  pythonui:
+    entrypoint: ["streamlit", "run", "scenarios_app.py", "--server.port=8501"]
+    ports: !reset []
+    environment:
+      - OASIS_UI_CONFIG=/usr/src/app/scenarios/ui-config.json
+
+  # Delete visitors' runs older than OASIS_PRUNE_DAYS (default 7), keeping showcase runs
+  scenarios-prune:
+    image: ${PYTHONUI_IMG:-coreoasis/oasispythonui_app}:${VERS_UI:-latest}
+    restart: always
+    entrypoint:
+      - bash
+      - -c
+      - |
+        while true; do
+          python3 scripts/prune_analysis.py --force --days "$${OASIS_PRUNE_DAYS:-7}" \
+            --keep-tag "[showcase]" --user "$${OASIS_SERVICE_USERNAME_OR_ID}" \
+            --password "$${OASIS_SERVICE_PASSWORD_OR_SECRET}" --log INFO
+          sleep 86400
+        done
+    environment:
+      - API_URL=http://server:8000
+      - OASIS_PRUNE_DAYS=${OASIS_PRUNE_DAYS:-7}
+      - OASIS_SERVICE_USERNAME_OR_ID=${OASIS_SERVICE_USERNAME_OR_ID:-}
+      - OASIS_SERVICE_PASSWORD_OR_SECRET=${OASIS_SERVICE_PASSWORD_OR_SECRET:-}
+    depends_on:
+      server:
+        condition: service_healthy

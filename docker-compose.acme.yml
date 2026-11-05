@@ -1,0 +1,33 @@
+# ============================================================================
+# Let's Encrypt certificates for a public hostname
+# ============================================================================
+# Added by install.sh when OASIS_ACME_EMAIL is set. Traefik obtains and renews
+# a certificate for OASIS_UI_HOSTNAME using the HTTP challenge, so the hostname
+# must resolve to this machine and port 80 must be reachable from the internet.
+# Without it, certs/ui.crt (scripts/generate-certs.sh) is served instead.
+# ============================================================================
+
+volumes:
+  letsencrypt-data:
+
+services:
+  traefik:
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
+      - "--ping=true"
+      - "--api.insecure=true"
+      - "--certificatesresolvers.letsencrypt.acme.email=${OASIS_ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+    volumes:
+      - letsencrypt-data:/letsencrypt
+
+  pythonui:
+    labels:
+      - "traefik.http.routers.pythonui-secure.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.pythonui-secure.tls.domains[0].main=${OASIS_UI_HOSTNAME}"

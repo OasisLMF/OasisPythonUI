@@ -14,8 +14,10 @@ The standard UI (`ui-config.json`) has three pages:
 Analysis settings are edited with controls generated from the ODS-tools
 analysis and model settings schemas, and validated before they are saved.
 
-The Scenarios UI (`scenarios/ui-config.json`) is configured separately and adds
-the `/scenarios`, `/comparison` and `/scenariosGuide` pages.
+A separate, credential-free **Scenarios app** (`scenarios_app.py`) is for the
+public demo: visitors run pre-loaded disaster scenarios against pre-loaded
+exposure and explore the results, but cannot upload anything. See
+[Public Scenarios demo](#public-scenarios-demo).
 
 Which pages appear in the sidebar is controlled by the UI config file.
 
@@ -175,7 +177,7 @@ Model sets shipped in this repository:
 | File | Contents |
 |------|----------|
 | `docker-compose.models.piwind.yml` | A `model-registration` one-shot and `piwind-worker`, with model data from `./OasisPiWind/`. |
-| `docker-compose.models.scenarios.yml` | `piwind-worker` plus the scenario workers (Impact Forecasting, JBA, ARA, IPE), with model data from `${SCENARIOS_PATH}`. |
+| `docker-compose.models.scenarios.yml` | `piwind-worker` plus the scenario workers (Impact Forecasting, JBA, ARA, IPE), with model data from `${SCENARIOS_PATH}`, and a `scenarios-setup` one-shot that loads the scenario portfolios, settings templates and showcase runs. |
 
 Because the split is by filename, adding a model set means dropping two new
 files into the root directory — no edits to `docker-compose.yml`, `install.sh`
@@ -314,7 +316,73 @@ docker compose logs -f <container_name>    # UI logs
 - The `.env` templates and `users.yaml` files ship with **demo credentials**.
   Change all passwords before any non-local deployment.
 
-## Public Demo
+## Public Scenarios demo
 
-The public site is at https://ui.oasislmf-scenarios.com/
-Default scenarios in the tool are processed/hosted at https://github.com/OasisLMF/Scenarios
+The public site is at https://oasislmf-scenarios.com/. Its scenarios are
+published in https://github.com/OasisLMF/Scenarios.
+
+The demo runs the **Scenarios app** (`scenarios_app.py`, pages in
+`scenarios_ui/`), not the standard UI. It is credential free: the app uses a
+service account for everyone, and visitors can:
+
+- **Run a scenario** - choose a scenario, check the exposure it runs against,
+  choose the number of samples and a loss breakdown, run it and explore the
+  results.
+- **Showcase** - explore pre-computed results without waiting.
+- **Compare** - put two runs (showcase or their own) side by side.
+- **Guide** - how loss models work and how to read the results.
+
+Visitors only see their own runs (identified by the `?v=` id in the URL) and the
+showcase runs. They cannot upload exposure, and the standard UI's pages are not
+part of the app. Limits are set in the `scenarios` section of
+`scenarios/ui-config.json`:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `max_samples` | 50 | Maximum number of samples per run |
+| `default_samples` | 10 | Initial number of samples |
+| `max_active_runs_per_visitor` | 2 | Runs one visitor can have in progress |
+| `max_active_runs` | 10 | Runs in progress across all visitors before new runs wait |
+| `showcase_tag` | `[showcase]` | Name tag marking showcase runs |
+
+`model_map` in the same file lists which pre-loaded portfolios each scenario
+model can be run against.
+
+### Deploying
+
+```bash
+cp .env.scenarios .env    # set every CHANGE_ME value, SCENARIOS_PATH and the hostname
+./install.sh              # or ./install.sh --yes for an unattended redeploy
+```
+
+With `OASIS_PUBLIC_DEMO=true`, `install.sh` adds `docker-compose.public.yml`:
+
+- the UI runs the Scenarios app;
+- only Traefik's http/https ports are published - the API, websocket, databases
+  and broker have no host ports and no public routes;
+- a `scenarios-prune` service deletes visitors' runs older than
+  `OASIS_PRUNE_DAYS` (showcase runs are kept).
+
+The installer refuses to deploy a public demo while `.env` still contains
+`CHANGE_ME` placeholders. Set `OASIS_ACME_EMAIL` to get a Let's Encrypt
+certificate for `OASIS_UI_HOSTNAME` (`docker-compose.acme.yml`; the hostname
+must resolve to the server and port 80 must be reachable).
+
+The `scenarios-setup` service runs on every deploy and is idempotent: it adds
+missing portfolios (`scenarios/portfolios.json`), updates the settings templates
+(`scenarios/a_settings.json`) and starts a showcase run for any scenario that
+doesn't have one (`scripts/add_showcase_analyses.py`).
+
+The **Docker Scenarios UI CD** workflow deploys to the hosted server by running
+`scenarios/deploy_scenarios_ui.sh` there, which uses `install.sh`. The server's
+`.env` must be a configured copy of `.env.scenarios`.
+
+To run the Scenarios app locally against an existing platform:
+
+```bash
+OASIS_UI_CONFIG=scenarios/ui-config.json streamlit run scenarios_app.py
+```
+
+The UI and setup scripts take the service account from
+`OASIS_SERVICE_USERNAME_OR_ID` / `OASIS_SERVICE_PASSWORD_OR_SECRET` (set by
+`install.sh` from `.env`), falling back to `.streamlit/secrets.toml`.
