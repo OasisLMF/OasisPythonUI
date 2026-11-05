@@ -23,6 +23,13 @@ def SidebarNav(no_client=False):
                         logout()
         else:
             st.page_link('app.py', label="Login")
-    # Add logo
+    # Add logo. Streamlit's largest logo size (2rem) leaves the wide Oasis
+    # wordmark cramped, so enlarge it in the sidebar and collapsed header.
     st.logo(image="images/oasis_logo_bg.png",
             size="large")
+    st.html('''<style>
+        [data-testid="stSidebarLogo"], [data-testid="stHeaderLogo"] {
+            height: 3rem;
+            max-width: 100%;
+        }
+    </style>''')
