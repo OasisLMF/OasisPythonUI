@@ -12,6 +12,7 @@ services:
       - "traefik.http.routers.pythonui.rule=PathPrefix(`/`)"
       - "traefik.http.routers.pythonui.entrypoints=web"
       - "traefik.http.routers.pythonui.priority=1"
+      - "traefik.http.routers.pythonui.middlewares=${OASIS_WEB_ENTRY_MIDDLEWARE:-http-passthrough@file}"
       # HTTPS router (OIDC callback redirects to /?session_token=... on HTTPS)
       - "traefik.http.routers.pythonui-secure.rule=PathPrefix(`/`)"
       - "traefik.http.routers.pythonui-secure.entrypoints=websecure"

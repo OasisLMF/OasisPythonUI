@@ -15,6 +15,9 @@ x-shared-env: &worker-env
   INGRESS_EXTERNAL_HOST: ${OASIS_UI_HOSTNAME:-localhost}
   INGRESS_INTERNAL_HOST: traefik
 
+  # Where workers report events completed, shown as run progress in the UI
+  OASIS_ANALYSIS_STATUS_URL: http://server:8000/analysis-status/
+
   # Authentication configuration
   OASIS_SERVER_API_AUTH_TYPE: ${API_AUTH_TYPE:-simple}
   OASIS_SERVER_ALLOWED_OIDC_AUTH_PROVIDERS: ${OASIS_SERVER_ALLOWED_OIDC_AUTH_PROVIDERS}

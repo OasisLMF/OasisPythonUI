@@ -1,0 +1,9 @@
+# TLS certificate for the websecure (HTTPS) entrypoint.
+# Created by scripts/generate-certs.sh (run by install.sh); replace
+# certs/ui.crt and certs/ui.key to use your own certificate.
+tls:
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /certs/ui.crt
+        keyFile: /certs/ui.key

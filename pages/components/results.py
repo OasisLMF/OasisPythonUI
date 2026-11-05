@@ -70,11 +70,6 @@ def render_results(settings, outputs, locations=None):
 
     vis = OutputInterface(outputs)
     perspectives = [p for p in PERSPECTIVES if settings.get(f'{p}_output')]
-    for p in perspectives:
-        fields = (settings.get(f'{p}_summaries') or [{}])[0].get('oed_fields')
-        if fields:
-            vis.set_oed_fields(p, fields)
-
     if not perspectives:
         st.info('No loss perspectives were enabled in the analysis settings.')
         return
@@ -82,11 +77,35 @@ def render_results(settings, outputs, locations=None):
     tabs = st.tabs([PERSPECTIVE_LABELS[p] for p in perspectives])
     for p, tab in zip(perspectives, tabs):
         with tab:
-            # Visualisations currently use the first summary level
-            summary = (settings.get(f'{p}_summaries') or [{}])[0]
+            levels = {lv['id']: lv for lv in settings.get(f'{p}_summaries') or [] if 'id' in lv}
+            if not levels:
+                st.info('No summary levels were configured for this perspective.')
+                continue
+
+            level_id = next(iter(levels))
+            if len(levels) > 1:
+                level_id = st.selectbox(
+                    'Summary level', list(levels), format_func=lambda i: level_label(levels[i]),
+                    key=f'results_level_{p}',
+                    help='Each summary level groups losses differently. Choose which one to view.')
+            else:
+                st.caption(level_label(levels[level_id]))
+
+            summary = levels[level_id]
+            vis.set_summary_level(p, level_id)
+            vis.set_oed_fields(p, summary.get('oed_fields') or None)
+
             sections = _sections(summary, locations)
             if not sections:
-                st.info('No outputs were selected for this perspective.')
+                st.info('No outputs were selected for this summary level.')
             for i, (title, render) in enumerate(sections):
                 with st.expander(title, expanded=i == 0):
                     render(p, vis)
+
+
+def level_label(level):
+    fields = level.get('oed_fields') or []
+    if isinstance(fields, str):
+        fields = [fields]
+    grouping = f"grouped by {', '.join(fields)}" if fields else 'portfolio total'
+    return f"Level {level['id']}: {grouping}"

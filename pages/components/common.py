@@ -62,12 +62,23 @@ def format_status(status):
 
 
 def analysis_progress(analysis):
-    '''Fraction of sub-tasks completed for a running analysis, or None.'''
+    '''Progress of a running analysis as `(fraction or None, description)`.
+
+    Uses the events completed during the loss calculation when the worker
+    reports them (needs `OASIS_ANALYSIS_STATUS_URL` set on the worker),
+    otherwise the sub-task counts.
+    '''
+    events_total = analysis.get('num_events_total') or 0
+    events_done = analysis.get('num_events_complete') or 0
+    if analysis.get('status') == 'RUN_STARTED' and events_total:
+        return min(events_done / events_total, 1.0), f'{events_done:,} of {events_total:,} events'
+
     counts = analysis.get('status_count') or {}
     total = counts.get('TOTAL') or 0
-    if total == 0:
-        return None
-    return counts.get('COMPLETED', 0) / total
+    if total:
+        done = counts.get('COMPLETED', 0)
+        return done / total, f'{done} of {total} tasks'
+    return None, ''
 
 
 ##########################################################################################

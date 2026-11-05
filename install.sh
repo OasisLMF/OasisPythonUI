@@ -151,6 +151,17 @@ echo ""
 # Set service account credentials based on auth type
 # ============================================================================
 
+echo "--- Configuring HTTPS ---"
+bash "$SCRIPT_DIR/scripts/generate-certs.sh"
+if [ "$OASIS_PROTOCOL" = "https" ]; then
+    export OASIS_WEB_ENTRY_MIDDLEWARE="https-redirect@file"
+    echo "  -> Browsers using http:// are redirected to https://"
+else
+    export OASIS_WEB_ENTRY_MIDDLEWARE="http-passthrough@file"
+    echo "  -> Serving over http:// (https:// is also available)"
+fi
+echo ""
+
 echo "--- Configuring service credentials ---"
 
 if [ "$API_AUTH_TYPE" = "simple" ]; then
@@ -334,16 +345,16 @@ echo ""
 echo "  Auth type:     $API_AUTH_TYPE"
 echo "  Hostname:      $OASIS_UI_HOSTNAME"
 echo ""
-echo "  Access Points (via Traefik on port 80):"
-echo "    UI:          http://${OASIS_UI_HOSTNAME}/"
-echo "    API:         http://${OASIS_UI_HOSTNAME}/api/"
-echo "    API Docs:    http://${OASIS_UI_HOSTNAME}/api/swagger/"
+echo "  Access Points (via Traefik):"
+echo "    UI:          ${OASIS_PROTOCOL}://${OASIS_UI_HOSTNAME}/"
+echo "    API:         ${OASIS_PROTOCOL}://${OASIS_UI_HOSTNAME}/api/"
+echo "    API Docs:    ${OASIS_PROTOCOL}://${OASIS_UI_HOSTNAME}/api/swagger/"
 
 if [ "$API_AUTH_TYPE" = "keycloak" ]; then
-    echo "    Keycloak:    http://${OASIS_UI_HOSTNAME}/auth/admin/"
+    echo "    Keycloak:    ${OASIS_PROTOCOL}://${OASIS_UI_HOSTNAME}/auth/admin/"
     echo "                 (${KEYCLOAK_ADMIN_USER} / ${KEYCLOAK_ADMIN_PASSWORD})"
 elif [ "$API_AUTH_TYPE" = "authentik" ]; then
-    echo "    Authentik:   http://${OASIS_UI_HOSTNAME}/authentik/"
+    echo "    Authentik:   ${OASIS_PROTOCOL}://${OASIS_UI_HOSTNAME}/authentik/"
     echo "                 (akadmin / ${AUTHENTIK_BOOTSTRAP_PASSWORD})"
 fi
 

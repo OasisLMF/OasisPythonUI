@@ -86,6 +86,8 @@ services:
       OASIS_MODEL_ID: PiWind
       OASIS_MODEL_VERSION_ID: v2
       OASIS_RUN_MODE: v2
+      # Where the worker reports events completed, shown as run progress in the UI
+      OASIS_ANALYSIS_STATUS_URL: http://server:8000/analysis-status/
       OASIS_OASISLMF_VERSION: ${OASIS_OASISLMF_VERSION}
       OASIS_ODS_VERSION: ${OASIS_ODS_VERSION}
       OASIS_ODM_VERSION: ${OASIS_ODM_VERSION}

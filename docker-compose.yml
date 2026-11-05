@@ -73,15 +73,21 @@ services:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:8443"
+      # HTTPS on 443 inside the container too: the server reaches the IdP at
+      # https://<hostname>/ remapped to traefik:443 (INGRESS_INTERNAL_HOST)
+      - "--entrypoints.websecure.address=:443"
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
       - "--ping=true"
       - "--api.insecure=true"
     ports:
       - "${OASIS_HTTP_PORT-80}:80"
-      - "${OASIS_HTTPS_PORT-443}:8443"
+      - "${OASIS_HTTPS_PORT-443}:443"
       - "${TRAEFIK_DASHBOARD_PORT-8090}:8080"
     volumes:
       - ${DOCKER_SOCK:-/var/run/docker.sock}:/var/run/docker.sock:ro
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
+      - ./certs:/certs:ro
     healthcheck:
       test: ["CMD", "traefik", "healthcheck", "--ping"]
       interval: 10s

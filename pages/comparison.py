@@ -10,7 +10,7 @@ from pages.components.footer import generate_footer
 from pages.components.output import generate_aalcalc_comparison_fragment, generate_leccalc_comparison_fragment
 from pages.components.output import generate_eltcalc_comparison_fragment, summarise_inputs
 from pages.components.output import generate_pltcalc_comparison_fragment
-from pages.components.output import generate_alt_comparison_fragment
+from pages.components.output import generate_alt_comparison_fragment, EP_CALC_LABELS
 
 ##########################################################################################
 # Header
@@ -288,7 +288,7 @@ for p in perspectives:
     if all(any(o.get(e, False) for e in ept_settings) for o in ord_settings):
         st.write("### EPT Output")
         ep_type_map = {1: 'OEP', 2: 'OEP TVAR', 3: 'AEP', 4: 'AEP TVAR'}
-        ep_calc_map = {1: 'MeanDR', 2: 'Full', 3: 'PerSampleMean', 4: 'MeanSample'}
+        ep_calc_map = EP_CALC_LABELS
         generate_leccalc_comparison_fragment(p, outputs, names=names,
                                              output_type='ept',
                                              filter_specs=[

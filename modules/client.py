@@ -1,3 +1,7 @@
+import io
+import tarfile
+import zipfile
+
 import pandas as pd
 from oasislmf.platform_api.client import APIClient
 import tempfile
@@ -7,6 +11,21 @@ from requests import HTTPError
 from modules.logging import get_session_logger
 
 logger = get_session_logger()
+
+
+def tar_to_zip(tar_bytes):
+    '''Repack a (gzipped) tar archive as a zip archive, keeping paths.'''
+    out = io.BytesIO()
+    with tarfile.open(fileobj=io.BytesIO(tar_bytes), mode='r:*') as tar, \
+            zipfile.ZipFile(out, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+        for member in tar.getmembers():
+            if not member.isfile():
+                continue
+            name = member.name.lstrip('./')
+            if not name or '..' in name.split('/'):
+                continue  # never write paths that escape the archive root
+            zf.writestr(name, tar.extractfile(member).read())
+    return out.getvalue()
 
 
 class JsonEndpointInterface:
@@ -262,6 +281,10 @@ class ClientInterface:
         '''Generate input files and run the analysis specified by `analysis_id`.
         '''
         return self.client.analyses.generate_and_run(analysis_id)
+
+    def download_output_zip(self, analysis_id):
+        '''Analysis outputs as zip bytes (the API serves a .tar.gz).'''
+        return tar_to_zip(self.download_output(analysis_id))
 
     def download_output(self, analysis_id):
         '''Retrieve the output files from a given analysis specified by `analysis_id`.

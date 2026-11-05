@@ -21,9 +21,17 @@ class OutputInterface:
         '''
         self.output_file_dict = output_file_dict
         self.oed_fields = {}
+        self.summary_levels = {}
 
     def set_oed_fields(self, perspective, oed_fields):
         self.oed_fields[perspective] = oed_fields
+
+    def set_summary_level(self, perspective, summary_level):
+        '''Select which summary level (`S<n>` files) to visualise for a perspective.'''
+        self.summary_levels[perspective] = summary_level
+
+    def summary_level(self, perspective):
+        return self.summary_levels.get(perspective, 1)
 
     def get(self, summary_level, perspective, output_type, **kwargs):
         '''

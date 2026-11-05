@@ -298,15 +298,16 @@ def results_tab(analysis, settings):
     if fname:
         dl_col.download_button('Download', outputs[fname].to_csv(index=False).encode(),
                                file_name=fname, key=f"dl_out_{analysis['id']}")
-    tar_key = f"tar_{analysis['id']}_{analysis.get('modified')}"
-    if tar_key not in st.session_state:
-        if st.button('Prepare download of all outputs (.tar.gz)', key=f'{tar_key}_prep'):
+    zip_key = f"zip_{analysis['id']}_{analysis.get('modified')}"
+    if zip_key not in st.session_state:
+        if st.button('Prepare download of all outputs (.zip)', key=f'{zip_key}_prep'):
             with st.spinner('Fetching outputs...'):
-                st.session_state[tar_key] = ci.download_output(analysis['id'])
+                st.session_state[zip_key] = ci.download_output_zip(analysis['id'])
             st.rerun()
     else:
-        st.download_button('Download all outputs (.tar.gz)', st.session_state[tar_key],
-                           file_name=f"analysis_{analysis['id']}_output.tar.gz", key=f'{tar_key}_dl')
+        st.download_button('Download all outputs (.zip)', st.session_state[zip_key],
+                           file_name=f"analysis_{analysis['id']}_output.zip", key=f'{zip_key}_dl',
+                           type='primary', icon=':material/download:')
 
 
 def inputs_tab(analysis):
@@ -473,18 +474,19 @@ def list_view():
     snapshot = {a['id']: a['status'] for a in analyses}
     any_running = any(s in IN_PROGRESS_STATUSES for s in snapshot.values())
 
-    @st.fragment(run_every='4s' if any_running else None)
+    @st.fragment(run_every='2s' if any_running else None)
     def live_status():
         if not any_running:
             return
         fresh = ci.analyses.get()
         if {a['id']: a['status'] for a in fresh} != snapshot:
             st.rerun()  # A status changed: refresh the whole page
-        running = [a for a in fresh if a['status'] in IN_PROGRESS_STATUSES]
-        for a in running:
-            progress = analysis_progress(a)
-            text = f"{a['name']}: {format_status(a['status'])}"
-            st.progress(progress or 0.0, text=text + (f' ({progress:.0%})' if progress is not None else ''))
+        for a in fresh:
+            if a['status'] not in IN_PROGRESS_STATUSES:
+                continue
+            fraction, detail = analysis_progress(a)
+            text = f"**{a['name']}** · {format_status(a['status'])}" + (f' · {detail}' if detail else '')
+            st.progress(fraction or 0.0, text=text)
 
     live_status()
 

@@ -92,14 +92,32 @@ To tear everything down (removes containers and volumes):
 
 ## Access Points
 
-All services are reachable on port 80 via Traefik after a successful install:
+All services are reachable via Traefik after a successful install:
 
 | Service | URL |
 |---------|-----|
-| UI | `http://ui.oasis.local/` |
-| API | `http://ui.oasis.local/api/` |
-| Keycloak Admin | `http://ui.oasis.local/auth/` |
-| Authentik Admin | `http://ui.oasis.local/authentik/` |
+| UI | `https://ui.oasis.local/` |
+| API | `https://ui.oasis.local/api/` |
+| Keycloak Admin | `https://ui.oasis.local/auth/` |
+| Authentik Admin | `https://ui.oasis.local/authentik/` |
+
+### HTTPS
+
+With `OASIS_PROTOCOL=https` (the default) browsers are redirected from `http://`
+to `https://` for the UI and login pages. The `/api` route stays available
+over plain HTTP for scripts and API clients.
+
+The installer runs `scripts/generate-certs.sh`, which writes `certs/ui.crt`
+and `certs/ui.key` for `OASIS_UI_HOSTNAME`:
+
+- If [mkcert](https://github.com/FiloSottile/mkcert) is installed, its locally
+  trusted CA is used and browsers accept the certificate without a warning
+  (run `mkcert -install` once).
+- Otherwise a local CA is created at `certs/oasis-local-ca.crt`. Import it into
+  your browser or OS trust store to remove the certificate warning; the script
+  prints the commands.
+- To use your own certificate, put it at `certs/ui.crt` / `certs/ui.key`
+  before running the installer.
 
 ## Switching Between Auth Types
 
@@ -202,7 +220,7 @@ deploy, including redeploys over an existing installation.
 |----------|-------------|---------|
 | `API_AUTH_TYPE` | Auth mode: `simple`, `keycloak`, or `authentik` | `authentik` |
 | `OASIS_UI_HOSTNAME` | Hostname the UI and proxy listen on | `ui.oasis.local` |
-| `OASIS_PROTOCOL` | `http` or `https` | `http` |
+| `OASIS_PROTOCOL` | `http` or `https` | `https` |
 | `VERS_API` | Oasis server image tag | `2.5.9` |
 | `VERS_WORKER` | Oasis worker image tag | `2.5.9` |
 | `VERS_UI` | Python UI image tag | `latest` |

@@ -4,12 +4,25 @@ import pandas as pd
 import logging
 import plotly.express as px
 import plotly.graph_objects as go
-from math import log10
 
 from pages.components.display import DataframeView, MapView
 from pages.components.common import PERSPECTIVES_MAP
 
 logger = logging.getLogger(__name__)
+
+# ORD EPCalc codes, in the order they are offered (first is the default)
+EP_CALC_LABELS = {
+    2: 'Full uncertainty',
+    1: 'Mean damage ratio (MeanDR)',
+    4: 'Mean sample',
+    3: 'Per-sample mean',
+}
+
+
+def order_ep_calcs(values):
+    """Order EPCalc codes so full uncertainty comes first, then MeanDR."""
+    order = list(EP_CALC_LABELS)
+    return sorted(values, key=lambda v: order.index(v) if v in order else len(order))
 
 
 def summarise_locations(locations):
@@ -594,7 +607,7 @@ def generate_eltcalc_fragment(perspective, output,
 
     '''
     oed_fields = output.oed_fields.get(perspective) or []
-    eltcalc_result = output.get(1, perspective, 'eltcalc')
+    eltcalc_result = output.get(output.summary_level(perspective), perspective, 'eltcalc')
 
     tab_names = []
     if table:
@@ -626,7 +639,7 @@ def generate_eltcalc_fragment(perspective, output,
 
 @st.fragment
 def generate_melt_fragment(p, vis, locations=None):
-    data_df = vis.get(1, p, 'elt_moment')
+    data_df = vis.get(vis.summary_level(p), p, 'elt_moment')
     oed_fields = vis.oed_fields.get(p) or []
 
     # Type filter
@@ -694,7 +707,7 @@ def generate_melt_fragment(p, vis, locations=None):
 
 @st.fragment
 def generate_qelt_fragment(p, vis, locations=None):
-    data_df = vis.get(1, p, 'elt_quantile')
+    data_df = vis.get(vis.summary_level(p), p, 'elt_quantile')
     oed_fields = vis.oed_fields.get(p) or []
 
     options = data_df['Quantile'].unique()
@@ -773,7 +786,7 @@ def generate_selt_fragment(p, vis, locations=None):
     '''
     MEAN_SIDX = -1
 
-    data_df = vis.get(1, p, 'elt_sample')
+    data_df = vis.get(vis.summary_level(p), p, 'elt_sample')
     oed_fields = vis.oed_fields.get(p) or []
 
     aggregate_label = 'Mean (All Samples)'
@@ -829,7 +842,7 @@ def generate_selt_fragment(p, vis, locations=None):
 
 @st.fragment
 def generate_aalcalc_fragment(p, vis):
-    result = vis.get(1, p, 'aalcalc')
+    result = vis.get(vis.summary_level(p), p, 'aalcalc')
 
     oed_fields = vis.oed_fields.get(p) or []
     breakdown_field = None
@@ -862,7 +875,7 @@ def generate_aalcalc_fragment(p, vis):
 
 @st.fragment
 def generate_alt_fragment(p, vis, output_type='alt_meanonly'):
-    result = vis.get(1, p, output_type)
+    result = vis.get(vis.summary_level(p), p, output_type)
     type_field = 'SampleType'
     mean_field = 'MeanLoss'
 
@@ -905,7 +918,7 @@ def generate_alct_fragment(p, vis):
     output and has no direct legacy analogue, so it is rendered as a
     plain filterable/sortable table rather than a chart.
     '''
-    result = vis.get(1, p, 'alct_convergence')
+    result = vis.get(vis.summary_level(p), p, 'alct_convergence')
     oed_fields = vis.oed_fields.get(p) or []
 
     selected_group = None
@@ -931,7 +944,7 @@ def generate_leccalc_fragment(p, vis, lec_outputs):
     else:
         analysis_type = '_'.join(option.split('_')[:-1])
         loss_type = option.split('_')[-1]
-        result = vis.get(1, p, 'leccalc', analysis_type = analysis_type, loss_type = loss_type)
+        result = vis.get(vis.summary_level(p), p, 'leccalc', analysis_type = analysis_type, loss_type = loss_type)
         oed_fields = vis.oed_fields.get(p) or []
 
         selected_group = None
@@ -959,7 +972,7 @@ def generate_leccalc_fragment(p, vis, lec_outputs):
                                               as_index=False).agg({'loss': 'sum'})
             result_plot = result_plot.sort_values(by=['return_period', 'loss'], ascending=[True, False])
 
-        log_x = log10(result_plot['return_period'].max()) - log10(result_plot['return_period'].min()) > 2
+        log_x = False  # EP curves are read on a linear return period axis
         unique_group = result_plot[selected_group].unique().tolist()
 
         if len(unique_group) > 5:
@@ -1085,9 +1098,9 @@ def generate_leccalc_comparison_fragment(perspective, outputs, names=None,
         analysis_type = '_'.join(option.split('_')[:-1])
         loss_type = option.split('_')[-1]
 
-        results = [o.get(1, perspective, 'leccalc', analysis_type = analysis_type, loss_type = loss_type) for o in outputs]
+        results = [o.get(o.summary_level(perspective), perspective, 'leccalc', analysis_type = analysis_type, loss_type = loss_type) for o in outputs]
     else:
-        results = [o.get(1, perspective, output_type) for o in outputs]
+        results = [o.get(o.summary_level(perspective), perspective, output_type) for o in outputs]
 
     for spec in filter_specs:
         col = spec['col']
@@ -1095,6 +1108,7 @@ def generate_leccalc_comparison_fragment(perspective, outputs, names=None,
         for r in results:
             values.update(r[col].unique().tolist())
 
+        values = order_ep_calcs(values) if col == 'EPCalc' else sorted(values)
         if len(values) > 1:
             format_map = spec.get('format_map')
             selected_value = st.radio(spec['label'], options=values, horizontal=True,
@@ -1132,9 +1146,7 @@ def generate_leccalc_comparison_fragment(perspective, outputs, names=None,
         result_plot = result_plot.sort_values(by=[return_period_col, loss_col], ascending=[True, False])
         results_plot.append(result_plot)
 
-    log_x = [log10(result_plot[return_period_col].max()) - log10(result_plot[return_period_col].min()) > 2
-             for result_plot in results_plot]
-    log_x = any(log_x)
+    log_x = False  # EP curves are read on a linear return period axis
 
     unique_group = []
     for result_plot in results_plot:
@@ -1237,7 +1249,7 @@ def pltcalc_bar(result, selected_group=None, number_shown=10, date_id = False,
 
 @st.fragment
 def generate_pltcalc_fragment(p, vis):
-    result = vis.get(1, p, 'pltcalc')
+    result = vis.get(vis.summary_level(p), p, 'pltcalc')
     oed_fields = vis.oed_fields.get(p) or []
 
     selected_group = None
@@ -1273,7 +1285,7 @@ def generate_pltcalc_fragment(p, vis):
 
 @st.fragment
 def generate_mplt_fragment(p, vis):
-    result = vis.get(1, p, 'plt_moment')
+    result = vis.get(vis.summary_level(p), p, 'plt_moment')
     oed_fields = vis.oed_fields.get(p) or []
 
     selected_group = None
@@ -1313,7 +1325,7 @@ def generate_mplt_fragment(p, vis):
 
 @st.fragment
 def generate_qplt_fragment(p, vis):
-    result = vis.get(1, p, 'plt_quantile')
+    result = vis.get(vis.summary_level(p), p, 'plt_quantile')
     oed_fields = vis.oed_fields.get(p) or []
 
     selected_group = None
@@ -1365,7 +1377,7 @@ def generate_splt_fragment(p, vis):
     '''
     MEAN_SIDX = -1
 
-    result = vis.get(1, p, 'plt_sample')
+    result = vis.get(vis.summary_level(p), p, 'plt_sample')
     oed_fields = vis.oed_fields.get(p) or []
 
     selected_group = None
@@ -1405,7 +1417,7 @@ def generate_splt_fragment(p, vis):
 
 @st.fragment
 def generate_ept_fragment(p, vis):
-    result = vis.get(1, p, 'ept')
+    result = vis.get(vis.summary_level(p), p, 'ept')
 
     ep_type_map = {
         1 : 'OEP',
@@ -1414,12 +1426,7 @@ def generate_ept_fragment(p, vis):
         4 : 'AEP TVAR'
     }
 
-    ep_calc_map = {
-        1 : 'MeanDR',
-        2 :  'Full',
-        3 :  'PerSampleMean',
-        4 :  'MeanSample'
-    }
+    ep_calc_map = EP_CALC_LABELS
 
     type_options = result['EPType'].unique()
 
@@ -1430,7 +1437,7 @@ def generate_ept_fragment(p, vis):
 
         result = result[result['EPType'] == selected_type]
 
-    calc_options = result['EPCalc'].unique()
+    calc_options = order_ep_calcs(result['EPCalc'].unique())
 
     selected_calc = None
     if len(calc_options) > 1:
@@ -1457,7 +1464,7 @@ def generate_ept_fragment(p, vis):
     unique_group = unique_group[selected_group].tolist()
 
     result = result.sort_values(by=['ReturnPeriod', 'Loss'], ascending=[True, False])
-    log_x = log10(result['ReturnPeriod'].max()) - log10(result['ReturnPeriod'].min()) > 2
+    log_x = False  # EP curves are read on a linear return period axis
 
     all_selected = result[selected_group].unique().tolist()
     unique_group += [e for e in all_selected if e not in unique_group]
@@ -1495,7 +1502,7 @@ def generate_psept_fragment(p, vis):
     left in, -1's precomputed mean would be silently averaged in
     alongside the real samples as if it were one of them.
     '''
-    result = vis.get(1, p, 'psept')
+    result = vis.get(vis.summary_level(p), p, 'psept')
     result = result[result['SampleId'] > 0]
 
     ep_type_map = {
@@ -1537,7 +1544,7 @@ def generate_psept_fragment(p, vis):
     unique_group = unique_group[selected_group].tolist()
 
     result_plot = result_plot.sort_values(by=['ReturnPeriod', 'mean_loss'], ascending=[True, False])
-    log_x = log10(result_plot['ReturnPeriod'].max()) - log10(result_plot['ReturnPeriod'].min()) > 2
+    log_x = False  # EP curves are read on a linear return period axis
 
     all_selected = result_plot[selected_group].unique().tolist()
     unique_group += [e for e in all_selected if e not in unique_group]
@@ -1577,7 +1584,7 @@ def shared_oed_fields(p, outputs):
     return list(set(oed_fields[0]).intersection(oed_fields[1]))
 
 def generate_aalcalc_comparison_fragment(p, outputs, names = None):
-    results = [o.get(1, p, 'aalcalc') for o in outputs]
+    results = [o.get(o.summary_level(p), p, 'aalcalc') for o in outputs]
 
     oed_fields = shared_oed_fields(p, outputs)
     breakdown_field = None
@@ -1679,7 +1686,7 @@ def generate_eltcalc_comparison_fragment(perspective, outputs, names=None,
     if intensity_col is None:
         intensity_col = data_cols[0]
 
-    results = [o.get(1, perspective, output_type) for o in outputs]
+    results = [o.get(o.summary_level(perspective), perspective, output_type) for o in outputs]
     oed_fields = shared_oed_fields(perspective, outputs)
 
     options = results[0][filter_col].unique()
@@ -1769,7 +1776,7 @@ def generate_pltcalc_comparison_fragment(p, outputs, names=None, output_type='pl
                         user choose the loss column from these options,
                         instead of using the fixed `value_col`.
     '''
-    results = [o.get(1, p, output_type) for o in outputs]
+    results = [o.get(o.summary_level(p), p, output_type) for o in outputs]
 
     oed_fields = shared_oed_fields(p, outputs)
     breakdown_field = None
@@ -1833,7 +1840,7 @@ def generate_alt_comparison_fragment(p, outputs, output_type='alt_meanonly', nam
     analyses. Generalises generate_aalcalc_comparison_fragment for the
     ORD `SampleType`/`MeanLoss` columns used by generate_alt_fragment.
     '''
-    results = [o.get(1, p, output_type) for o in outputs]
+    results = [o.get(o.summary_level(p), p, output_type) for o in outputs]
     type_field = 'SampleType'
     mean_field = 'MeanLoss'
 
