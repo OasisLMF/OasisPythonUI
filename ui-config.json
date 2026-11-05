@@ -3,7 +3,8 @@
     {"path": "pages/scenariosGuide.py", "label": "User Guide"},
     {"path": "pages/scenarios.py", "label": "Scenarios"},
     {"path": "pages/comparison.py", "label": "Comparison"},
-    {"path": "pages/analyses.py", "label": "Analyses"}
+    {"path": "pages/analyses.py", "label": "Analyses"},
+    {"path": "pages/dashboard.py", "label": "Dashboard"}
   ],
   "post_login_page": "pages/scenariosGuide.py",
   "model_map": {

@@ -113,10 +113,10 @@ def analysis_summary_expander(selected):
         summary_tab, inputs_tab, outputs_tab = st.tabs(["Summary", "Inputs", "Outputs"])
 
         @st.cache_data(show_spinner="Fetching input data...")
-        def get_input_file(analysis_id):
+        def get_input_file(analysis_id, modified=None):  # `modified` busts the cache after a re-run
             return client_interface.analyses.get_file(analysis_id, 'input_file', df=True)
 
-        inputs = get_input_file(analysis_id)
+        inputs = get_input_file(analysis_id, selected.get('modified'))
 
         locations = inputs.get('location.csv', None)
         if client.analyses.get(analysis_id).json().get('settings') is not None:
@@ -145,11 +145,11 @@ def analysis_summary_expander(selected):
 
 
         @st.cache_data(show_spinner="Fetching output data...")
-        def get_output_file(analysis_id):
+        def get_output_file(analysis_id, modified=None):  # `modified` busts the cache after a re-run
             return client_interface.analyses.get_file(analysis_id, 'output_file', df=True)
 
         if selected['status'] == 'RUN_COMPLETED':
-            outputs = get_output_file(analysis_id)
+            outputs = get_output_file(analysis_id, selected.get('modified'))
             with outputs_tab:
                 output_file_list = sorted(list(outputs.keys()))
 
@@ -164,9 +164,9 @@ def analysis_summary_expander(selected):
 
                 fname = f"analysis_{analysis_id}_output.tar.gz"
                 @st.cache_data(show_spinner="Fetching output tar data...")
-                def get_output_tar(analysis_id):
+                def get_output_tar(analysis_id, modified=None):  # `modified` busts the cache after a re-run
                     return client_interface.download_output(analysis_id)
-                fdata = get_output_tar(analysis_id)
+                fdata = get_output_tar(analysis_id, selected.get('modified'))
 
                 st.download_button('Download All Outputs',
                                    data=fdata,
@@ -188,14 +188,22 @@ def run_analysis(re_handler):
 
     completed_statuses = ['RUN_COMPLETED', 'RUN_CANCELLED', 'RUN_ERROR']
     running_statuses = ['RUN_QUEUED', 'RUN_STARTED']
+    generation_done_statuses = ['READY', 'INPUTS_GENERATION_ERROR', 'INPUTS_GENERATION_CANCELLED'] + completed_statuses
+    generating_statuses = ['INPUTS_GENERATION_QUEUED', 'INPUTS_GENERATION_STARTED']
 
     re_handler.update_queue()
 
-    # Check for running analysis
-    running_analyses = analyses[analyses['status'].isin(running_statuses)]
-    if not re_handler.is_refreshing() and not running_analyses.empty:
-        for analysis_id in running_analyses['id']:
-            re_handler.start(analysis_id, completed_statuses)
+    # Check for running / generating analyses (e.g. after a page reload)
+    if not re_handler.is_refreshing():
+        in_progress = analyses[analyses['status'].isin(running_statuses + generating_statuses)]
+        if not in_progress.empty:
+            for _, row in in_progress.iterrows():
+                if row['status'] in generating_statuses:
+                    re_handler.add_to_queue(row['id'], generation_done_statuses)
+                else:
+                    re_handler.add_to_queue(row['id'], completed_statuses)
+            re_handler.set_refresh_bool(True)
+            st.rerun()
 
     left, middle, right = st.columns(3, vertical_alignment='center')
     st.write('1) Select an analysis:')
@@ -213,7 +221,7 @@ def run_analysis(re_handler):
     validations = ValidationGroup()
     validations.add_validation(NotNoneValidation('Selected analysis'), selected)
     validations.add_validation(KeyInValuesValidation('Status'), selected,
-                               'status', ['NEW', 'INPUTS_GENERATION_CANCELLED',
+                               'status', ['NEW', 'INPUTS_GENERATION_CANCELLED', 'INPUTS_GENERATION_ERROR',
                                           'READY', 'RUN_COMPLETED',
                                           'RUN_CANCELLED', 'RUN_ERROR' ])
 
@@ -359,13 +367,22 @@ def run_analysis(re_handler):
     validation = NotNoneValidation('Selected analysis')
     button_enabled = validation.is_valid(selected)
 
-    if left.button("Delete", width='stretch', disabled = not button_enabled, help=validation.message):
-        try:
-            client.analyses.delete(selected['id'])
+    @st.dialog("Delete Analysis")
+    def confirm_delete_dialog(analysis):
+        st.write(f"Delete analysis **{analysis['name']}** (ID {analysis['id']})? This cannot be undone.")
+        cancel_col, delete_col = st.columns(2)
+        if cancel_col.button("Cancel", width='stretch'):
             st.rerun()
-        except HTTPError as e:
-            st.error("Deletion failed.")
-            logger.error(e)
+        if delete_col.button("Delete", type='primary', width='stretch'):
+            try:
+                client.analyses.delete(analysis['id'])
+                st.rerun()
+            except HTTPError as e:
+                st.error("Deletion failed.")
+                logger.error(e)
+
+    if left.button("Delete", width='stretch', disabled = not button_enabled, help=validation.message):
+        confirm_delete_dialog(selected)
 
     validations = ValidationGroup()
     validations.add_validation(NotNoneValidation('Analysis'), selected)

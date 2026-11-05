@@ -19,6 +19,7 @@ def number_rows(portfolio_ids, client_interface, filename='location_file', col_n
         if file_df is None:
             data['id'].append(id)
             data[col_name].append(None)
+            continue
 
         data['id'].append(id)
         data[col_name].append(file_df.shape[0])
@@ -33,7 +34,6 @@ def number_accounts(portfolio_ids, client_interface):
 
 def portfolio_files(portfolios):
     enriched = portfolios['id'].to_frame()
-    st.write(portfolios)
     enriched['contains_location'] = portfolios['location_file.stored'].notna()
     enriched['contains_accounts'] = portfolios['accounts_file.stored'].notna()
     enriched['contains_ri_info'] = portfolios['reinsurance_info_file.stored'].notna()

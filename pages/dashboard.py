@@ -2,7 +2,7 @@ from modules.config import retrieve_ui_config
 import streamlit as st
 from modules.client import ClientInterface
 from modules.nav import SidebarNav
-from modules.authorisation import validate_page
+from modules.authorisation import validate_page, handle_login
 import pandas as pd
 
 from pages.components.footer import generate_footer
@@ -45,11 +45,11 @@ if selected_analysis is None:
 analysis_id = selected_analysis['id']
 
 @st.cache_data
-def get_analysis_inputs(ID):
+def get_analysis_inputs(ID, modified=None):  # `modified` busts the cache after a re-run
     return client_interface.analyses.get_file(ID, 'input_file', df=True)
 
 with st.spinner("Loading data..."):
-    inputs = get_analysis_inputs(analysis_id)
+    inputs = get_analysis_inputs(analysis_id, selected_analysis.get('modified'))
     settings = client.analyses.settings.get(analysis_id).json()
 
 st.write("# Analysis Summary")
@@ -57,11 +57,11 @@ with st.spinner('Loading analysis summary...'):
     summarise_inputs(inputs.get('location.csv', None), settings)
 
 @st.cache_data
-def get_analysis_outputs(ID):
+def get_analysis_outputs(ID, modified=None):  # `modified` busts the cache after a re-run
     return client_interface.analyses.get_file(ID, 'output_file', df=True)
 
 with st.spinner("Loading data..."):
-    outputs = get_analysis_outputs(analysis_id)
+    outputs = get_analysis_outputs(analysis_id, selected_analysis.get('modified'))
 
 # Set up visualisation interface
 vis = OutputInterface(outputs)

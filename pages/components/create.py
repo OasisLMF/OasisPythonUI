@@ -451,7 +451,7 @@ class ORDOutputFragment:
                                                default=defaults.get('elt', None),
                                                key=f'{perspective}_elt_multiselect')
 
-        ord_options |= output_type_multiselect(label='Period Loss Table (ELT) Output', prefix='plt',
+        ord_options |= output_type_multiselect(label='Period Loss Table (PLT) Output', prefix='plt',
                                                options=elt_plt_options,
                                                default=defaults.get('plt', None),
                                                key=f'{perspective}_plt_multiselect')
@@ -488,7 +488,7 @@ class ORDOutputFragment:
 
         ord_options |= output_type_multiselect(label='Per Sample Exceedance Probability Table (PS EPT) Output:', prefix='psept',
                                                options=['aep', 'oep'],
-                                               default=defaults.get('psep', None),
+                                               default=defaults.get('psept', None),
                                                key=f'{perspective}_psep_multiselect')
 
         return ord_options

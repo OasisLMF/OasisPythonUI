@@ -9,7 +9,11 @@ The current version of the UI contains the following pages:
 
 - `/analyses` - View and create portfolios and analyses.
 - `/dashboard` - View the output of completed analyses.
-- `/simplified` - Simplified UI which allows for the running of analyses using previously loaded portfolios & models.
+- `/scenarios` - Simplified UI which allows for the running of analyses using previously loaded portfolios & models.
+- `/comparison` - Compare the outputs of two completed analyses.
+- `/scenariosGuide` - User guide for the scenarios and comparison pages.
+
+Which pages appear in the sidebar is controlled by `ui-config.json`.
 
 ## Prerequisites
 
