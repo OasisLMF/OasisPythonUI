@@ -1,0 +1,42 @@
+"""Showcase: curated, pre-computed scenario runs that anyone can explore without waiting."""
+import streamlit as st
+
+from modules.scenarios import VISITOR_PARAM, display_name, showcase_analyses
+from pages.components.data import cached_model_settings
+from scenarios_ui.common import Context, analysis_results, footer
+
+ctx = Context()
+ci = ctx.ci
+
+models_by_id = {m['id']: m for m in ci.models.get()}
+portfolios_by_id = {p['id']: p for p in ci.portfolios.get()}
+showcase = [a for a in showcase_analyses(ci.analyses.get(), ctx.limits) if a['status'] == 'RUN_COMPLETED']
+
+st.title('Showcase')
+st.markdown('Results from scenarios we have already run for you, so you can explore what Oasis produces '
+            'without waiting for a run. To run a scenario yourself, use **Run a scenario**.')
+
+if not showcase:
+    st.info('No showcase results are available yet. They are added when the service is set up.')
+    footer(ctx.ui_config)
+    st.stop()
+
+showcase.sort(key=lambda a: display_name(a['name']))
+ids = [a['id'] for a in showcase]
+by_id = {a['id']: a for a in showcase}
+selected_id = st.selectbox('Scenario', ids, format_func=lambda i: display_name(by_id[i]['name']),
+                           key='showcase_selected')
+analysis = by_id[selected_id]
+
+model = models_by_id.get(analysis['model'])
+if model is not None:
+    description = cached_model_settings(ci, model).get('description')
+    if description:
+        st.caption(description)
+    if st.button('Run this scenario yourself', icon=':material/play_circle:'):
+        st.session_state['sc_model_id'] = model['id']
+        st.session_state['sc_portfolio_id'] = analysis['portfolio']
+        st.switch_page('scenarios_ui/explore.py', query_params={VISITOR_PARAM: ctx.vid})
+
+analysis_results(ctx, analysis, models_by_id, portfolios_by_id, key='showcase')
+footer(ctx.ui_config)

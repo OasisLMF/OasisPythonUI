@@ -34,6 +34,8 @@ class UIConfig():
         self.model_map = config.get('model_map', {})
         self.skip_login = config.get('skip_login', False)
         self.footer = config.get('footer', None)
+        # Scenarios app settings (run limits, showcase tag, ...): see modules/scenarios.py
+        self.scenarios = config.get('scenarios', {})
 
 
 def retrieve_ui_config():

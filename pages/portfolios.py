@@ -6,8 +6,7 @@ from pages.components.common import (ANALYSES_PAGE, NEW_ANALYSIS_DEFAULTS, SELEC
                                      SELECTED_PORTFOLIO, open_record, selectable_table)
 from pages.components.data import (FILE_TYPES, analyses_df, guess_file_type, models_df,
                                    portfolio_file_df, portfolios_df)
-from pages.components.display import MapView
-from pages.components.output import summarise_locations, valid_locations
+from pages.components.exposure import exposure_overview
 
 ci = page_setup('Portfolios')
 
@@ -201,33 +200,7 @@ with exposure_tab:
     else:
         with st.spinner('Loading locations...'):
             locations = portfolio_file_df(ci, portfolio, 'location_file')
-        summary = summarise_locations(locations).iloc[0]
-
-        metric_cols = st.columns(4)
-        metric_cols[0].metric('Locations', f"{int(summary['number_locations']):,}")
-        metric_cols[1].metric('Total TIV', f"{summary['TotalTIV']:,.0f}")
-        if 'CountryCode' in locations:
-            metric_cols[2].metric('Countries', locations['CountryCode'].nunique())
-        if 'LocPerilsCovered' in locations:
-            metric_cols[3].metric('Peril codes', locations['LocPerilsCovered'].nunique())
-
-        tiv_cols = [c for c in ['BuildingTIV', 'OtherTIV', 'ContentsTIV', 'BITIV'] if c in locations]
-        map_col, breakdown_col = st.columns([0.6, 0.4])
-        with map_col:
-            if {'Latitude', 'Longitude', 'BuildingTIV'} <= set(locations.columns) and valid_locations(locations):
-                MapView(locations, weight='BuildingTIV', map_type='heatmap').display()
-            elif {'CountryCode', 'BuildingTIV'} <= set(locations.columns):
-                MapView(locations, weight='BuildingTIV', map_type='choropleth').display()
-            else:
-                st.caption('No coordinates or country codes to map.')
-        with breakdown_col:
-            for field in ['CountryCode', 'OccupancyCode', 'ConstructionCode', 'LocPerilsCovered']:
-                if field in locations and tiv_cols:
-                    st.markdown(f'**TIV by {field}**')
-                    breakdown = (locations.groupby(field)[tiv_cols].sum()
-                                 .assign(Locations=locations.groupby(field).size())
-                                 .sort_values(tiv_cols[0], ascending=False).reset_index())
-                    st.dataframe(breakdown, hide_index=True, height=200)
+        exposure_overview(locations)
 
 
 with analyses_tab:
