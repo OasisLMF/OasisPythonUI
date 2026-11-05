@@ -19,6 +19,62 @@ EP_CALC_LABELS = {
 }
 
 
+
+# ORD special sample indices (sidx) - see oasislmf.pytools.common.event_stream
+MEAN_SIDX = -1          # analytical (numerically integrated) mean loss
+AFFECTED_RISKS_SIDX = -4  # number of affected risks - not a loss
+MAX_LOSS_SIDX = -5      # maximum sampled loss (only with the "all sidx" option)
+
+SAMPLE_MEAN = 'Mean of samples'
+ANALYTICAL_MEAN = 'Analytical mean (sidx -1)'
+MAX_SAMPLED_LOSS = 'Maximum sampled loss (sidx -5)'
+
+
+def sample_mean(df, n_samples):
+    """Mean loss over the samples for each row key in a sample table (SELT/SPLT).
+
+    Samples with zero loss have no row, so the mean is the sum of the sampled
+    losses divided by the number of samples (not the number of rows).
+    """
+    samples = df[df['SampleId'] > 0]
+    keys = [c for c in samples.columns if c not in ('SampleId', 'Loss', 'ImpactedExposure')]
+    agg = {'Loss': 'sum'}
+    if 'ImpactedExposure' in samples.columns:
+        agg['ImpactedExposure'] = 'max'
+    result = samples.groupby(keys, as_index=False, observed=True).agg(agg)
+    result['Loss'] = result['Loss'] / n_samples
+    result.insert(keys.index('SummaryId') + 1 if 'SummaryId' in keys else 0, 'SampleId', 0)
+    return result[[c for c in df.columns if c in result.columns]]
+
+
+def sample_selector(df, vis, key):
+    """Choose which samples of a SELT/SPLT to show; returns the filtered rows."""
+    sample_ids = set(df['SampleId'].unique().tolist())
+    positive = sorted(sid for sid in sample_ids if sid > 0)
+    n_samples = getattr(vis, 'number_of_samples', None) or (max(positive) if positive else 1)
+
+    options = [SAMPLE_MEAN] if positive else []
+    if MEAN_SIDX in sample_ids:
+        options.append(ANALYTICAL_MEAN)
+    if MAX_LOSS_SIDX in sample_ids:
+        options.append(MAX_SAMPLED_LOSS)
+    options += positive
+
+    choice = st.selectbox(
+        'Samples:', options=options, key=key,
+        format_func=lambda o: f'Sample {o}' if isinstance(o, int) else o,
+        help=f'Mean of samples averages the {n_samples} sampled losses. The analytical mean is the '
+             'model\'s numerically integrated mean (ORD sample index -1).')
+
+    if choice == SAMPLE_MEAN:
+        return sample_mean(df, n_samples)
+    if choice == ANALYTICAL_MEAN:
+        return df[df['SampleId'] == MEAN_SIDX]
+    if choice == MAX_SAMPLED_LOSS:
+        return df[df['SampleId'] == MAX_LOSS_SIDX]
+    return df[df['SampleId'] == choice]
+
+
 def order_ep_calcs(values):
     """Order EPCalc codes so full uncertainty comes first, then MeanDR."""
     order = list(EP_CALC_LABELS)
@@ -784,20 +840,10 @@ def generate_selt_fragment(p, vis, locations=None):
     the maximum sampled loss. Real per-sample draws use positive
     `SampleId` values (1..N).
     '''
-    MEAN_SIDX = -1
-
     data_df = vis.get(vis.summary_level(p), p, 'elt_sample')
     oed_fields = vis.oed_fields.get(p) or []
 
-    aggregate_label = 'Mean (All Samples)'
-    sample_options = sorted(sid for sid in data_df['SampleId'].unique().tolist() if sid > 0)
-    sample_filter = st.selectbox('Sample Filter:', options=[aggregate_label] + sample_options,
-                                 key=f'selt_{p}_sample_filter')
-
-    if sample_filter == aggregate_label:
-        data_df = data_df[data_df['SampleId'] == MEAN_SIDX]
-    else:
-        data_df = data_df[data_df['SampleId'] == sample_filter]
+    data_df = sample_selector(data_df, vis, key=f'selt_{p}_sample_filter')
 
     tab_names = ['table', 'map']
     with st.container(border=True):
@@ -913,25 +959,49 @@ def generate_alt_fragment(p, vis, output_type='alt_meanonly'):
 @st.fragment
 def generate_alct_fragment(p, vis):
     '''
-    Generate an `alct_convergence` (ALCT) visualisation. ALCT is a
-    diagnostic table reporting sample-convergence statistics for the ALT
-    output and has no direct legacy analogue, so it is rendered as a
-    plain filterable/sortable table rather than a chart.
+    Generate an `alct_convergence` (ALCT) visualisation: how the period
+    average loss and its confidence interval converge as the number of
+    samples grows, followed by the key convergence statistics.
     '''
     result = vis.get(vis.summary_level(p), p, 'alct_convergence')
     oed_fields = vis.oed_fields.get(p) or []
 
-    selected_group = None
-    if oed_fields and len(oed_fields) > 0:
+    group_col = 'SummaryId'
+    if oed_fields:
         selected_group = st.pills('Breakdown OED Field: ', options=oed_fields, key=f'alct_{p}_group_field_pills')
+        if selected_group:
+            group_col = selected_group
+    result[group_col] = result[group_col].astype(str)
 
-    if selected_group:
-        result[selected_group] = result[selected_group].astype(str)
+    groups = result[group_col].unique().tolist()
+    if len(groups) > 5:
+        groups = st.multiselect(f'{group_col} values:', options=groups, default=groups[:5],
+                                key=f'alct_{p}_group_filter')
+    plot_df = result[result[group_col].isin(groups)].sort_values('SampleSize')
 
-    table_view = DataframeView(result)
-    numeric_cols = result.select_dtypes(include='number').columns
-    for c in numeric_cols:
-        table_view.column_config[c] = st.column_config.NumberColumn(c, format='%.4f')
+    fig = go.Figure()
+    for group in groups:
+        g = plot_df[plot_df[group_col] == group]
+        # A single sample has no confidence interval (reported as 0)
+        name = f'{group_col} {group}' if group_col == 'SummaryId' else str(group)
+        if {'LowerCI', 'UpperCI'} <= set(g.columns):
+            ci = g[g['SampleSize'] > 1]
+            fig.add_trace(go.Scatter(x=list(ci['SampleSize']) + list(ci['SampleSize'][::-1]),
+                                     y=list(ci['UpperCI']) + list(ci['LowerCI'][::-1]),
+                                     fill='toself', opacity=0.2, line={'width': 0}, hoverinfo='skip',
+                                     showlegend=False, legendgroup=name))
+        fig.add_trace(go.Scatter(x=g['SampleSize'], y=g['MeanLoss'], mode='lines+markers', name=name,
+                                 legendgroup=name))
+    fig.update_layout(xaxis_title='Number of samples', yaxis_title='Mean loss',
+                      margin={'t': 20}, legend_title_text=group_col)
+    st.plotly_chart(fig)
+    st.caption('Shaded bands show the confidence interval of the mean loss.')
+
+    table_cols = [group_col, 'SampleSize', 'MeanLoss', 'LowerCI', 'UpperCI', 'StandardError', 'RelativeError']
+    table_view = DataframeView(result[[c for c in table_cols if c in result]].copy())
+    for c in ['MeanLoss', 'LowerCI', 'UpperCI', 'StandardError']:
+        table_view.column_config[c] = st.column_config.NumberColumn(c, format='%.2f')
+    table_view.column_config['RelativeError'] = st.column_config.NumberColumn('RelativeError', format='%.4f')
     table_view.display()
 
 
@@ -1375,8 +1445,6 @@ def generate_splt_fragment(p, vis):
     recomputed average of this file's own sample rows. Real per-sample
     draws use positive `SampleId` values (1..N).
     '''
-    MEAN_SIDX = -1
-
     result = vis.get(vis.summary_level(p), p, 'plt_sample')
     oed_fields = vis.oed_fields.get(p) or []
 
@@ -1391,15 +1459,7 @@ def generate_splt_fragment(p, vis):
     elif selected_group:
         result[selected_group] = result[selected_group].astype(str)
 
-    aggregate_label = 'Mean (All Samples)'
-    sample_options = sorted(sid for sid in result['SampleId'].unique().tolist() if sid > 0)
-    sample_filter = st.selectbox('Sample Filter:', options=[aggregate_label] + sample_options,
-                                 key=f'splt_{p}_sample_filter')
-
-    if sample_filter == aggregate_label:
-        result = result[result['SampleId'] == MEAN_SIDX]
-    else:
-        result = result[result['SampleId'] == sample_filter]
+    result = sample_selector(result, vis, key=f'splt_{p}_sample_filter')
 
     date_cols = {
         'year': 'Year',

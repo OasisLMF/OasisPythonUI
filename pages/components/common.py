@@ -81,6 +81,18 @@ def analysis_progress(analysis):
     return None, ''
 
 
+def current_task(sub_tasks):
+    '''Name of the sub-task(s) being worked on, e.g. "Generate losses chunk 0".
+
+    Falls back to the next queued task when nothing has started yet.
+    '''
+    started = [t.get('name') for t in sub_tasks if t.get('status') == 'STARTED' and t.get('name')]
+    if started:
+        return ', '.join(dict.fromkeys(started))
+    queued = [t.get('name') for t in sub_tasks if t.get('status') in ('QUEUED', 'PENDING') and t.get('name')]
+    return f'Waiting for: {queued[0]}' if queued else ''
+
+
 ##########################################################################################
 # Tables and selection
 ##########################################################################################

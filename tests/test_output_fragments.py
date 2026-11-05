@@ -47,28 +47,43 @@ def test_selt_fragment_renders_table_and_map():
     assert len(at.get("plotly_chart")) == 1
 
 
-def test_selt_fragment_mean_view_uses_special_sidx_row_not_a_recomputed_average():
+SAMPLE_OPTIONS = ["Mean of samples", "Analytical mean (sidx -1)", "Sample 1", "Sample 2"]
+
+
+def test_selt_fragment_mean_of_samples_and_analytical_mean():
     '''
-    Regression test: `generate_selt_fragment`'s default "Mean (All
-    Samples)" view used to recompute the mean itself via a pandas
-    groupby over the file's positive-SampleId rows. SELT's SampleId
-    column is ORD's reserved "sidx": -1 is ktools' own
-    analytically-integrated mean (not a recomputed average of the
-    positive-sidx rows in the same file), so the fragment should read
-    that row directly instead. The fixture's -1 rows are deliberately
-    not the arithmetic average of their samples, so this fails if the
-    fragment goes back to recomputing.
+    SELT's SampleId column uses ORD's reserved "sidx" values: -1 is the
+    model's analytically integrated mean, which is not the mean of the
+    sampled losses. The default view is the true mean of the samples; the
+    analytical mean is offered separately and labelled as such. The
+    fixture's -1 rows are deliberately not the average of their samples.
     '''
     at = AppTest.from_file("tests/fixtures/selt_fragment_app.py").run()
 
     assert len(at.exception) == 0
-    assert at.selectbox(key="selt_gul_sample_filter").value == "Mean (All Samples)"
-    # Sample filter options must not expose the special sidx rows as if
-    # they were selectable individual samples.
-    assert at.selectbox(key="selt_gul_sample_filter").options == ["Mean (All Samples)", "1", "2"]
-    # sorted descending by Loss: the fixture's -1 rows are [150, 90, 25, 15],
-    # not the samples' naive averages [200, 100, 30, 20].
+    select = at.selectbox(key="selt_gul_sample_filter")
+    assert select.options == SAMPLE_OPTIONS
+    assert select.value == "Mean of samples"
+    # sorted descending by Loss: averages of the two samples
+    assert list(at.dataframe[0].value["Loss"]) == [200.0, 100.0, 30.0, 20.0]
+
+    select.set_value("Analytical mean (sidx -1)").run()
     assert list(at.dataframe[0].value["Loss"]) == [150.0, 90.0, 25.0, 15.0]
+
+    select.set_value(2).run()
+    assert list(at.dataframe[0].value["Loss"]) == [300.0, 150.0, 40.0, 30.0]
+
+
+def test_sample_mean_counts_samples_without_rows():
+    '''Samples with zero loss have no row, so divide by the number of samples.'''
+    import pandas as pd
+    from pages.components.output import sample_mean
+
+    df = pd.DataFrame({'EventId': [1, 1, 1], 'SummaryId': [1, 1, 1],
+                       'SampleId': [-1, 1, 3], 'Loss': [5.0, 10.0, 20.0]})
+    result = sample_mean(df, n_samples=4)
+    assert list(result['Loss']) == [7.5]  # (10 + 20 + 0 + 0) / 4
+    assert list(result.columns) == ['EventId', 'SummaryId', 'SampleId', 'Loss']
 
 
 def test_splt_fragment_renders_bar_chart():
@@ -78,41 +93,46 @@ def test_splt_fragment_renders_bar_chart():
     assert len(at.get("plotly_chart")) == 1
 
 
-def test_splt_fragment_mean_view_uses_special_sidx_row_not_a_recomputed_average():
+def test_splt_fragment_mean_of_samples_and_analytical_mean():
     '''
-    Regression test: `generate_splt_fragment`'s default "Mean (All
-    Samples)" view used to recompute the mean itself via a pandas
-    groupby over the file's positive-SampleId rows, same bug as SELT's.
-    SPLT's SampleId column is ORD's reserved "sidx": -1 is ktools' own
-    analytically-integrated mean, so the fragment should read that row
-    directly instead. The fixture's -1 rows per (SummaryId, date) are
-    deliberately not the arithmetic average of their samples (12 not
-    15, 17 not 20, 6 not 6.5, 7 not 7.5); `pltcalc_bar` then sums
-    across SummaryId per date, giving 12+17=29 for 2020-01-01 and
-    6+7=13 for 2021-06-15 - not the naive-average equivalents (35, 14),
-    so this fails if the fragment goes back to recomputing.
+    As for SELT: the default view averages the samples, and ORD's -1
+    analytical mean is a separate option. `pltcalc_bar` sums across
+    SummaryId per date: sample means give 15+20=35 and 6.5+7.5=14; the
+    fixture's -1 rows give 12+17=29 and 6+7=13.
     '''
     at = AppTest.from_file("tests/fixtures/splt_fragment_app.py").run()
 
     assert len(at.exception) == 0
-    assert at.selectbox(key="splt_gul_sample_filter").value == "Mean (All Samples)"
-    # Sample filter options must not expose the special sidx row as if
-    # it were a selectable individual sample.
-    assert at.selectbox(key="splt_gul_sample_filter").options == ["Mean (All Samples)", "1", "2"]
+    select = at.selectbox(key="splt_gul_sample_filter")
+    assert select.options == SAMPLE_OPTIONS
+    assert select.value == "Mean of samples"
 
-    spec = _plotly_spec(at.get("plotly_chart")[0])
-    losses = []
-    for trace in spec['data']:
-        losses.extend(_decode_plotly_array(trace.get('y')))
-    assert sorted(losses) == [13.0, 29.0]
+    def losses():
+        spec = _plotly_spec(at.get("plotly_chart")[0])
+        return sorted(v for trace in spec['data'] for v in _decode_plotly_array(trace.get('y')))
+
+    assert losses() == [14.0, 35.0]
+
+    # Fresh run with the choice preset: AppTest can't rerun this fragment
+    # interactively while its (unselected) single-select pills are present.
+    at = AppTest.from_file("tests/fixtures/splt_fragment_app.py")
+    at.session_state["splt_gul_sample_filter"] = "Analytical mean (sidx -1)"
+    at.run()
+    assert losses() == [13.0, 29.0]
 
 
-def test_alct_fragment_renders_table():
+def test_alct_fragment_renders_convergence_chart_and_table():
     at = AppTest.from_file("tests/fixtures/alct_fragment_app.py").run()
 
     assert len(at.exception) == 0
-    assert len(at.dataframe) == 1
-    assert set(at.dataframe[0].value["SummaryId"]) == {1, 2}
+    # One confidence band and one mean line per summary id
+    spec = _plotly_spec(at.get("plotly_chart")[0])
+    assert len(spec['data']) == 4
+    assert spec['layout']['xaxis']['title']['text'] == 'Number of samples'
+    table = at.dataframe[0].value
+    assert set(table["SummaryId"]) == {"1", "2"}
+    assert list(table.columns) == ['SummaryId', 'SampleSize', 'MeanLoss', 'LowerCI', 'UpperCI',
+                                   'StandardError', 'RelativeError']
 
 
 def test_psept_fragment_renders_ep_curve():

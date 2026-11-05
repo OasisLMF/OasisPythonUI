@@ -43,7 +43,8 @@ MODEL_SETTINGS = {
 PORTFOLIO = {'id': 1, 'name': 'p', 'location_file': {'stored': 'l.csv'}, 'accounts_file': {'stored': 'a.csv'}}
 
 settings, valid, problems = analysis_settings_editor(
-    MODEL, MODEL_SETTINGS, PORTFOLIO, st.session_state.get('base_settings'), key='test_editor')
+    MODEL, MODEL_SETTINGS, PORTFOLIO, st.session_state.get('base_settings'), key='test_editor',
+    portfolio_fields=['LocNumber', 'OccupancyCode', 'BuildingTIV', 'accnumber'])
 st.session_state['editor_settings'] = settings
 st.session_state['editor_valid'] = valid
 st.session_state['editor_problems'] = problems

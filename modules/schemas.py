@@ -14,11 +14,12 @@ from ods_tools.oed.settings import AnalysisSettingHandler
 
 SCHEMA_DIR = Path(ods_tools.__file__).parent / 'data'
 
-PERSPECTIVES = ['gul', 'il', 'ri']
+PERSPECTIVES = ['gul', 'il', 'ri', 'rl']
 PERSPECTIVE_LABELS = {
     'gul': 'Ground up loss (GUL)',
     'il': 'Insured loss (IL)',
     'ri': 'Net of reinsurance (RI)',
+    'rl': 'Ceded to reinsurance (RL)',
 }
 
 # Model settings keys that select one option from a list of `{id, desc}` options

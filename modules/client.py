@@ -138,6 +138,14 @@ class AnalysesEndpointInterface(EndpointInterface):
     def cancel(self, ID):
         return self.endpoint.cancel(ID)
 
+    def sub_tasks(self, ID):
+        '''Sub-tasks of an analysis run (name, status, ...); [] if unavailable.'''
+        try:
+            return self.endpoint.sub_task_list(ID).json() or []
+        except (HTTPError, ValueError) as e:
+            logger.warning(f'No sub-task list for analysis {ID}: {e}')
+            return []
+
     def delete(self, ID):
         return self.endpoint.delete(ID)
 

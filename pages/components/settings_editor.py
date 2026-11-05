@@ -38,9 +38,48 @@ def _list_text(values):
     return ', '.join(str(v) for v in values) if values else ''
 
 
+def _events_text(event_ids, event_ranges):
+    parts = [str(e) for e in event_ids or []]
+    if event_ranges:
+        parts += [r.strip() for r in str(event_ranges).split(',') if r.strip()]
+    return ', '.join(parts)
+
+
+def _parse_events(text):
+    '''Parse "1, 5, 100-120" into (event_ids, event_ranges, error).
+
+    Single ids go to `event_ids` and hyphenated ranges to `event_ranges`;
+    oasislmf combines the two.
+    '''
+    if not text or not text.strip():
+        return None, None, None
+    ids, ranges = [], []
+    for part in text.replace(';', ',').split(','):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            if '-' in part:
+                lo, hi = (int(v) for v in part.split('-', 1))
+                if lo < 1 or hi < lo:
+                    raise ValueError
+                ranges.append(f'{lo}-{hi}')
+            else:
+                value = int(part)
+                if value < 1:
+                    raise ValueError
+                ids.append(value)
+        except ValueError:
+            return None, None, f'Could not read "{part}" as an event id (a whole number from 1) or range like 100-120.'
+    return ids or None, ','.join(ranges) or None, None
+
+
 def perspective_availability(model_settings, portfolio):
     '''Which perspectives can be run, with a reason for those that can't.'''
-    valid = model_settings.get('model_settings', {}).get('valid_output_perspectives') or PERSPECTIVES
+    valid = list(model_settings.get('model_settings', {}).get('valid_output_perspectives') or PERSPECTIVES)
+    # The model settings schema has no 'rl': ceded reinsurance follows 'ri'
+    if 'ri' in valid and 'rl' not in valid:
+        valid.append('rl')
     has = {f: bool((portfolio.get(f) or {}).get('stored')) for f in
            ['accounts_file', 'reinsurance_info_file', 'reinsurance_scope_file']}
 
@@ -48,9 +87,9 @@ def perspective_availability(model_settings, portfolio):
     for p in PERSPECTIVES:
         if p not in valid:
             reasons[p] = 'Not supported by this model.'
-        elif p in ('il', 'ri') and not has['accounts_file']:
+        elif p in ('il', 'ri', 'rl') and not has['accounts_file']:
             reasons[p] = 'The portfolio has no accounts file.'
-        elif p == 'ri' and not (has['reinsurance_info_file'] and has['reinsurance_scope_file']):
+        elif p in ('ri', 'rl') and not (has['reinsurance_info_file'] and has['reinsurance_scope_file']):
             reasons[p] = 'The portfolio has no reinsurance info and scope files.'
     return reasons
 
@@ -67,12 +106,19 @@ def default_settings(model, model_settings):
     }
 
 
-def group_field_options(model_settings, extra=()):
+def group_field_options(model_settings, extra=(), portfolio_fields=()):
+    '''OED fields offered for grouping losses.
+
+    Common grouping fields and those the model suggests come first, followed
+    by every other column in the portfolio's OED files (alphabetically).
+    '''
     data_settings = model_settings.get('data_settings', {})
     fields = list(DEFAULT_GROUP_FIELDS)
     for f in [*data_settings.get('damage_group_fields', []), *data_settings.get('hazard_group_fields', []),
-              *model_settings.get('model_settings', {}).get('summary_report_fields', []), *extra]:
-        if f not in fields:
+              *model_settings.get('model_settings', {}).get('summary_report_fields', []), *extra,
+              *sorted(portfolio_fields, key=str.lower)]:
+        # OED field names are case-insensitive: keep the first spelling seen
+        if f.lower() not in {x.lower() for x in fields}:
             fields.append(f)
     return fields
 
@@ -88,18 +134,32 @@ def general_section(base, model_settings, key):
     entry = schemas.analysis_property('number_of_samples')
     default_samples = base.get('number_of_samples',
                                model_settings.get('model_default_samples', entry.get('default', 10)))
-    left, right = st.columns(2)
+    left, _ = st.columns(2)
     out['number_of_samples'] = left.number_input(
         _label(entry, 'Number of samples'), min_value=entry.get('minimum', 0), step=1,
         value=int(default_samples), help=entry.get('description'), key=f'{key}_samples')
 
-    entry = schemas.analysis_property('gul_threshold')
-    out['gul_threshold'] = right.number_input(
-        _label(entry, 'Ground-up loss threshold'), min_value=float(entry.get('minimum', 0)),
-        value=float(base.get('gul_threshold', entry.get('default', 0))),
-        help=entry.get('description'), key=f'{key}_gul_threshold')
-
     with st.expander('Advanced'):
+        entry = schemas.analysis_property('gul_threshold')
+        out['gul_threshold'] = st.number_input(
+            _label(entry, 'Ground-up loss threshold'), min_value=float(entry.get('minimum', 0)),
+            value=float(base.get('gul_threshold', entry.get('default', 0))),
+            help=entry.get('description'), key=f'{key}_gul_threshold')
+
+        text = st.text_input(
+            'Events', value=_events_text(base.get('event_ids'), base.get('event_ranges')),
+            placeholder='e.g. 1, 5, 100-120',
+            help='Run only these event ids. Use commas between ids and hyphens for ranges. '
+                 'Leave blank to run every event in the event set.',
+            key=f'{key}_events')
+        event_ids, event_ranges, error = _parse_events(text)
+        if error:
+            errors.append(error)
+        if event_ids:
+            out['event_ids'] = event_ids
+        if event_ranges:
+            out['event_ranges'] = event_ranges
+
         entry = schemas.analysis_property('return_periods')
         text = st.text_input(_label(entry, 'Return periods'), value=_list_text(base.get('return_periods')),
                              placeholder='e.g. 10, 50, 100, 250, 500, 1000',
@@ -300,8 +360,12 @@ def summary_levels_editor(key, scope, summaries, field_options):
                 with col:
                     st.markdown(f'<small>**{group}**</small>', unsafe_allow_html=True)
                     for k in keys:
-                        if col.checkbox(flags[k][0], value=bool(ord_output.get(k)), help=flags[k][1],
-                                        key=f'{wkey}_{k}'):
+                        # oasislmf only writes the ALCT alongside the period ALT (PALT)
+                        needs_palt = k == 'alct_convergence' and 'alt_period' not in selected
+                        help_text = flags[k][1] + (' Requires PALT.' if needs_palt else '')
+                        if col.checkbox(flags[k][0], value=bool(ord_output.get(k)) and not needs_palt,
+                                        help=help_text, disabled=needs_palt, key=f'{wkey}_{k}') \
+                                and not needs_palt:
                             selected.append(k)
 
             new_level = {k: v for k, v in level.items() if k not in ('ord_output', 'oed_fields')}
@@ -331,12 +395,12 @@ def summary_levels_editor(key, scope, summaries, field_options):
     return result
 
 
-def outputs_section(base, model_settings, portfolio, key):
+def outputs_section(base, model_settings, portfolio, key, portfolio_fields=()):
     out, errors = {}, []
     unavailable = perspective_availability(model_settings, portfolio)
 
     st.markdown('**Loss perspectives**')
-    cols = st.columns(3)
+    cols = st.columns(len(PERSPECTIVES))
     enabled = []
     for col, p in zip(cols, PERSPECTIVES):
         reason = unavailable.get(p)
@@ -355,7 +419,7 @@ def outputs_section(base, model_settings, portfolio, key):
     first = next((existing[p] for p in PERSPECTIVES if existing[p]), None)
     same_default = all(existing[p] in (None, first) for p in PERSPECTIVES)
     extra_fields = [f for s in (first or []) for f in (s.get('oed_fields') or [])]
-    field_options = group_field_options(model_settings, extra_fields)
+    field_options = group_field_options(model_settings, extra_fields, portfolio_fields)
 
     same = st.toggle('Use the same outputs for every perspective', value=same_default,
                      key=f'{key}_same_outputs')
@@ -385,7 +449,7 @@ def outputs_section(base, model_settings, portfolio, key):
 # Editor
 ##########################################################################################
 
-def analysis_settings_editor(model, model_settings, portfolio, base_settings, key):
+def analysis_settings_editor(model, model_settings, portfolio, base_settings, key, portfolio_fields=()):
     '''Render the editor and return `(settings, valid, problems)`.
 
     Args:
@@ -394,6 +458,7 @@ def analysis_settings_editor(model, model_settings, portfolio, base_settings, ke
         portfolio: portfolio record, used to decide which perspectives are possible.
         base_settings: settings to start from (template / existing settings).
         key: unique widget key prefix. Change it to reset the editor.
+        portfolio_fields: columns in the portfolio's OED files, offered for grouping.
     '''
     base = deepcopy(base_settings) if base_settings else default_settings(model, model_settings)
 
@@ -405,11 +470,12 @@ def analysis_settings_editor(model, model_settings, portfolio, base_settings, ke
     with model_tab:
         ms, ms_errors = model_options_section(base, model_settings, key)
     with outputs_tab:
-        outputs, output_errors = outputs_section(base, model_settings, portfolio, key)
+        outputs, output_errors = outputs_section(base, model_settings, portfolio, key, portfolio_fields)
 
     # Start from the template so keys the editor doesn't manage are kept
     settings = {k: v for k, v in base.items()
-                if k not in ('return_periods', 'quantiles', 'peril_filter', 'model_settings')
+                if k not in ('return_periods', 'quantiles', 'peril_filter', 'model_settings',
+                             'event_ids', 'event_ranges')
                 and not any(k.startswith(f'{p}_') for p in PERSPECTIVES)}
     settings.update(general)
     settings['model_supplier_id'] = model['supplier_id']

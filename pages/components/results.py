@@ -1,7 +1,10 @@
 '''
 Render the outputs of a completed analysis, driven by its analysis settings.
 '''
+import re
+
 import streamlit as st
+from oasis_data_manager.errors import OasisException
 
 from modules.schemas import PERSPECTIVE_LABELS, PERSPECTIVES
 from modules.visualisation import OutputInterface
@@ -69,6 +72,7 @@ def render_results(settings, outputs, locations=None):
         return
 
     vis = OutputInterface(outputs)
+    vis.number_of_samples = settings.get('number_of_samples')
     perspectives = [p for p in PERSPECTIVES if settings.get(f'{p}_output')]
     if not perspectives:
         st.info('No loss perspectives were enabled in the analysis settings.')
@@ -93,14 +97,31 @@ def render_results(settings, outputs, locations=None):
 
             summary = levels[level_id]
             vis.set_summary_level(p, level_id)
-            vis.set_oed_fields(p, summary.get('oed_fields') or None)
+
+            # Reinsurance outputs can be split by inuring priority (rl_IP1_S1_..., ri_S1_...)
+            priorities = inuring_priorities(outputs, p, level_id)
+            prefix = priorities[0] if priorities else ''
+            if len(priorities) > 1:
+                prefix = st.selectbox('Inuring priority', priorities, format_func=priority_label,
+                                      key=f'results_priority_{p}_{level_id}')
+            vis.set_file_prefix(p, prefix)
+
+            oed_fields = summary.get('oed_fields') or None
+            if oed_fields and not vis.has_summary_info(p, level_id):
+                st.caption(f"Breakdown by {', '.join(oed_fields)} isn't available here: the run produced "
+                           "no summary-info file for this perspective, so results are shown by SummaryId.")
+                oed_fields = None
+            vis.set_oed_fields(p, oed_fields)
 
             sections = _sections(summary, locations)
             if not sections:
                 st.info('No outputs were selected for this summary level.')
             for i, (title, render) in enumerate(sections):
                 with st.expander(title, expanded=i == 0):
-                    render(p, vis)
+                    try:
+                        render(p, vis)
+                    except OasisException:
+                        st.info('This output was requested in the settings but the run did not produce it.')
 
 
 def level_label(level):
@@ -109,3 +130,17 @@ def level_label(level):
         fields = [fields]
     grouping = f"grouped by {', '.join(fields)}" if fields else 'portfolio total'
     return f"Level {level['id']}: {grouping}"
+
+
+def inuring_priorities(outputs, perspective, level_id):
+    '''File prefixes for the inuring priorities present, final ('') first.
+
+    e.g. `['', 'IP1_']` for ri_S1_* and ri_IP1_S1_*, or `['IP1_']` for rl_IP1_S1_*.
+    '''
+    pattern = re.compile(rf'^{perspective}_(IP\d+_)?S{level_id}_')
+    found = {m.group(1) or '' for name in outputs if (m := pattern.match(name))}
+    return sorted(found, key=lambda pre: (pre != '', int(pre[2:-1]) if pre else 0))
+
+
+def priority_label(prefix):
+    return 'Final' if not prefix else f'Inuring priority {prefix[2:-1]}'

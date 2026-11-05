@@ -165,12 +165,80 @@ def test_perspective_availability():
     full = {f: {'stored': 'x.csv'} for f in
             ['location_file', 'accounts_file', 'reinsurance_info_file', 'reinsurance_scope_file']}
 
-    assert set(perspective_availability(model_settings, loc_only)) == {'il', 'ri'}
+    assert set(perspective_availability(model_settings, loc_only)) == {'il', 'ri', 'rl'}
     assert perspective_availability(model_settings, full) == {}
     gul_only = {'model_settings': {'valid_output_perspectives': ['gul']}}
-    assert set(perspective_availability(gul_only, full)) == {'il', 'ri'}
+    assert set(perspective_availability(gul_only, full)) == {'il', 'ri', 'rl'}
+    # The model schema has no 'rl': ceded reinsurance follows 'ri'
+    with_ri = {'model_settings': {'valid_output_perspectives': ['gul', 'il', 'ri']}}
+    assert perspective_availability(with_ri, full) == {}
 
 
 def test_ord_output_groups_cover_schema():
     grouped = {k for keys in schemas.ORD_OUTPUT_GROUPS.values() for k in keys}
     assert grouped == set(schemas.ord_output_options())
+
+
+def test_events_are_parsed_into_ids_and_ranges(editor):
+    at = editor
+    at.text_input(key='test_editor_events').input('1, 5, 100-120, 7').run()
+    settings = at.session_state['editor_settings']
+    assert settings['event_ids'] == [1, 5, 7]
+    assert settings['event_ranges'] == '100-120'
+    assert at.session_state['editor_valid'], at.session_state['editor_problems']
+
+    at.text_input(key='test_editor_events').input('').run()
+    settings = at.session_state['editor_settings']
+    assert 'event_ids' not in settings and 'event_ranges' not in settings
+
+
+def test_invalid_events_are_reported(editor):
+    at = editor
+    for bad in ['0', '20-10', 'abc']:
+        at.text_input(key='test_editor_events').input(bad).run()
+        assert not at.session_state['editor_valid'], bad
+
+
+def test_template_events_are_shown():
+    at = AppTest.from_file(APP, default_timeout=30)
+    at.session_state['base_settings'] = {'event_ids': [3, 4], 'event_ranges': '10-12,20-21',
+                                         'gul_output': True, 'gul_summaries': [{'id': 1}]}
+    at.run()
+    assert at.text_input(key='test_editor_events').value == '3, 4, 10-12, 20-21'
+    assert at.session_state['editor_settings']['event_ranges'] == '10-12,20-21'
+
+
+def test_gul_threshold_is_advanced(editor):
+    # Lives in the Advanced expander, not alongside the number of samples
+    advanced = [e for e in editor.expander if e.label == 'Advanced'][0]
+    assert advanced.number_input(key='test_editor_gul_threshold').value == 0.0
+
+
+def test_group_by_offers_portfolio_columns(editor):
+    options = editor.multiselect(key='test_editor_all_1_fields').options
+    # Common fields first, then the portfolio's own columns alphabetically
+    assert options[:5] == ['PortNumber', 'AccNumber', 'LocNumber', 'CountryCode', 'LocPeril']
+    assert {'OccupancyCode', 'BuildingTIV'} <= set(options)
+    # Case-insensitive duplicates of standard fields are dropped
+    assert 'accnumber' not in options
+    assert options.count('LocNumber') == 1
+
+
+def test_alct_requires_palt(editor):
+    at = editor
+    alct = at.checkbox(key='test_editor_all_1_alct_convergence')
+    assert alct.disabled  # default outputs don't include PALT
+
+    at.checkbox(key='test_editor_all_1_alt_period').check().run()
+    alct = at.checkbox(key='test_editor_all_1_alct_convergence')
+    assert not alct.disabled
+    alct.check().run()
+    ord_output = at.session_state['editor_settings']['gul_summaries'][0]['ord_output']
+    assert ord_output['alt_period'] and ord_output['alct_convergence']
+    assert ord_output['alct_confidence'] == 0.95
+
+
+def test_rl_perspective_needs_reinsurance_files(editor):
+    rl = editor.checkbox(key='test_editor_rl_output')
+    assert rl.label == 'Ceded to reinsurance (RL)'
+    assert rl.disabled  # fixture portfolio has no RI files

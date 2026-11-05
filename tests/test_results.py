@@ -96,3 +96,37 @@ def test_progress_falls_back_to_tasks():
               'status_count': {'COMPLETED': 1, 'TOTAL': 4}}
     assert analysis_progress(queued) == (0.25, '1 of 4 tasks')
     assert analysis_progress({'status': 'RUN_QUEUED'}) == (None, '')
+
+
+def test_current_task_shows_started_tasks():
+    from pages.components.common import current_task
+    tasks = [
+        {'name': 'Prepare losses generation directory', 'status': 'COMPLETED'},
+        {'name': 'Generate losses chunk 0', 'status': 'STARTED'},
+        {'name': 'Generate losses chunk 1', 'status': 'STARTED'},
+        {'name': 'Generate losses output', 'status': 'PENDING'},
+    ]
+    assert current_task(tasks) == 'Generate losses chunk 0, Generate losses chunk 1'
+    assert current_task(tasks[:1] + tasks[3:]) == 'Waiting for: Generate losses output'
+    assert current_task([]) == ''
+
+
+def test_inuring_priorities_from_filenames():
+    from pages.components.results import inuring_priorities, priority_label
+    outputs = {'rl_IP1_S1_selt.csv': 1, 'rl_IP2_S1_selt.csv': 1, 'rl_IP1_S2_selt.csv': 1,
+               'ri_S1_selt.csv': 1, 'ri_IP1_S1_selt.csv': 1, 'gul_S1_selt.csv': 1}
+    assert inuring_priorities(outputs, 'rl', 1) == ['IP1_', 'IP2_']
+    assert inuring_priorities(outputs, 'ri', 1) == ['', 'IP1_']
+    assert inuring_priorities(outputs, 'gul', 1) == ['']
+    assert priority_label('') == 'Final'
+    assert priority_label('IP2_') == 'Inuring priority 2'
+
+
+def test_output_interface_reads_prefixed_rl_files():
+    import pandas as pd
+    from modules.visualisation import OutputInterface
+    ept = pd.DataFrame({'SummaryId': [1], 'EPCalc': [2], 'EPType': [1], 'ReturnPeriod': [10.0], 'Loss': [5.0]})
+    vis = OutputInterface({'rl_IP1_S1_ept.csv': ept})
+    vis.set_file_prefix('rl', 'IP1_')
+    assert vis.get(1, 'rl', 'ept').equals(ept)
+    assert not vis.has_summary_info('rl', 1)

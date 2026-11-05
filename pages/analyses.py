@@ -11,10 +11,11 @@ from modules.schemas import PERSPECTIVE_LABELS, PERSPECTIVES
 from modules.ui import flash, page_setup, show_api_error
 from pages.components.common import (ERROR_STATUSES, IN_PROGRESS_STATUSES, MODELS_PAGE,
                                      NEW_ANALYSIS_DEFAULTS, PORTFOLIOS_PAGE, SELECTED_ANALYSIS,
-                                     SELECTED_MODEL, SELECTED_PORTFOLIO, analysis_progress,
+                                     SELECTED_MODEL, SELECTED_PORTFOLIO, analysis_progress, current_task,
                                      format_status, open_record, selectable_table)
 from pages.components.data import (analyses_df, analysis_files, analysis_settings,
-                                   cached_model_settings, model_label, models_df, session_cached)
+                                   cached_model_settings, model_label, models_df, portfolio_file_df,
+                                   session_cached)
 from pages.components.logs import display_traceback_file
 from pages.components.results import render_results
 from pages.components.settings_editor import analysis_settings_editor, reset_editor
@@ -43,6 +44,20 @@ def close_editor(editor_key=None):
         reset_editor(editor_key)
     st.session_state[VIEW_KEY] = None
     st.session_state[NEW_ANALYSIS_DEFAULTS] = None
+
+
+def portfolio_fields(portfolio):
+    '''Columns of the portfolio's location and accounts files (for grouping losses).'''
+    fields = []
+    for file_type in ['location_file', 'accounts_file']:
+        try:
+            df = portfolio_file_df(ci, portfolio, file_type)
+        except (HTTPError, OasisException) as e:
+            logger.warning(f"Could not read {file_type} of portfolio {portfolio['id']}: {e}")
+            df = None
+        if df is not None:
+            fields += [c for c in df.columns if c not in fields]
+    return fields
 
 
 def start_run(analysis, regenerate=False):
@@ -171,7 +186,8 @@ def new_analysis_view():
     st.markdown('#### Settings')
     source, base = template_picker(model, f'new_{model_id}')
     editor_key = f'new_{portfolio_id}_{model_id}_{source}'
-    settings, valid, problems = analysis_settings_editor(model, model_settings, portfolio, base, editor_key)
+    settings, valid, problems = analysis_settings_editor(model, model_settings, portfolio, base, editor_key,
+                                                         portfolio_fields(portfolio))
 
     st.divider()
     if problems:
@@ -223,7 +239,8 @@ def edit_settings_view(analysis):
     if base:
         base = {k: v for k, v in base.items() if k != '_id'}
     editor_key = f"edit_{analysis['id']}_{source}"
-    settings, valid, problems = analysis_settings_editor(model, model_settings, portfolio, base, editor_key)
+    settings, valid, problems = analysis_settings_editor(model, model_settings, portfolio, base, editor_key,
+                                                         portfolio_fields(portfolio))
 
     st.divider()
     in_progress = analysis['status'] in IN_PROGRESS_STATUSES
@@ -485,7 +502,8 @@ def list_view():
             if a['status'] not in IN_PROGRESS_STATUSES:
                 continue
             fraction, detail = analysis_progress(a)
-            text = f"**{a['name']}** · {format_status(a['status'])}" + (f' · {detail}' if detail else '')
+            task = current_task(ci.analyses.sub_tasks(a['id']))
+            text = ' · '.join(x for x in [f"**{a['name']}**", format_status(a['status']), task, detail] if x)
             st.progress(fraction or 0.0, text=text)
 
     live_status()

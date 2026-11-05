@@ -71,6 +71,9 @@ class MockEndpoint:
     def cancel(self, ID):
         return self._set_status(ID, 'RUN_CANCELLED')
 
+    def sub_task_list(self, ID):
+        return MockJsonObject(self._find(ID).get('sub_tasks', []))
+
 
 class MockFileEndpoint:
     '''File sub-endpoint (e.g. `portfolios.location_file`) holding DataFrames by ID.

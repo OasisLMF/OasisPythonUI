@@ -22,6 +22,17 @@ class OutputInterface:
         self.output_file_dict = output_file_dict
         self.oed_fields = {}
         self.summary_levels = {}
+        self.file_prefixes = {}
+
+    def set_file_prefix(self, perspective, prefix):
+        '''Inuring priority prefix for a perspective's files, e.g. `IP1_` for
+        `rl_IP1_S1_selt.csv`. `''` (default) is the final/only priority.'''
+        self.file_prefixes[perspective] = prefix
+
+    def has_summary_info(self, perspective, summary_level=None):
+        level = summary_level or self.summary_level(perspective)
+        return self._request_to_summary_info_fname(level, perspective, self.file_prefixes.get(perspective, '')) \
+            in self.output_file_dict
 
     def set_oed_fields(self, perspective, oed_fields):
         self.oed_fields[perspective] = oed_fields
@@ -76,14 +87,15 @@ class OutputInterface:
                              'ept', 'psept'
                              ]
         assert output_type in supported_outputs, 'Output type not supported'
-        assert perspective in ['gul', 'il', 'ri'], 'Perspective not valid'
+        assert perspective in ['gul', 'il', 'ri', 'rl'], 'Perspective not valid'
 
         if output_type == "leccalc":
             assert kwargs.get("analysis_type") in ["full_uncertainty", "sample_mean", "wheatsheaf", "wheatsheaf_mean"], "Analysis type not supported."
             assert kwargs.get("loss_type") in ["aep", "oep"], "Loss type not supported."
 
-        fname = self._request_to_fname(summary_level, perspective, output_type,
-                                           **kwargs)
+        prefix = self.file_prefixes.get(perspective, '')
+        fname = self._request_to_fname(summary_level, perspective, output_type, prefix=prefix,
+                                       **kwargs)
         results = self.output_file_dict.get(fname)
         if results is None:
             logger.error(f'Failed to find output file: {fname}')
@@ -91,7 +103,8 @@ class OutputInterface:
 
         oed_fields = self.oed_fields.get(perspective, None)
         if oed_fields:
-            summary_info = self.output_file_dict.get(self._request_to_summary_info_fname(summary_level, perspective))
+            summary_info = self.output_file_dict.get(
+                self._request_to_summary_info_fname(summary_level, perspective, prefix))
             results = self.add_oed_fields(results, summary_info, oed_fields)
             kwargs['oed_fields'] = oed_fields
 
@@ -99,7 +112,7 @@ class OutputInterface:
         return result
 
     @staticmethod
-    def _request_to_fname(summary_level, perspective, output_type, **kwargs):
+    def _request_to_fname(summary_level, perspective, output_type, prefix='', **kwargs):
         if output_type[:4] in ['elt_', 'plt_']:
             output_type = output_type[4] + output_type[:3]
 
@@ -114,15 +127,15 @@ class OutputInterface:
         if output_type[:4] == 'alct':
             output_type = 'alct'
 
-        fname = f'{perspective}_S{summary_level}_{output_type}'
+        fname = f'{perspective}_{prefix}S{summary_level}_{output_type}'
         if output_type == 'leccalc':
             fname += f'_{kwargs.get("analysis_type")}_{kwargs.get("loss_type")}'
         fname += '.csv'
         return fname
 
     @staticmethod
-    def _request_to_summary_info_fname(summary_level, perspective):
-        return f'{perspective}_S{summary_level}_summary-info.csv'
+    def _request_to_summary_info_fname(summary_level, perspective, prefix=''):
+        return f'{perspective}_{prefix}S{summary_level}_summary-info.csv'
 
     @staticmethod
     def add_oed_fields(results, summary_info, oed_fields):
