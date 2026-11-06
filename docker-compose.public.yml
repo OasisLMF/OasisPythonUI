@@ -55,9 +55,9 @@ services:
       - -c
       - |
         while true; do
-          python3 scripts/prune_analysis.py --force --days "$${OASIS_PRUNE_DAYS:-7}" \
-            --keep-tag "[showcase]" --user "$${OASIS_SERVICE_USERNAME_OR_ID}" \
-            --password "$${OASIS_SERVICE_PASSWORD_OR_SECRET}" --log INFO
+          # Credentials come from the environment, so they aren't in the process list
+          python3 -u scripts/prune_analysis.py --force --days "$${OASIS_PRUNE_DAYS:-7}" \
+            --keep-tag "[showcase]" --log INFO
           sleep 86400
         done
     environment:

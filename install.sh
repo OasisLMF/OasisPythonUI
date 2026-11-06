@@ -239,9 +239,11 @@ if [ "${OASIS_PUBLIC_DEMO:-false}" = "true" ]; then
         echo "ERROR: OASIS_PUBLIC_DEMO=true requires API_AUTH_TYPE=simple (see .env.scenarios)"
         exit 1
     fi
-    if grep -q "CHANGE_ME" "$SCRIPT_DIR/.env"; then
+    # Settings (not comments) still holding the .env.scenarios placeholder
+    PLACEHOLDERS=$(grep -v '^[[:space:]]*#' "$SCRIPT_DIR/.env" | grep "CHANGE_ME" | cut -d= -f1)
+    if [ -n "$PLACEHOLDERS" ]; then
         echo "ERROR: .env still contains CHANGE_ME placeholders. Set real passwords before a public deployment:"
-        grep -n "CHANGE_ME" "$SCRIPT_DIR/.env" | cut -d= -f1 | sed 's/^/    /'
+        echo "$PLACEHOLDERS" | sed 's/^/    /'
         exit 1
     fi
     COMPOSE_FILES="$COMPOSE_FILES -f $SCRIPT_DIR/docker-compose.public.yml"
