@@ -12,6 +12,7 @@ from dataclasses import dataclass
 
 import streamlit as st
 
+from modules.oed import country_name, peril_family
 from modules.status import IN_PROGRESS_STATUSES, is_active  # noqa: F401 - re-exported
 
 VISITOR_PARAM = 'v'
@@ -123,3 +124,53 @@ def scenario_portfolios(model, portfolios, ui_config):
 def scenario_models(models, portfolios, ui_config):
     """Models that have at least one configured portfolio available."""
     return [m for m in models if scenario_portfolios(m, portfolios, ui_config)]
+
+
+def _column(df, name):
+    """Column `name` of an OED DataFrame, matched case-insensitively (or None)."""
+    match = next((c for c in df.columns if c.lower() == name.lower()), None)
+    return df[match] if match is not None else None
+
+
+def scenario_catalogue(models, portfolios, ui_config, settings_for, locations_for=None):
+    """Scenarios to browse, with title, peril, countries, type, provider and description.
+
+    Curated details come from the config's `scenario_info`; anything missing is
+    worked out from the scenario's first portfolio (`locations_for(portfolio)`
+    returns its location DataFrame) using OED peril and country names.
+
+    Args:
+        models: model records from the API.
+        portfolios: portfolio records from the API.
+        ui_config: UI config with `model_map` and `scenario_info`.
+        settings_for: callable returning a model's settings (for name and description).
+        locations_for: optional callable returning a portfolio's location DataFrame.
+    """
+    info_map = getattr(ui_config, 'scenario_info', {}) or {}
+    catalogue = []
+    for model in scenario_models(models, portfolios, ui_config):
+        info = info_map.get(model['model_id'], {})
+        settings = settings_for(model) or {}
+        countries, peril = info.get('countries'), info.get('peril')
+
+        if (countries is None or peril is None) and locations_for is not None:
+            locations = locations_for(scenario_portfolios(model, portfolios, ui_config)[0])
+            if locations is not None:
+                codes = _column(locations, 'CountryCode')
+                if countries is None and codes is not None:
+                    countries = sorted(codes.dropna().astype(str).unique())
+                covered = _column(locations, 'LocPerilsCovered')
+                if peril is None and covered is not None:
+                    perils = {c for value in covered.dropna().astype(str).unique() for c in value.split(';')}
+                    peril = ', '.join(sorted({peril_family(c) for c in perils if c}))
+
+        catalogue.append({
+            'id': model['id'],
+            'title': info.get('title') or settings.get('name') or model['model_id'],
+            'peril': peril or 'Not specified',
+            'countries': [country_name(c) for c in countries or []],
+            'type': info.get('type') or 'Scenario',
+            'provider': model.get('supplier_id') or '',
+            'description': settings.get('description') or '',
+        })
+    return sorted(catalogue, key=lambda e: e['title'].lower())

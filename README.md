@@ -169,7 +169,7 @@ or set `MODEL_SET` in `.env` so a bare `./install.sh` deploys it:
 
 ```bash
 ./install.sh -m piwind      # default: the PiWind demo model
-./install.sh -m scenarios   # PiWind plus the public scenario models
+./install.sh -m scenarios   # the public disaster scenario models
 ```
 
 Model sets shipped in this repository:

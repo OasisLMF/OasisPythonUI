@@ -30,7 +30,8 @@ class Context:
         self.vid = visitor_id()
 
     def scenario_name(self, model):
-        return cached_model_settings(self.ci, model).get('name') or model['model_id']
+        info = (self.ui_config.scenario_info or {}).get(model.get('model_id'), {})
+        return info.get('title') or cached_model_settings(self.ci, model).get('name') or model['model_id']
 
 
 def footer(ui_config):

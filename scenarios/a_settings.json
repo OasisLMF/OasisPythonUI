@@ -1,9 +1,5 @@
 [
   {
-    "model_name_id": "PiWind",
-    "settings_path": "./scenarios/defaults/1_piwind_oasislmf-analysis_settings.json"
-  },
-  {
     "model_name_id": "EUWS",
     "settings_path": "./scenarios/defaults/3_euws_impact-forecasting-analysis_settings.json"
   },

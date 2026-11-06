@@ -74,6 +74,46 @@ def sample_selector(df, vis, key):
     return df[df['SampleId'] == choice]
 
 
+SAMPLE_TYPE_LABELS = {'Sample': 'Sample', 'Analytical': 'Analytical'}
+
+
+def order_sample_types(values):
+    """Order Analytical/Sample result types so Sample comes first (the default)."""
+    order = list(SAMPLE_TYPE_LABELS)
+    return sorted(values, key=lambda v: order.index(v) if v in order else len(order))
+
+
+def sample_type_selector(df, col, key, label='Results:'):
+    """Choose Sample (default) or Analytical rows of an output with a type column."""
+    if col not in df.columns:
+        return df
+    types = order_sample_types(df[col].dropna().unique().tolist())
+    if len(types) <= 1:
+        return df
+    choice = st.radio(label, options=types, index=0, horizontal=True, key=key,
+                      help='Sample: statistics of the sampled losses. Analytical: the model\'s '
+                           'numerically integrated values, which don\'t depend on the number of samples.')
+    return df[df[col] == choice]
+
+
+ALL_EVENTS = 'All events'
+
+
+def event_selector(df, loss_col, key):
+    """Choose one event (or all) of an event loss table with several events.
+
+    Events are listed largest loss first; the choice applies to the table and the map.
+    """
+    if 'EventId' not in df.columns or df['EventId'].nunique() <= 1:
+        return df
+    totals = df.groupby('EventId', observed=True)[loss_col].sum().sort_values(ascending=False)
+    options = [ALL_EVENTS] + totals.index.tolist()
+    choice = st.selectbox('Event:', options, key=key,
+                          format_func=lambda e: e if e == ALL_EVENTS else f'Event {e} (loss {totals[e]:,.0f})',
+                          help='This scenario has more than one event. Show one, or all of them combined.')
+    return df if choice == ALL_EVENTS else df[df['EventId'] == choice]
+
+
 def order_ep_calcs(values):
     """Order EPCalc codes so full uncertainty comes first, then MeanDR."""
     order = list(EP_CALC_LABELS)
@@ -710,10 +750,8 @@ def generate_melt_fragment(p, vis, locations=None):
         type_col = None
 
     if type_col:
-        types = data_df[type_col].unique()
-        selected_type = st.radio('Type Filter:', options=types, index=0, horizontal=True,
-                                 key=f'melt_{p}_type_filter')
-        data_df = data_df[data_df[type_col] == selected_type]
+        data_df = sample_type_selector(data_df, type_col, key=f'melt_{p}_type_filter')
+    data_df = event_selector(data_df, 'MeanLoss', key=f'melt_{p}_event_filter')
 
     tab_names = ['table', 'map']
     with st.container(border=True):
@@ -773,6 +811,7 @@ def generate_qelt_fragment(p, vis, locations=None):
                                key=f'qelt_{p}_quantile_filter')
 
     data_df = data_df[data_df['Quantile'] == quantile_filter]
+    data_df = event_selector(data_df, 'Loss', key=f'qelt_{p}_event_filter')
 
     tab_names = ['table', 'map']
     with st.container(border=True):
@@ -841,6 +880,7 @@ def generate_selt_fragment(p, vis, locations=None):
     oed_fields = vis.oed_fields.get(p) or []
 
     data_df = sample_selector(data_df, vis, key=f'selt_{p}_sample_filter')
+    data_df = event_selector(data_df, 'Loss', key=f'selt_{p}_event_filter')
 
     tab_names = ['table', 'map']
     with st.container(border=True):
@@ -886,6 +926,7 @@ def generate_selt_fragment(p, vis, locations=None):
 @st.fragment
 def generate_aalcalc_fragment(p, vis):
     result = vis.get(vis.summary_level(p), p, 'aalcalc')
+    result = sample_type_selector(result, 'type', key=f'aalcalc_{p}_type_filter')
 
     oed_fields = vis.oed_fields.get(p) or []
     breakdown_field = None
@@ -907,7 +948,7 @@ def generate_aalcalc_fragment(p, vis):
     result = result.loc[:, group_field + ['mean']]
     result = result.groupby(group_field, as_index=False).agg({'mean': 'sum'})
 
-    graph = px.bar(result, x='type', y='mean', color=breakdown_field,
+    graph = px.bar(result, x=breakdown_field or 'type', y='mean',
                    labels={'type': 'Type', 'mean': 'Mean'},
                    color_discrete_sequence=px.colors.sequential.RdBu)
 
@@ -922,6 +963,7 @@ def generate_alt_fragment(p, vis, output_type='alt_meanonly'):
     result = vis.get(vis.summary_level(p), p, output_type)
     type_field = 'SampleType'
     mean_field = 'MeanLoss'
+    result = sample_type_selector(result, type_field, key=f'{output_type}_{p}_type_filter')
 
     oed_fields = vis.oed_fields.get(p) or []
     breakdown_field = None
@@ -945,7 +987,7 @@ def generate_alt_fragment(p, vis, output_type='alt_meanonly'):
 
     type_formatted = type_field[0] + type_field[1:]
     mean_formatted = mean_field[0] + mean_field[1:]
-    graph = px.bar(result, x=type_field, y=mean_field, color=breakdown_field,
+    graph = px.bar(result, x=breakdown_field or type_field, y=mean_field,
                    labels={type_field: type_formatted, mean_field: mean_formatted},
                    color_discrete_sequence=px.colors.sequential.RdBu)
 
@@ -1181,7 +1223,12 @@ def generate_leccalc_comparison_fragment(perspective, outputs, names=None,
         for r in results:
             values.update(r[col].unique().tolist())
 
-        values = order_ep_calcs(values) if col == 'EPCalc' else sorted(values)
+        if col == 'EPCalc':
+            values = order_ep_calcs(values)
+        elif col in ('type', 'SampleType'):
+            values = order_sample_types(values)
+        else:
+            values = sorted(values)
         if len(values) > 1:
             format_map = spec.get('format_map')
             selected_value = st.radio(spec['label'], options=values, horizontal=True,
@@ -1340,10 +1387,7 @@ def generate_pltcalc_fragment(p, vis):
     elif selected_group:
         result[selected_group] = result[selected_group].astype(str)
 
-    types = result['type'].unique()
-    selected_type = st.radio('Type filter: ', options=types, index=0, key=f'pltcalc_{p}_type_filter')
-
-    result = result[result['type'] == selected_type]
+    result = sample_type_selector(result, 'type', key=f'pltcalc_{p}_type_filter')
 
     date_cols = {
         'year': 'occ_year',
@@ -1377,8 +1421,8 @@ def generate_mplt_fragment(p, vis):
     elif selected_group:
         result[selected_group] = result[selected_group].astype(str)
 
-    types = result['SampleType'].unique()
-    selected_type = st.radio('Type filter: ', options=types, index=0, horizontal=True,
+    types = order_sample_types(result['SampleType'].unique().tolist())
+    selected_type = st.radio('Results:', options=types, index=0, horizontal=True,
                              key=f'mplt_{p}_type_filter')
 
     result = result[result['SampleType'] == selected_type]
@@ -1668,8 +1712,8 @@ def generate_aalcalc_comparison_fragment(p, outputs, names=None):
         breakdown_field_invalid = True
         breakdown_field = None
 
-    types = results[0]['type'].unique()
-    selected_type = st.radio('Type filter: ', options=types, index=0, horizontal=True,
+    types = order_sample_types(results[0]['type'].unique().tolist())
+    selected_type = st.radio('Results:', options=types, index=0, horizontal=True,
                              key=f'aalcalc_comparison_{p}_type_filter')
 
     for i in range(2):
@@ -1768,7 +1812,9 @@ def generate_eltcalc_comparison_fragment(perspective, outputs, names=None,
     results = [o.get(o.summary_level(perspective), perspective, output_type) for o in outputs]
     oed_fields = shared_oed_fields(perspective, outputs)
 
-    options = results[0][filter_col].unique()
+    options = results[0][filter_col].unique().tolist()
+    if filter_col in ('type', 'SampleType'):
+        options = order_sample_types(options)
     if filter_index < 0:
         filter_index += len(options)
 
@@ -1874,7 +1920,9 @@ def generate_pltcalc_comparison_fragment(p, outputs, names=None, output_type='pl
         breakdown_field_invalid = True
         breakdown_field = None
 
-    options = results[0][filter_col].unique()
+    options = results[0][filter_col].unique().tolist()
+    if filter_col in ('type', 'SampleType'):
+        options = order_sample_types(options)
     if filter_index < 0:
         filter_index += len(options)
 

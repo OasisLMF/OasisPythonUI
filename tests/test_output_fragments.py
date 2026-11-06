@@ -245,3 +245,26 @@ def test_choropleth_warns_when_no_countries_match():
     assert len(at.exception) == 0
     assert len(at.warning) == 1
     assert len(at.get("plotly_chart")) == 0
+
+
+def test_melt_defaults_to_sample_and_filters_events():
+    at = AppTest.from_file("tests/fixtures/melt_events_app.py").run()
+    assert len(at.exception) == 0, [e.value for e in at.exception]
+
+    results = at.radio(key='melt_gul_type_filter')
+    assert results.options == ['Sample', 'Analytical']
+    assert results.value == 'Sample'
+
+    events = at.selectbox(key='melt_gul_event_filter')
+    # All events first, then events by loss (largest first)
+    assert events.options == ['All events', 'Event 2 (loss 420)', 'Event 1 (loss 110)']
+    assert sorted(at.dataframe[0].value['MeanLoss']) == [110.0, 420.0]
+
+    events.set_value(2).run()
+    assert list(at.dataframe[0].value['MeanLoss']) == [420.0]
+
+
+def test_order_sample_types():
+    from pages.components.output import order_sample_types
+    assert order_sample_types(['Analytical', 'Sample']) == ['Sample', 'Analytical']
+    assert order_sample_types(['Sample']) == ['Sample']

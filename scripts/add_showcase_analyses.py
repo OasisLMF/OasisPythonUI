@@ -10,8 +10,13 @@ Runs one scenario at a time (--max-concurrent), waiting for each to finish,
 and caps each run's processes (scenarios.processes_per_run): starting every
 scenario at once can exhaust the host's memory.
 
+Where the exposure has coordinates, showcase runs break losses down by
+location (summary level 1, shown first, with maps) as well as giving the
+template's portfolio totals (level 2).
+
 Idempotent: scenarios with a completed or in-progress showcase run are
-skipped; failed or cancelled showcase runs are replaced.
+skipped; failed or cancelled showcase runs are replaced. --replace rebuilds
+existing showcase runs (e.g. after changing templates or this script).
 
 Usage:
     python scripts/add_showcase_analyses.py -c scenarios/ui-config.json [--retry]
@@ -20,6 +25,7 @@ import argparse
 import json
 import logging
 import time
+from copy import deepcopy
 from pathlib import Path
 
 from utils import LOG_LEVEL, initialise_client, parse_initialise_args
@@ -50,12 +56,34 @@ def settings_template(client, model):
     return client.models.setting_templates.content.get(model['id'], latest).json()
 
 
-def showcase_settings(template, model, samples):
-    settings = dict(template)
+def has_coordinates(client, portfolio):
+    """Whether a portfolio's location file has LocNumber, Latitude and Longitude (for maps)."""
+    try:
+        locations = client.portfolios.location_file.get_dataframe(portfolio['id'])
+    except Exception as e:  # noqa: BLE001 - no map is better than no showcase run
+        logger.warning(f"Could not read the location file of {portfolio['name']}: {e}")
+        return False
+    return {'locnumber', 'latitude', 'longitude'} <= {c.lower() for c in locations.columns}
+
+
+def showcase_settings(template, model, samples, by_location=False):
+    """Settings for a showcase run, adding a by-location level first when `by_location`."""
+    settings = deepcopy(template)
     settings['model_supplier_id'] = model['supplier_id']
     settings['model_name_id'] = model['model_id']
     settings['number_of_samples'] = samples
     settings.setdefault('join_summary_info', True)
+    if by_location:
+        for p in ['gul', 'il', 'ri', 'rl']:
+            levels = settings.get(f'{p}_summaries') or []
+            if not settings.get(f'{p}_output') or not levels:
+                continue
+            location = deepcopy(levels[0])
+            location['oed_fields'] = ['LocNumber']
+            total = deepcopy(levels[0])
+            total.pop('oed_fields', None)
+            rest = [deepcopy(level) for level in levels[1:]]
+            settings[f'{p}_summaries'] = [dict(level, id=i) for i, level in enumerate([location, total] + rest, 1)]
     return settings
 
 
@@ -82,6 +110,8 @@ def main():
     parser.add_argument('-s', '--samples', default=10, type=int, help='Number of samples per run')
     parser.add_argument('--models', nargs='+', default=None, help='Only these model ids (default: all)')
     parser.add_argument('--force', action='store_true', help='Add a run even if one exists')
+    parser.add_argument('--replace', action='store_true',
+                        help='Delete and rebuild existing showcase runs (completed or failed)')
     parser.add_argument('--max-concurrent', default=1, type=int,
                         help='Showcase runs in progress at once (default 1)')
     parser.add_argument('--timeout', default=3600, type=int, help='Seconds to wait for a run to finish')
@@ -113,6 +143,11 @@ def main():
             logger.info(f'Skipping {model_id}: model or portfolio not on the platform')
             continue
         mine = [a for a in existing if a['model'] == model['id']]
+        if args['replace']:
+            for old in [a for a in mine if a['status'] in FINISHED]:
+                logger.info(f"Replacing showcase run {old['id']} for {model_id}")
+                client.analyses.delete(old['id'])
+            mine = [a for a in mine if a['status'] not in FINISHED]
         if not args['force'] and any(a['status'] not in FAILED for a in mine):
             logger.info(f'Skipping {model_id}: showcase analysis already exists')
             continue
@@ -129,11 +164,13 @@ def main():
         name = model_settings(client, model).get('name') or model_id
         analysis = client.create_analysis(portfolio_id=portfolio['id'], model_id=model['id'],
                                           analysis_name=f"{name} – {portfolio['name']} {tag}")
-        settings = limit_processes(showcase_settings(template, model, args['samples']), processes)
+        by_location = has_coordinates(client, portfolio)
+        settings = limit_processes(showcase_settings(template, model, args['samples'], by_location), processes)
         client.upload_settings(analysis['id'], settings)
         client.analyses.generate_and_run(analysis['id'])
         running.append(analysis['id'])
-        logger.info(f"Started showcase run {analysis['id']} for {model_id} on {portfolio['name']}")
+        logger.info(f"Started showcase run {analysis['id']} for {model_id} on {portfolio['name']}"
+                    f"{' (by location)' if by_location else ''}")
 
     # Wait for the last runs so setup only finishes when the showcase is ready
     wait_for_slot(client, running, 1, args['timeout'])

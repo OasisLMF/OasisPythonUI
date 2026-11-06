@@ -7,7 +7,8 @@ from oasis_data_manager.errors import OasisException
 from requests.exceptions import HTTPError
 
 from modules.scenarios import (GROUP_BY_OPTIONS, display_name, is_active, limit_processes, run_blocked_reason,
-                               scenario_models, scenario_portfolios, tagged_name, visitor_analyses,
+                               scenario_catalogue,
+                               scenario_portfolios, tagged_name, visitor_analyses,
                                visitor_tag)
 from modules.ui import api_error_message, flash, show_flash
 from pages.components.common import analysis_progress, current_task, status_label
@@ -36,8 +37,9 @@ st.markdown(
     'buildings, using the open-source [Oasis](https://oasislmf.org/) loss modelling framework. '
     'Choose a scenario, check the exposure it will be run against, then run it and explore the results.')
 
-scenarios = sorted(scenario_models(models, portfolios, ctx.ui_config), key=ctx.scenario_name)
-if not scenarios:
+catalogue = scenario_catalogue(models, portfolios, ctx.ui_config, lambda m: cached_model_settings(ci, m),
+                               lambda p: portfolio_file_df(ci, p, 'location_file'))
+if not catalogue:
     st.warning('No scenarios are available at the moment. Please check back later.')
     footer(ctx.ui_config)
     st.stop()
@@ -50,23 +52,62 @@ if not scenarios:
 st.header('1. Choose a scenario', divider='gray')
 selected_model_id = st.session_state.get(SELECTED_MODEL)
 
-cols_per_row = 3
-for start in range(0, len(scenarios), cols_per_row):
-    cols = st.columns(cols_per_row)
-    for col, model in zip(cols, scenarios[start:start + cols_per_row]):
-        settings = cached_model_settings(ci, model)
-        selected = model['id'] == selected_model_id
-        with col.container(border=True, height=200):
-            st.markdown(f"**{ctx.scenario_name(model)}**")
-            st.caption(f"Provided by {model['supplier_id']}")
-            description = settings.get('description') or ''
-            st.write(description if len(description) <= 160 else description[:157] + '...')
-        if col.button('Selected' if selected else 'Choose this scenario', key=f"choose_{model['id']}",
-                      type='primary' if selected else 'secondary', width='stretch', disabled=selected,
-                      icon=':material/check:' if selected else None):
-            st.session_state[SELECTED_MODEL] = model['id']
+
+def countries_label(countries):
+    if len(countries) <= 3:
+        return ', '.join(countries)
+    return f"{', '.join(countries[:2])} +{len(countries) - 2} more"
+
+
+f_search, f_peril, f_country, f_provider, f_type = st.columns([0.28, 0.18, 0.2, 0.17, 0.17])
+search = f_search.text_input('Search', placeholder='Search scenarios', label_visibility='collapsed',
+                             key='sc_filter_search')
+perils = f_peril.multiselect('Peril', sorted({e['peril'] for e in catalogue}), placeholder='Any peril',
+                             label_visibility='collapsed', key='sc_filter_peril')
+countries = f_country.multiselect('Country', sorted({c for e in catalogue for c in e['countries']}),
+                                  placeholder='Any country', label_visibility='collapsed', key='sc_filter_country')
+providers = f_provider.multiselect('Provider', sorted({e['provider'] for e in catalogue}), placeholder='Any provider',
+                                   label_visibility='collapsed', key='sc_filter_provider')
+types = f_type.multiselect('Type', sorted({e['type'] for e in catalogue}), placeholder='Any type',
+                           label_visibility='collapsed', key='sc_filter_type')
+
+needle = (search or '').strip().lower()
+shown = [e for e in catalogue
+         if (not needle or needle in f"{e['title']} {e['description']} {' '.join(e['countries'])}".lower())
+         and (not perils or e['peril'] in perils)
+         and (not countries or set(countries) & set(e['countries']))
+         and (not providers or e['provider'] in providers)
+         and (not types or e['type'] in types)]
+
+st.caption(f'{len(shown)} of {len(catalogue)} scenarios. Select a row to choose a scenario.')
+if shown:
+    table = pd.DataFrame([{'id': e['id'], 'Scenario': e['title'], 'Peril': e['peril'],
+                           'Country': countries_label(e['countries']), 'Type': e['type'],
+                           'Provider': e['provider']} for e in shown])
+    ids = table['id'].tolist()
+    # A new table whenever the filters change, so a stale row selection can't pick the wrong scenario
+    table_key = f"sc_table_{hash((needle, tuple(perils), tuple(countries), tuple(providers), tuple(types)))}"
+
+    def on_select():
+        rows = st.session_state[table_key].selection.rows
+        if rows:
+            st.session_state[SELECTED_MODEL] = ids[rows[0]]
             st.session_state[SELECTED_PORTFOLIO] = None
-            st.rerun()
+
+    st.dataframe(table, key=table_key, on_select=on_select, selection_mode='single-row', hide_index=True,
+                 column_order=['Scenario', 'Peril', 'Country', 'Type', 'Provider'], width='stretch',
+                 height=min(38 + 35 * len(table), 420))
+else:
+    st.info('No scenarios match these filters.')
+
+chosen = next((e for e in catalogue if e['id'] == selected_model_id), None)
+if chosen:
+    with st.container(border=True):
+        st.markdown(f"**{chosen['title']}**")
+        st.caption(' · '.join(x for x in [chosen['peril'], ', '.join(chosen['countries']), chosen['type'],
+                                          f"Provided by {chosen['provider']}"] if x))
+        if chosen['description']:
+            st.write(chosen['description'])
 
 model = models_by_id.get(selected_model_id)
 
@@ -79,13 +120,6 @@ portfolio = None
 locations = None
 if model is not None:
     st.header('2. Check the exposure', divider='gray')
-    model_settings = cached_model_settings(ci, model)
-    with st.expander(f'About {ctx.scenario_name(model)}'):
-        st.write(model_settings.get('description') or 'No description provided.')
-        perils = model_settings.get('lookup_settings', {}).get('supported_perils', [])
-        if perils:
-            st.markdown('**Perils:** ' + ', '.join(f"{p.get('desc', p['id'])} (`{p['id']}`)" for p in perils))
-
     options = scenario_portfolios(model, portfolios, ctx.ui_config)
     if len(options) > 1:
         ids = [p['id'] for p in options]
@@ -129,8 +163,13 @@ if model is not None and portfolio is not None:
     if (portfolio.get('accounts_file') or {}).get('stored'):
         available.add('PortNumber')
     group_options = [(label, field) for label, field in GROUP_BY_OPTIONS if field in available]
+    # Default to a location breakdown where the exposure has coordinates, so results can be mapped
+    mappable = {'latitude', 'longitude'} <= {c.lower() for c in available}
+    default_labels = ['Location'] if mappable and any(f == 'LocNumber' for _, f in group_options) else []
     labels = right.pills('Break losses down by', [label for label, _ in group_options], selection_mode='multi',
-                         help='Show losses per portfolio, country or location as well as in total.')
+                         default=default_labels, key=f"sc_group_by_{model['id']}_{portfolio['id']}",
+                         help='Show losses per portfolio, country or location as well as in total. '
+                              'A location breakdown is needed for loss maps.')
     group_fields = [field for label, field in group_options if label in (labels or [])]
 
     blocked = run_blocked_reason(analyses, ctx.vid, limits)

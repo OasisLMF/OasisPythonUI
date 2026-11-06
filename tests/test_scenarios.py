@@ -11,7 +11,7 @@ VID = 'aaaaaaaaaaaa'
 OTHER = 'bbbbbbbbbbbb'
 
 SETTINGS = {
-    'model_supplier_id': 'OasisLMF', 'model_name_id': 'PiWind', 'number_of_samples': 10,
+    'model_supplier_id': 'Impact Forecasting', 'model_name_id': 'MAEQ', 'number_of_samples': 10,
     'gul_output': True,
     'gul_summaries': [{'id': 1, 'ord_output': {'elt_sample': True, 'alt_meanonly': True}}],
 }
@@ -36,11 +36,11 @@ def scenarios_config(monkeypatch):
 @pytest.fixture
 def client():
     client = m.MockApiClient(
-        portfolios=[{'id': 1, 'name': 'piwind-small', 'location_file': {'stored': 'l.csv'}, 'accounts_file': None},
+        portfolios=[{'id': 1, 'name': 'maeq-test', 'location_file': {'stored': 'l.csv'}, 'accounts_file': None},
                     {'id': 2, 'name': 'unmapped-portfolio', 'location_file': {'stored': 'u.csv'}}],
-        models=[{'id': 1, 'model_id': 'PiWind', 'supplier_id': 'OasisLMF', 'version_id': 'v2', 'run_mode': 'V2'},
+        models=[{'id': 1, 'model_id': 'MAEQ', 'supplier_id': 'Impact Forecasting', 'version_id': 'v2', 'run_mode': 'V2'},
                 {'id': 2, 'model_id': 'NotAScenario', 'supplier_id': 'X', 'version_id': 'v1', 'run_mode': 'V2'}],
-        analyses=[analysis(1, 'PiWind – piwind-small [showcase]'),
+        analyses=[analysis(1, 'Morocco quake – maeq-test [showcase]'),
                   analysis(2, f'My earlier run [v:{VID}]'),
                   analysis(3, f'Someone else [v:{OTHER}]'),
                   analysis(4, 'Standard UI analysis')])
@@ -48,7 +48,7 @@ def client():
         'LocNumber': ['1', '2'], 'CountryCode': ['GB', 'GB'], 'Latitude': [52.1, 52.2],
         'Longitude': [-1.1, -1.2], 'BuildingTIV': [1000.0, 2000.0], 'LocPerilsCovered': ['WTC', 'WTC']})
     client.models.settings.data[1] = {'name': 'Oasis test European wind model - Paris',
-                                      'description': 'PiWind test model'}
+                                      'description': 'Morocco earthquake test model'}
     for i in (1, 2, 3):
         client.analyses.settings.data[i] = SETTINGS
         client.analyses.output_file.files[i] = {
@@ -115,7 +115,7 @@ def test_run_settings_apply_choices(client):
     model = client.models.json_data[0]
 
     settings = run_settings(ci, model, 25, ['LocNumber'])
-    assert settings['model_name_id'] == 'PiWind'
+    assert settings['model_name_id'] == 'MAEQ'
     assert settings['number_of_samples'] == 25
     assert settings['join_summary_info'] is True
     assert settings['gul_summaries'][0]['oed_fields'] == ['LocNumber']
@@ -132,8 +132,32 @@ def test_explore_lists_only_mapped_scenarios(client):
     at = app(client)
     assert not at.exception, [e.value for e in at.exception]
     assert at.title[0].value == 'Run a scenario'
-    choose = [b for b in at.button if b.label == 'Choose this scenario']
-    assert len(choose) == 1  # NotAScenario has no portfolio in model_map
+    table = at.dataframe[0].value
+    # Curated title and details from scenario_info; NotAScenario has no portfolio in model_map
+    assert table.to_dict('records') == [{
+        'id': 1, 'Scenario': 'Morocco (Al Haouz) earthquake, Sep 2023', 'Peril': 'Earthquake',
+        'Country': 'Morocco', 'Type': 'Historical event', 'Provider': 'Impact Forecasting'}]
+
+
+def test_scenario_filters(client):
+    at = app(client)
+    at.multiselect(key='sc_filter_peril').set_value(['Earthquake']).run()
+    assert len(at.dataframe[0].value) == 1
+    at.text_input(key='sc_filter_search').input('flood').run()
+    assert 'No scenarios match these filters.' in [i.value for i in at.info]
+
+
+def test_catalogue_falls_back_to_exposure():
+    config = type('C', (), {'model_map': {'Q': ['p1']}, 'scenario_info': {}})()
+    models = [{'id': 7, 'model_id': 'Q', 'supplier_id': 'Acme'}]
+    portfolios = [{'id': 3, 'name': 'p1'}]
+    locations = pd.DataFrame({'countrycode': ['NP', 'NP'], 'LocPerilsCovered': ['ORF;OSF', 'OO1']})
+    [entry] = sc.scenario_catalogue(models, portfolios, config, lambda m: {'name': 'Quake test', 'description': 'd'},
+                                    lambda p: locations)
+    assert entry['title'] == 'Quake test'
+    assert entry['countries'] == ['Nepal']
+    assert entry['peril'] == 'Flood'
+    assert entry['provider'] == 'Acme'
 
 
 def test_my_runs_are_isolated(client):
@@ -175,14 +199,14 @@ def test_run_blocked_at_visitor_limit(client):
 def test_showcase_page(client):
     at = app(client, 'scenarios_ui/showcase.py')
     assert not at.exception, [e.value for e in at.exception]
-    assert at.selectbox[0].options == ['PiWind – piwind-small']
-    assert at.subheader[0].value == 'PiWind – piwind-small'
+    assert at.selectbox[0].options == ['Morocco quake – maeq-test']
+    assert at.subheader[0].value == 'Morocco quake – maeq-test'
 
 
 def test_compare_offers_own_and_showcase_runs(client):
     at = app(client, 'scenarios_ui/compare.py')
     assert not at.exception, [e.value for e in at.exception]
-    assert at.selectbox[0].options == ['My earlier run (your run)', 'PiWind – piwind-small (showcase)']
+    assert at.selectbox[0].options == ['My earlier run (your run)', 'Morocco quake – maeq-test (showcase)']
 
     showcase, mine = client.analyses.json_data[0], client.analyses.json_data[1]
     at.selectbox[0].set_value(mine)
@@ -239,3 +263,23 @@ def test_is_active_includes_recent_ready():
     assert not sc.is_active(at(600, 'READY'), now)
     assert not sc.is_active(at(5, 'RUN_COMPLETED'), now)
     assert not sc.is_active({'status': 'READY'}, now)
+
+
+def test_showcase_settings_add_location_level():
+    import sys
+    sys.path.insert(0, 'scripts')
+    from add_showcase_analyses import showcase_settings
+
+    template = {'gul_output': True, 'il_output': False,
+                'gul_summaries': [{'id': 1, 'ord_output': {'elt_moment': True}}]}
+    model = {'supplier_id': 'JBA', 'model_id': 'Nepal-E1'}
+
+    by_location = showcase_settings(template, model, 10, by_location=True)
+    assert by_location['gul_summaries'] == [
+        {'id': 1, 'ord_output': {'elt_moment': True}, 'oed_fields': ['LocNumber']},
+        {'id': 2, 'ord_output': {'elt_moment': True}},
+    ]
+    assert by_location['model_name_id'] == 'Nepal-E1' and by_location['join_summary_info'] is True
+    # Without coordinates the template's levels are kept as they are
+    assert showcase_settings(template, model, 10)['gul_summaries'] == template['gul_summaries']
+    assert 'oed_fields' not in template['gul_summaries'][0]  # template not modified
