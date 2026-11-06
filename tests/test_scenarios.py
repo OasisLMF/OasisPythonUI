@@ -274,7 +274,7 @@ def test_showcase_settings_add_location_level():
                 'gul_summaries': [{'id': 1, 'ord_output': {'elt_moment': True}}]}
     model = {'supplier_id': 'JBA', 'model_id': 'Nepal-E1'}
 
-    by_location = showcase_settings(template, model, 10, by_location=True)
+    by_location = showcase_settings(template, model, 10, 'LocNumber')
     assert by_location['gul_summaries'] == [
         {'id': 1, 'ord_output': {'elt_moment': True}, 'oed_fields': ['LocNumber']},
         {'id': 2, 'ord_output': {'elt_moment': True}},
@@ -283,3 +283,29 @@ def test_showcase_settings_add_location_level():
     # Without coordinates the template's levels are kept as they are
     assert showcase_settings(template, model, 10)['gul_summaries'] == template['gul_summaries']
     assert 'oed_fields' not in template['gul_summaries'][0]  # template not modified
+
+
+def test_showcase_map_field():
+    import sys
+    sys.path.insert(0, 'scripts')
+    from unittest.mock import MagicMock
+    from add_showcase_analyses import map_field
+
+    def field(**cols):
+        client = MagicMock()
+        client.portfolios.location_file.get_dataframe.return_value = pd.DataFrame(cols)
+        return map_field(client, {'id': 1, 'name': 'p'})
+
+    assert field(LocNumber=[1, 2], Latitude=[51.5, 48.8], Longitude=[-0.1, 2.3], CountryCode=['GB', 'FR']) == 'LocNumber'
+    # 0,0 means "not geocoded": fall back to a country breakdown when there are several countries
+    assert field(LocNumber=[1, 2], Latitude=[0, 0], Longitude=[0, 0], CountryCode=['AT', 'DE']) == 'CountryCode'
+    assert field(LocNumber=[1, 2], Latitude=[0, 0], Longitude=[0, 0], CountryCode=['MA', 'MA']) is None
+
+
+def test_has_coordinates():
+    from modules.oed import has_coordinates
+    assert has_coordinates(pd.DataFrame({'Latitude': [1, 2], 'Longitude': [3, 3]}))
+    assert not has_coordinates(pd.DataFrame({'Latitude': [0, 0, 1], 'Longitude': [0, 0, 1]}))  # one real point
+    assert not has_coordinates(pd.DataFrame({'Latitude': [None, 'x'], 'Longitude': [1, 2]}))
+    assert not has_coordinates(pd.DataFrame({'LocNumber': [1]}))
+    assert not has_coordinates(None)

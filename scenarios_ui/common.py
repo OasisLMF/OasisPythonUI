@@ -93,12 +93,15 @@ def run_summary(ctx, analysis, settings, models_by_id, portfolios_by_id):
     for p in PERSPECTIVES:
         for level in (settings or {}).get(f'{p}_summaries') or []:
             fields = level.get('oed_fields') or fields
-    cols = st.columns(4)
-    cols[0].metric('Scenario', ctx.scenario_name(model) if model else '—')
-    cols[1].metric('Exposure', portfolio.get('name', '—'))
-    cols[2].metric('Samples', (settings or {}).get('number_of_samples', '—'))
     labels = {field: label for label, field in GROUP_BY_OPTIONS}
-    cols[3].metric('Losses broken down by', ', '.join(labels.get(f, f) for f in fields) or 'Total only')
+    facts = [('Scenario', ctx.scenario_name(model) if model else '—'),
+             ('Exposure', portfolio.get('name', '—')),
+             ('Samples', (settings or {}).get('number_of_samples', '—')),
+             ('Losses broken down by', ', '.join(labels.get(f, f) for f in fields) or 'Total only')]
+    # Plain text rather than st.metric, which truncates long scenario names
+    for col, (label, value) in zip(st.columns([3, 2, 1, 2]), facts):
+        col.caption(label)
+        col.markdown(f'**{value}**')
 
 
 def analysis_results(ctx, analysis, models_by_id, portfolios_by_id, key):
@@ -118,7 +121,7 @@ def analysis_results(ctx, analysis, models_by_id, portfolios_by_id, key):
         outputs = analysis_files(ctx.ci, analysis, 'output_file')
         inputs = analysis_files(ctx.ci, analysis, 'input_file')
     locations = inputs.get('location.csv', inputs.get('location.parquet'))
-    render_results(settings, outputs, locations)
+    render_results(settings, outputs, locations, key=analysis['id'])
 
     zip_key = f"zip_{analysis['id']}_{analysis.get('modified')}"
     if zip_key not in st.session_state:

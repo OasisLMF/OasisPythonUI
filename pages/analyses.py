@@ -309,7 +309,7 @@ def results_tab(analysis, settings):
         outputs = analysis_files(ci, analysis, 'output_file')
         inputs = analysis_files(ci, analysis, 'input_file')
     locations = inputs.get('location.csv', inputs.get('location.parquet'))
-    render_results(settings, outputs, locations)
+    render_results(settings, outputs, locations, key=analysis['id'])
 
     st.divider()
     st.markdown('**Output files**')

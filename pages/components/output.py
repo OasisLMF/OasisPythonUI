@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 
 from pages.components.display import DataframeView, MapView
 from pages.components.common import PERSPECTIVES_MAP
+from modules.oed import has_coordinates
 
 logger = logging.getLogger(__name__)
 
@@ -668,19 +669,8 @@ def eltcalc_map(map_df, locations, oed_fields=[], map_type=None,
 
 
 def valid_locations(loc_df):
-    """Check if `Latitude` and `Longitude` columns are present
-    and if they are unique between locations.
-    """
-    if loc_df is None:
-        return False
-    if not set(['Latitude', 'Longitude']).issubset(loc_df.columns):
-        return False
-
-    lat_long = loc_df[['Latitude', 'Longitude']]
-    if (lat_long == lat_long.iloc[0]).all(axis=None):
-        return False
-
-    return True
+    """Whether locations have usable coordinates for a map (see `modules.oed.has_coordinates`)."""
+    return has_coordinates(loc_df)
 
 
 @st.fragment

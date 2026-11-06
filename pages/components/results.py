@@ -56,13 +56,14 @@ def _sections(summary, locations):
     return sections
 
 
-def render_results(settings, outputs, locations=None):
+def render_results(settings, outputs, locations=None, key=None):
     """Visualise analysis outputs.
 
     Args:
         settings: the analysis settings used for the run.
         outputs: `{filename: DataFrame}` from the analysis output file.
         locations: optional location DataFrame used for maps.
+        key: identifies the analysis (e.g. its id), so widgets reset when switching analyses.
     """
     if not outputs:
         st.info('No output files were found for this analysis.')
@@ -87,7 +88,7 @@ def render_results(settings, outputs, locations=None):
             if len(levels) > 1:
                 level_id = st.selectbox(
                     'Summary level', list(levels), format_func=lambda i: level_label(levels[i]),
-                    key=f'results_level_{p}',
+                    key=f'results_level_{p}' + (f'_{key}' if key is not None else ''),
                     help='Each summary level groups losses differently. Choose which one to view.')
             else:
                 st.caption(level_label(levels[level_id]))

@@ -30,6 +30,7 @@ from pathlib import Path
 
 from utils import LOG_LEVEL, initialise_client, parse_initialise_args
 
+from modules.oed import has_coordinates
 from modules.scenarios import is_active, limit_processes
 
 FAILED = ['INPUTS_GENERATION_ERROR', 'INPUTS_GENERATION_CANCELLED', 'RUN_ERROR', 'RUN_CANCELLED']
@@ -56,34 +57,42 @@ def settings_template(client, model):
     return client.models.setting_templates.content.get(model['id'], latest).json()
 
 
-def has_coordinates(client, portfolio):
-    """Whether a portfolio's location file has LocNumber, Latitude and Longitude (for maps)."""
+def map_field(client, portfolio):
+    """The OED field to break showcase losses down by so they can be mapped.
+
+    LocNumber when the locations have coordinates (a point map), else CountryCode
+    when they span several countries (a country map), else None (totals only).
+    """
     try:
         locations = client.portfolios.location_file.get_dataframe(portfolio['id'])
     except Exception as e:  # noqa: BLE001 - no map is better than no showcase run
         logger.warning(f"Could not read the location file of {portfolio['name']}: {e}")
-        return False
-    return {'locnumber', 'latitude', 'longitude'} <= {c.lower() for c in locations.columns}
+        return None
+    if 'LocNumber' in locations.columns and has_coordinates(locations):
+        return 'LocNumber'
+    if 'CountryCode' in locations.columns and locations['CountryCode'].nunique() > 1:
+        return 'CountryCode'
+    return None
 
 
-def showcase_settings(template, model, samples, by_location=False):
-    """Settings for a showcase run, adding a by-location level first when `by_location`."""
+def showcase_settings(template, model, samples, group_field=None):
+    """Settings for a showcase run, adding a level grouped by `group_field` first when given."""
     settings = deepcopy(template)
     settings['model_supplier_id'] = model['supplier_id']
     settings['model_name_id'] = model['model_id']
     settings['number_of_samples'] = samples
     settings.setdefault('join_summary_info', True)
-    if by_location:
+    if group_field:
         for p in ['gul', 'il', 'ri', 'rl']:
             levels = settings.get(f'{p}_summaries') or []
             if not settings.get(f'{p}_output') or not levels:
                 continue
-            location = deepcopy(levels[0])
-            location['oed_fields'] = ['LocNumber']
+            grouped = deepcopy(levels[0])
+            grouped['oed_fields'] = [group_field]
             total = deepcopy(levels[0])
             total.pop('oed_fields', None)
             rest = [deepcopy(level) for level in levels[1:]]
-            settings[f'{p}_summaries'] = [dict(level, id=i) for i, level in enumerate([location, total] + rest, 1)]
+            settings[f'{p}_summaries'] = [dict(level, id=i) for i, level in enumerate([grouped, total] + rest, 1)]
     return settings
 
 
@@ -124,6 +133,7 @@ def main():
     tag = config.get('scenarios', {}).get('showcase_tag', '[showcase]')
     processes = config.get('scenarios', {}).get('processes_per_run', 2)
     model_map = config.get('model_map', {})
+    scenario_info = config.get('scenario_info', {})
 
     client = initialise_client(*parse_initialise_args(**args))
     if client is None:
@@ -161,16 +171,17 @@ def main():
             continue
 
         wait_for_slot(client, running, args['max_concurrent'], args['timeout'])
-        name = model_settings(client, model).get('name') or model_id
+        title = scenario_info.get(model_id, {}).get('title')
+        name = title or model_settings(client, model).get('name') or model_id
         analysis = client.create_analysis(portfolio_id=portfolio['id'], model_id=model['id'],
                                           analysis_name=f"{name} – {portfolio['name']} {tag}")
-        by_location = has_coordinates(client, portfolio)
-        settings = limit_processes(showcase_settings(template, model, args['samples'], by_location), processes)
+        group_field = map_field(client, portfolio)
+        settings = limit_processes(showcase_settings(template, model, args['samples'], group_field), processes)
         client.upload_settings(analysis['id'], settings)
         client.analyses.generate_and_run(analysis['id'])
         running.append(analysis['id'])
         logger.info(f"Started showcase run {analysis['id']} for {model_id} on {portfolio['name']}"
-                    f"{' (by location)' if by_location else ''}")
+                    f"{f' (by {group_field})' if group_field else ''}")
 
     # Wait for the last runs so setup only finishes when the showcase is ready
     wait_for_slot(client, running, 1, args['timeout'])

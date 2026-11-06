@@ -6,6 +6,7 @@ import streamlit as st
 from oasis_data_manager.errors import OasisException
 from requests.exceptions import HTTPError
 
+from modules.oed import has_coordinates
 from modules.scenarios import (GROUP_BY_OPTIONS, display_name, is_active, limit_processes, run_blocked_reason,
                                scenario_catalogue,
                                scenario_portfolios, tagged_name, visitor_analyses,
@@ -165,7 +166,7 @@ if model is not None and portfolio is not None:
         available.add('PortNumber')
     group_options = [(label, field) for label, field in GROUP_BY_OPTIONS if field in available]
     # Default to a location breakdown where the exposure has coordinates, so results can be mapped
-    mappable = {'latitude', 'longitude'} <= {c.lower() for c in available}
+    mappable = has_coordinates(locations)
     default_labels = ['Location'] if mappable and any(f == 'LocNumber' for _, f in group_options) else []
     labels = right.pills('Break losses down by', [label for label, _ in group_options], selection_mode='multi',
                          default=default_labels, key=f"sc_group_by_{model['id']}_{portfolio['id']}",
