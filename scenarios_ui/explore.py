@@ -96,7 +96,8 @@ if shown:
 
     st.dataframe(table, key=table_key, on_select=on_select, selection_mode='single-row', hide_index=True,
                  column_order=['Scenario', 'Peril', 'Country', 'Type', 'Provider'], width='stretch',
-                 height=min(38 + 35 * len(table), 420))
+                 height=min(38 + 35 * len(table), 38 + 35 * 20),
+                 column_config={'Scenario': st.column_config.TextColumn(width='large')})
 else:
     st.info('No scenarios match these filters.')
 
