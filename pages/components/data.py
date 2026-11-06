@@ -13,7 +13,7 @@ import streamlit as st
 from requests.exceptions import HTTPError
 
 from modules.client import PortfoliosEndpointInterface
-from pages.components.common import format_status
+from pages.components.common import status_label
 
 logger = logging.getLogger(__name__)
 
@@ -148,7 +148,7 @@ def analyses_df(analyses, portfolios, models_frame):
             'id': a['id'],
             'name': a['name'],
             'status': a.get('status'),
-            'status_label': format_status(a.get('status')),
+            'status_label': status_label(a),
             'portfolio': a.get('portfolio'),
             'portfolio_name': portfolio_names.get(a.get('portfolio'), f"#{a.get('portfolio')}"),
             'model': a.get('model'),

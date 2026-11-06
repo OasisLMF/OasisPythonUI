@@ -10,7 +10,7 @@ from modules.scenarios import (GROUP_BY_OPTIONS, display_name, is_active, limit_
                                scenario_models, scenario_portfolios, tagged_name, visitor_analyses,
                                visitor_tag)
 from modules.ui import api_error_message, flash, show_flash
-from pages.components.common import analysis_progress, current_task, format_status
+from pages.components.common import analysis_progress, current_task, status_label
 from pages.components.data import cached_model_settings, portfolio_file_df
 from pages.components.exposure import exposure_overview
 from scenarios_ui.common import Context, analysis_results, footer, run_settings
@@ -175,13 +175,13 @@ else:
             if is_active(a):
                 fraction, detail = analysis_progress(a)
                 task = current_task(ci.analyses.sub_tasks(a['id']))
-                text = ' · '.join(x for x in [f"**{display_name(a['name'])}**", format_status(a['status']),
+                text = ' · '.join(x for x in [f"**{display_name(a['name'])}**", status_label(a),
                                               task, detail] if x)
                 st.progress(fraction or 0.0, text=text)
 
     live_progress()
 
-    table = pd.DataFrame([{'id': a['id'], 'Run': display_name(a['name']), 'Status': format_status(a['status'])}
+    table = pd.DataFrame([{'id': a['id'], 'Run': display_name(a['name']), 'Status': status_label(a)}
                           for a in my_runs])
     ids = table['id'].tolist()
 

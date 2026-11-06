@@ -103,3 +103,29 @@ def test_defaults_files_only_without_platform_templates(mock_api_client, request
     options = _template_options(mock_api_client, request)
     assert options[0] == 'Template: Standard'
     assert not any(o.startswith('Default file') for o in options)
+
+
+def _ready_analysis(client, request, seconds_ago):
+    from datetime import datetime, timedelta, timezone
+    analysis = client.analyses.json_data[0]
+    analysis['status'] = 'READY'
+    analysis['settings'] = '/settings/'
+    analysis['modified'] = (datetime.now(timezone.utc) - timedelta(seconds=seconds_ago)).isoformat()
+    client.analyses.settings.data[analysis['id']] = {'gul_output': True, 'gul_summaries': [{'id': 1}]}
+    return page_app(PAGE, client, {SELECTED_ANALYSIS: request.config.analyses_ID})
+
+
+def test_generate_and_run_ready_gap_shows_as_running(mock_api_client, request):
+    # OasisPlatform reports READY between input generation and the loss run
+    at = _ready_analysis(mock_api_client, request, seconds_ago=10)
+    assert not at.exception
+    assert at.dataframe[0].value['status_label'].iloc[0] == '⏳ Inputs ready, starting run'
+    run = [b for b in at.button if b.label in ('Run', 'Re-run')][0]
+    assert run.disabled
+
+
+def test_old_ready_analysis_can_be_run(mock_api_client, request):
+    at = _ready_analysis(mock_api_client, request, seconds_ago=3600)
+    assert at.dataframe[0].value['status_label'].iloc[0] == '🟢 Ready'
+    run = [b for b in at.button if b.label in ('Run', 'Re-run')][0]
+    assert not run.disabled
