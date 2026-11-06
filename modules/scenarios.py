@@ -140,6 +140,18 @@ def _column(df, name):
     return df[match] if match is not None else None
 
 
+def vulnerability_info(model_settings):
+    """The vulnerability functions a scenario uses, from its model settings.
+
+    Scenarios describe them in `data_settings.vulnerability`: `source`, `description`
+    and optionally `url`. Returns None when a scenario doesn't.
+    """
+    info = ((model_settings or {}).get('data_settings') or {}).get('vulnerability')
+    if not isinstance(info, dict) or not info.get('source'):
+        return None
+    return {key: info[key] for key in ('source', 'description', 'url') if info.get(key)}
+
+
 def scenario_catalogue(models, portfolios, ui_config, settings_for, locations_for=None):
     """Scenarios to browse, with title, peril, countries, provider and description.
 
@@ -176,5 +188,6 @@ def scenario_catalogue(models, portfolios, ui_config, settings_for, locations_fo
             'countries': [country_name(c) for c in countries or []],
             'provider': model.get('supplier_id') or '',
             'description': settings.get('description') or '',
+            'vulnerability': vulnerability_info(settings),
         })
     return sorted(catalogue, key=lambda e: e['title'].lower())

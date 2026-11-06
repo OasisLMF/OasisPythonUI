@@ -15,7 +15,7 @@ from modules.ui import api_error_message, flash, show_flash
 from pages.components.common import analysis_progress, current_task, status_label
 from pages.components.data import cached_model_settings, portfolio_file_df
 from pages.components.exposure import exposure_overview
-from scenarios_ui.common import Context, analysis_results, footer, run_settings
+from scenarios_ui.common import Context, analysis_results, footer, run_settings, vulnerability_note
 
 SELECTED_MODEL = 'sc_model_id'
 SELECTED_PORTFOLIO = 'sc_portfolio_id'
@@ -106,6 +106,7 @@ if chosen:
                                           f"Provided by {chosen['provider']}"] if x))
         if chosen['description']:
             st.write(chosen['description'])
+        vulnerability_note(cached_model_settings(ci, models_by_id[chosen['id']]))
 
 model = models_by_id.get(selected_model_id)
 
