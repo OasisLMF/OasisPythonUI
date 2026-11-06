@@ -668,6 +668,18 @@ def eltcalc_map(map_df, locations, oed_fields=[], map_type=None,
     st.info("No map to display.")
 
 
+def map_type_for(oed_fields, locations):
+    """How losses grouped by `oed_fields` can be mapped.
+
+    'heatmap' by location (needs coordinates), 'choropleth' by country, or None.
+    """
+    if 'LocNumber' in oed_fields and valid_locations(locations):
+        return 'heatmap'
+    if 'CountryCode' in oed_fields:
+        return 'choropleth'
+    return None
+
+
 def valid_locations(loc_df):
     """Whether locations have usable coordinates for a map (see `modules.oed.has_coordinates`)."""
     return has_coordinates(loc_df)
@@ -697,10 +709,11 @@ def generate_eltcalc_fragment(perspective, output,
     oed_fields = output.oed_fields.get(perspective) or []
     eltcalc_result = output.get(output.summary_level(perspective), perspective, 'eltcalc')
 
+    map_type = map_type_for(oed_fields, locations)
     tab_names = []
     if table:
         tab_names.append('table')
-    if map:
+    if map and map_type:
         tab_names.append('map')
 
     if len(tab_names) == 0:
@@ -710,14 +723,6 @@ def generate_eltcalc_fragment(perspective, output,
 
     for name, tab in zip(tab_names, tabs):
         if name == 'map':
-            assert locations is not None, "Locations required for map view."
-            map_type = None
-
-            if 'LocNumber' in oed_fields and valid_locations(locations):
-                map_type = 'heatmap'
-            elif 'CountryCode' in oed_fields:
-                map_type = 'choropleth'
-
             with tab:
                 map_df = eltcalc_result[eltcalc_result['type'] == 'Sample']
                 eltcalc_map(map_df, locations, oed_fields, map_type)
@@ -743,7 +748,8 @@ def generate_melt_fragment(p, vis, locations=None):
         data_df = sample_type_selector(data_df, type_col, key=f'melt_{p}_type_filter')
     data_df = event_selector(data_df, 'MeanLoss', key=f'melt_{p}_event_filter')
 
-    tab_names = ['table', 'map']
+    map_type = map_type_for(oed_fields, locations)
+    tab_names = ['table', 'map'] if map_type else ['table']
     with st.container(border=True):
         tabs = st.tabs([t.title() for t in tab_names])
 
@@ -760,18 +766,8 @@ def generate_melt_fragment(p, vis, locations=None):
     if selected is not None and not selected.empty:
         selected_events = selected['EventId'].tolist()
 
-    if locations is None:
-        with tabs[1]:
-            st.error("Map view unavailable.")
-        logger.error("Locations required for Map view")
+    if map_type is None:
         return
-
-    map_type = None
-
-    if 'LocNumber' in oed_fields and valid_locations(locations):
-        map_type = 'heatmap'
-    elif 'CountryCode' in oed_fields:
-        map_type = 'choropleth'
 
     if selected_events:
         data_df = data_df[data_df['EventId'].isin(selected_events)]
@@ -803,7 +799,8 @@ def generate_qelt_fragment(p, vis, locations=None):
     data_df = data_df[data_df['Quantile'] == quantile_filter]
     data_df = event_selector(data_df, 'Loss', key=f'qelt_{p}_event_filter')
 
-    tab_names = ['table', 'map']
+    map_type = map_type_for(oed_fields, locations)
+    tab_names = ['table', 'map'] if map_type else ['table']
     with st.container(border=True):
         tabs = st.tabs([t.title() for t in tab_names])
 
@@ -817,18 +814,8 @@ def generate_qelt_fragment(p, vis, locations=None):
     if selected is not None and not selected.empty:
         selected_events = selected['EventId'].tolist()
 
-    if locations is None:
-        with tabs[1]:
-            st.error("Map view unavailable.")
-        logger.error("Locations required for Map view")
+    if map_type is None:
         return
-
-    map_type = None
-
-    if 'LocNumber' in oed_fields and valid_locations(locations):
-        map_type = 'heatmap'
-    elif 'CountryCode' in oed_fields:
-        map_type = 'choropleth'
 
     map_df = data_df
     if selected_events:
@@ -872,7 +859,8 @@ def generate_selt_fragment(p, vis, locations=None):
     data_df = sample_selector(data_df, vis, key=f'selt_{p}_sample_filter')
     data_df = event_selector(data_df, 'Loss', key=f'selt_{p}_event_filter')
 
-    tab_names = ['table', 'map']
+    map_type = map_type_for(oed_fields, locations)
+    tab_names = ['table', 'map'] if map_type else ['table']
     with st.container(border=True):
         tabs = st.tabs([t.title() for t in tab_names])
 
@@ -885,17 +873,8 @@ def generate_selt_fragment(p, vis, locations=None):
     if selected is not None and not selected.empty:
         selected_events = selected['EventId'].tolist()
 
-    if locations is None:
-        with tabs[1]:
-            st.error("Map view unavailable.")
-        logger.error("Locations required for Map view")
+    if map_type is None:
         return
-
-    map_type = None
-    if 'LocNumber' in oed_fields and valid_locations(locations):
-        map_type = 'heatmap'
-    elif 'CountryCode' in oed_fields:
-        map_type = 'choropleth'
 
     map_df = data_df
     if selected_events:
@@ -1842,13 +1821,7 @@ def generate_eltcalc_comparison_fragment(perspective, outputs, names=None,
             st.info('Locations files not found.')
             return
 
-        map_type = None
-
-        if 'LocNumber' in oed_fields and valid_locations(locations):
-            map_type = 'heatmap'
-        elif 'CountryCode' in oed_fields:
-            map_type = 'choropleth'
-
+        map_type = map_type_for(oed_fields, locations)
         eltcalc_map(result, locations, oed_fields, map_type=map_type,
                     intensity_col=intensity_col, group_fields=['loc_analysis_id'])
 

@@ -262,6 +262,20 @@ def test_melt_defaults_to_sample_and_filters_events():
 
     events.set_value(2).run()
     assert list(at.dataframe[0].value['MeanLoss']) == [420.0]
+    # Not grouped by location or country, so there is nothing to map and no Map tab
+    assert [t.label for t in at.tabs] == ['Table']
+
+
+def test_map_type_for():
+    import pandas as pd
+    from pages.components.output import map_type_for
+    located = pd.DataFrame({'LocNumber': [1, 2], 'Latitude': [51.5, 48.8], 'Longitude': [-0.1, 2.3]})
+    not_geocoded = located.assign(Latitude=0.0, Longitude=0.0)
+    assert map_type_for(['LocNumber'], located) == 'heatmap'
+    assert map_type_for(['LocNumber'], not_geocoded) is None
+    assert map_type_for(['LocNumber'], None) is None
+    assert map_type_for(['CountryCode'], None) == 'choropleth'
+    assert map_type_for([], located) is None
 
 
 def test_order_sample_types():
