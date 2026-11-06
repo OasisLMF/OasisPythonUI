@@ -9,7 +9,7 @@ from pages.components.output import (EP_CALC_LABELS, generate_aalcalc_comparison
                                      generate_alt_comparison_fragment, generate_eltcalc_comparison_fragment,
                                      generate_leccalc_comparison_fragment, generate_pltcalc_comparison_fragment,
                                      summarise_inputs)
-from scenarios_ui.common import Context, footer
+from scenarios_ui.common import Context, footer, vulnerability_note
 
 ctx = Context()
 ui_config = ctx.ui_config
@@ -63,8 +63,9 @@ model_ids = [selected['model'][i] for i in range(2)]
 st.subheader("Analysis Summary")
 st.markdown("""
 This section summarises the analyses selected for comparison: the number and value of buildings in the portfolio;
-the hazard footprint selected, and the outputs available.
-Under 'output settings', 'gul' referes to ground up loss, before insurance contract terms apply; 'aalcal' denotes that the
+the hazard footprint selected, the vulnerability functions used, and the outputs available. Losses depend on the
+vulnerability functions as well as the hazard, so runs of different scenarios may not be directly comparable.
+Under 'output settings', 'gul' refers to ground up loss, before insurance contract terms apply; 'aalcal' denotes that the
 Annual Average Loss has been estimated; 'eltcalc' denotes that the per-event loss has been estimated.
 """)
 
@@ -107,6 +108,7 @@ with cols[0]:
 
     with st.spinner('Loading analysis summary...'):
         summarise_inputs(get_location_df(inputs), analysis_settings[0], model_settings[0], title_prefix='###')
+    vulnerability_note(model_settings[0])
 
 with cols[1]:
     st.write(f"## {selected['name'][1]}")
@@ -117,6 +119,7 @@ with cols[1]:
 
     with st.spinner('Loading analysis summary...'):
         summarise_inputs(get_location_df(inputs), analysis_settings[1], model_settings[1], title_prefix='###')
+    vulnerability_note(model_settings[1])
 
 
 @st.cache_data

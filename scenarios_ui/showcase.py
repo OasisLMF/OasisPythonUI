@@ -3,7 +3,7 @@ import streamlit as st
 
 from modules.scenarios import VISITOR_PARAM, showcase_analyses
 from pages.components.data import cached_model_settings
-from scenarios_ui.common import Context, analysis_results, footer
+from scenarios_ui.common import Context, analysis_results, footer, vulnerability_note
 
 ctx = Context()
 ci = ctx.ci
@@ -35,6 +35,7 @@ if model is not None:
     description = cached_model_settings(ci, model).get('description')
     if description:
         st.caption(description)
+    vulnerability_note(cached_model_settings(ci, model))
     if st.button('Run this scenario yourself', icon=':material/play_circle:'):
         st.session_state['sc_model_id'] = model['id']
         st.session_state['sc_portfolio_id'] = analysis['portfolio']

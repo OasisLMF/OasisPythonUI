@@ -1,6 +1,8 @@
 """Guide: what the Scenarios tool is and how to use it."""
 import streamlit as st
 
+from modules.scenarios import scenario_models, vulnerability_info
+from pages.components.data import cached_model_settings
 from scenarios_ui.common import Context, footer
 
 ctx = Context()
@@ -31,9 +33,39 @@ Every Oasis model combines three parts:
 Oasis combines them to estimate the loss to each building, then adds the losses up.
 """)
 
+st.header('Vulnerability functions')
+st.markdown("""
+A vulnerability function gives the damage to a building, as a share of its value, for each level of hazard -
+for example how much a house is damaged by one metre of flood water. Functions usually depend on what the
+building is used for (its *occupancy*) and sometimes on how it is built, and they can include uncertainty: a
+spread of possible damage at each hazard level, which is what the samples draw from.
+
+The same hazard footprint can give very different losses with different vulnerability functions, so they are
+as important to the result as the event itself. The scenarios here use these functions:
+""")
+ci = ctx.ci
+by_source = {}
+for model in scenario_models(ci.models.get(), ci.portfolios.get(), ctx.ui_config):
+    info = vulnerability_info(cached_model_settings(ci, model)) or {'source': 'Not documented'}
+    entry = by_source.setdefault(info['source'], {'url': info.get('url'), 'scenarios': []})
+    entry['scenarios'].append(ctx.scenario_name(model))
+lines = []
+for source, entry in sorted(by_source.items()):
+    label = f"[{source}]({entry['url']})" if entry['url'] else source
+    lines.append(f"- **{label}**: {', '.join(sorted(entry['scenarios']))}")
+st.markdown('\n'.join(lines))
+st.markdown("""
+Each scenario's functions are described in full when you choose it. They are part of the scenario's model
+data and cannot be changed in this tool. To run a scenario with different functions, download it from the
+[Oasis Scenarios repository](https://github.com/OasisLMF/Scenarios) and replace its vulnerability files - for
+example with functions from the [Oasis Vulnerability Library](https://github.com/OasisLMF/VulnerabilityLibrary) -
+then run it with the [Oasis MDK](https://github.com/OasisLMF/OasisLMF).
+""")
+
 st.header('Running a scenario')
 st.markdown(f"""
-1. **Choose a scenario** on the *Run a scenario* page. Each card says who provided it and what it represents.
+1. **Choose a scenario** on the *Run a scenario* page. Filter the list by peril, country or provider; the
+   chosen scenario shows what it represents, who provided it and which vulnerability functions it uses.
 2. **Check the exposure.** The map and figures show the buildings the scenario will be run against.
 3. **Run it.** Choose:
    - **Number of samples** (up to {limits.max_samples}) - damage is uncertain, so Oasis draws several

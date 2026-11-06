@@ -48,7 +48,8 @@ def client():
         'LocNumber': ['1', '2'], 'CountryCode': ['MA', 'MA'], 'Latitude': [31.1, 31.2],
         'Longitude': [-8.4, -8.5], 'BuildingTIV': [1000.0, 2000.0], 'LocPerilsCovered': ['QEQ', 'QEQ']})
     client.models.settings.data[1] = {'name': 'Morocco earthquake, Sep 2023',
-                                      'description': 'Morocco earthquake test model'}
+                                      'description': 'Morocco earthquake test model',
+                                      'data_settings': {'vulnerability': VULNERABILITY}}
     for i in (1, 2, 3):
         client.analyses.settings.data[i] = SETTINGS
         client.analyses.output_file.files[i] = {
@@ -56,6 +57,9 @@ def client():
             'gul_S1_altmeanonly.csv': pd.DataFrame({'SummaryId': [1], 'SampleType': [1], 'MeanLoss': [100.0 * i]})}
         client.analyses.input_file.files[i] = {'location.csv': client.portfolios.location_file.files[1]}
     return client
+
+
+VULNERABILITY = {'source': 'Test damage functions', 'description': 'By occupancy.', 'url': 'https://example.org/vuln'}
 
 
 def app(client, page=None, vid=VID, state=None):
@@ -187,6 +191,28 @@ def test_run_a_scenario(client):
     assert all(level['oed_fields'] == ['LocNumber'] for level in settings['gul_summaries'])
 
 
+def test_vulnerability_info():
+    assert sc.vulnerability_info({'data_settings': {'vulnerability': VULNERABILITY}}) == VULNERABILITY
+    assert sc.vulnerability_info({'data_settings': {'vulnerability': {'source': 'S', 'url': ''}}}) == {'source': 'S'}
+    # No source, or nothing at all: not documented
+    assert sc.vulnerability_info({'data_settings': {'vulnerability': {'description': 'd'}}}) is None
+    assert sc.vulnerability_info({'data_settings': {}}) is None
+    assert sc.vulnerability_info(None) is None
+
+
+def test_chosen_scenario_shows_vulnerability(client):
+    at = app(client, state={'sc_model_id': 1})
+    assert not at.exception, [e.value for e in at.exception]
+    assert '**Vulnerability:** [Test damage functions](https://example.org/vuln)' in [m.value for m in at.markdown]
+    assert 'By occupancy.' in [c.value for c in at.caption]
+
+
+def test_vulnerability_not_documented(client):
+    client.models.settings.data[1].pop('data_settings')
+    at = app(client, state={'sc_model_id': 1})
+    assert '**Vulnerability:** not documented for this scenario.' in [c.value for c in at.caption]
+
+
 def test_run_blocked_at_visitor_limit(client):
     for i in (10, 11):
         client.analyses.json_data.append(analysis(i, f'busy [v:{VID}]', 'RUN_STARTED'))
@@ -202,6 +228,7 @@ def test_showcase_page(client):
     # Showcase runs are named by their scenario's name from the model settings, not the run name
     assert at.selectbox[0].options == ['Morocco earthquake, Sep 2023']
     assert at.subheader[0].value == 'Morocco earthquake, Sep 2023'
+    assert '**Vulnerability:** [Test damage functions](https://example.org/vuln)' in [m.value for m in at.markdown]
 
 
 def test_compare_offers_own_and_showcase_runs(client):
@@ -219,8 +246,10 @@ def test_compare_offers_own_and_showcase_runs(client):
 
 def test_guide_page(client):
     at = app(client, 'scenarios_ui/guide.py')
-    assert not at.exception
+    assert not at.exception, [e.value for e in at.exception]
     assert at.title[0].value == 'Guide'
+    # Scenarios listed by the vulnerability functions they use, from their model settings
+    assert '- **[Test damage functions](https://example.org/vuln)**: Morocco earthquake, Sep 2023' in [m.value for m in at.markdown]
 
 
 @pytest.mark.parametrize('page', ['pages/portfolios.py', 'pages/analyses.py', 'pages/models.py'])

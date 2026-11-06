@@ -9,7 +9,7 @@ from oasis_data_manager.errors import OasisException
 from requests.exceptions import HTTPError
 
 from modules.config import retrieve_ui_config
-from modules.scenarios import GROUP_BY_OPTIONS, ScenarioLimits, display_name, is_showcase, visitor_id
+from modules.scenarios import GROUP_BY_OPTIONS, ScenarioLimits, display_name, is_showcase, visitor_id, vulnerability_info
 from modules.schemas import PERSPECTIVES
 from modules.settings import get_analyses_settings
 from pages.components.common import format_status
@@ -56,6 +56,20 @@ def footer(ui_config):
         return
     st.divider()
     st.caption(text)
+
+
+def vulnerability_note(model_settings):
+    """Which vulnerability functions a scenario uses (from its model settings)."""
+    info = vulnerability_info(model_settings)
+    if info is None:
+        st.caption('**Vulnerability:** not documented for this scenario.')
+        return
+    source = f"[{info['source']}]({info['url']})" if info.get('url') else info['source']
+    st.markdown(f'**Vulnerability:** {source}',
+                help='How much damage the hazard causes to a building, as a share of its value. '
+                     'See the Guide for more on vulnerability functions.')
+    if info.get('description'):
+        st.caption(info['description'])
 
 
 def run_settings(ci, model, number_of_samples, group_fields):
