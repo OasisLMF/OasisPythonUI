@@ -5,11 +5,21 @@
 A web-based UI utilising [Streamlit](https://github.com/streamlit/streamlit) to
 manage exposure data and run modeling workflows on the OasisLMF platform.
 
-The current version of the UI contains the following pages:
+The standard UI (`ui-config.json`) has three pages:
 
-- `/analyses` - View and create portfolios and analyses.
-- `/dashboard` - View the output of completed analyses.
-- `/simplified` - Simplified UI which allows for the running of analyses using previously loaded portfolios & models.
+- `/analyses` - Browse analyses and their results, and create, configure and run new ones.
+- `/portfolios` - Create portfolios, manage their OED files and explore their exposure.
+- `/models` - Browse the models registered on the platform and their settings.
+
+Analysis settings are edited with controls generated from the ODS-tools
+analysis and model settings schemas, and validated before they are saved.
+
+A separate, credential-free **Scenarios app** (`scenarios_app.py`) is for the
+public demo: visitors run pre-loaded disaster scenarios against pre-loaded
+exposure and explore the results, but cannot upload anything. See
+[Public Scenarios demo](#public-scenarios-demo).
+
+Which pages appear in the sidebar is controlled by the UI config file.
 
 ## Prerequisites
 
@@ -84,14 +94,32 @@ To tear everything down (removes containers and volumes):
 
 ## Access Points
 
-All services are reachable on port 80 via Traefik after a successful install:
+All services are reachable via Traefik after a successful install:
 
 | Service | URL |
 |---------|-----|
-| UI | `http://ui.oasis.local/` |
-| API | `http://ui.oasis.local/api/` |
-| Keycloak Admin | `http://ui.oasis.local/auth/` |
-| Authentik Admin | `http://ui.oasis.local/authentik/` |
+| UI | `https://ui.oasis.local/` |
+| API | `https://ui.oasis.local/api/` |
+| Keycloak Admin | `https://ui.oasis.local/auth/` |
+| Authentik Admin | `https://ui.oasis.local/authentik/` |
+
+### HTTPS
+
+With `OASIS_PROTOCOL=https` (the default) browsers are redirected from `http://`
+to `https://` for the UI and login pages. The `/api` route stays available
+over plain HTTP for scripts and API clients.
+
+The installer runs `scripts/generate-certs.sh`, which writes `certs/ui.crt`
+and `certs/ui.key` for `OASIS_UI_HOSTNAME`:
+
+- If [mkcert](https://github.com/FiloSottile/mkcert) is installed, its locally
+  trusted CA is used and browsers accept the certificate without a warning
+  (run `mkcert -install` once).
+- Otherwise a local CA is created at `certs/oasis-local-ca.crt`. Import it into
+  your browser or OS trust store to remove the certificate warning; the script
+  prints the commands.
+- To use your own certificate, put it at `certs/ui.crt` / `certs/ui.key`
+  before running the installer.
 
 ## Switching Between Auth Types
 
@@ -141,7 +169,7 @@ or set `MODEL_SET` in `.env` so a bare `./install.sh` deploys it:
 
 ```bash
 ./install.sh -m piwind      # default: the PiWind demo model
-./install.sh -m scenarios   # PiWind plus the public scenario models
+./install.sh -m scenarios   # the public disaster scenario models
 ```
 
 Model sets shipped in this repository:
@@ -149,7 +177,7 @@ Model sets shipped in this repository:
 | File | Contents |
 |------|----------|
 | `docker-compose.models.piwind.yml` | A `model-registration` one-shot and `piwind-worker`, with model data from `./OasisPiWind/`. |
-| `docker-compose.models.scenarios.yml` | `piwind-worker` plus the scenario workers (Impact Forecasting, JBA, ARA, IPE), with model data from `${SCENARIOS_PATH}`. |
+| `docker-compose.models.scenarios.yml` | `piwind-worker` plus the scenario workers (Impact Forecasting, JBA, ARA, IPE), with model data from `${SCENARIOS_PATH}`, and a `scenarios-setup` one-shot that loads the scenario portfolios, settings templates and showcase runs. |
 
 Because the split is by filename, adding a model set means dropping two new
 files into the root directory — no edits to `docker-compose.yml`, `install.sh`
@@ -194,9 +222,9 @@ deploy, including redeploys over an existing installation.
 |----------|-------------|---------|
 | `API_AUTH_TYPE` | Auth mode: `simple`, `keycloak`, or `authentik` | `authentik` |
 | `OASIS_UI_HOSTNAME` | Hostname the UI and proxy listen on | `ui.oasis.local` |
-| `OASIS_PROTOCOL` | `http` or `https` | `http` |
-| `VERS_API` | Oasis server image tag | `2.5` |
-| `VERS_WORKER` | Oasis worker image tag | `2.5` |
+| `OASIS_PROTOCOL` | `http` or `https` | `https` |
+| `VERS_API` | Oasis server image tag | `2.5.9` |
+| `VERS_WORKER` | Oasis worker image tag | `2.5.9` |
 | `VERS_UI` | Python UI image tag | `latest` |
 
 See the `.env.*` templates for the full list with inline comments.
@@ -237,6 +265,24 @@ through the Keycloak admin console at `/auth/` (`keycloak` / `password`).
 Edit `oidc/authentik/users.yaml` and re-run `./install.sh`, or add users
 through the Authentik admin console at `/authentik/` (`akadmin` / `password`).
 
+## Development
+
+Pull requests run the **Code Quality** workflow (`.github/workflows/code-quality.yml`),
+which mirrors OasisLMF's checks:
+
+- `ruff check .` - pyflakes checks and docstring style (rules in `pyproject.toml`)
+- `autopep8 --diff --exit-code` - PEP8 formatting, 150 character lines
+- `pytest` - the test suite
+
+To run them locally:
+
+```bash
+pip install -r requirements.txt pytest ruff autopep8
+python -m pytest -q
+ruff check --fix .
+autopep8 --in-place --recursive --max-line-length 150 --ignore E402 --exclude OasisPiWind .
+```
+
 ## Troubleshooting
 
 Usually first thing to try before anything is clearing browser cache/cookies for the hostname.
@@ -270,7 +316,73 @@ docker compose logs -f <container_name>    # UI logs
 - The `.env` templates and `users.yaml` files ship with **demo credentials**.
   Change all passwords before any non-local deployment.
 
-## Public Demo
+## Public Scenarios demo
 
-The public site is at https://ui.oasislmf-scenarios.com/
-Default scenarios in the tool are processed/hosted at https://github.com/OasisLMF/Scenarios
+The public site is at https://oasislmf-scenarios.com/. Its scenarios are
+published in https://github.com/OasisLMF/Scenarios.
+
+The demo runs the **Scenarios app** (`scenarios_app.py`, pages in
+`scenarios_ui/`), not the standard UI. It is credential free: the app uses a
+service account for everyone, and visitors can:
+
+- **Run a scenario** - choose a scenario, check the exposure it runs against,
+  choose the number of samples and a loss breakdown, run it and explore the
+  results.
+- **Showcase** - explore pre-computed results without waiting.
+- **Compare** - put two runs (showcase or their own) side by side.
+- **Guide** - how loss models work and how to read the results.
+
+Visitors only see their own runs (identified by the `?v=` id in the URL) and the
+showcase runs. They cannot upload exposure, and the standard UI's pages are not
+part of the app. Limits are set in the `scenarios` section of
+`scenarios/ui-config.json`:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `max_samples` | 50 | Maximum number of samples per run |
+| `default_samples` | 10 | Initial number of samples |
+| `max_active_runs_per_visitor` | 2 | Runs one visitor can have in progress |
+| `max_active_runs` | 10 | Runs in progress across all visitors before new runs wait |
+| `showcase_tag` | `[showcase]` | Name tag marking showcase runs |
+
+`model_map` in the same file lists which pre-loaded portfolios each scenario
+model can be run against.
+
+### Deploying
+
+```bash
+cp .env.scenarios .env    # set every CHANGE_ME value, SCENARIOS_PATH and the hostname
+./install.sh              # or ./install.sh --yes for an unattended redeploy
+```
+
+With `OASIS_PUBLIC_DEMO=true`, `install.sh` adds `docker-compose.public.yml`:
+
+- the UI runs the Scenarios app;
+- only Traefik's http/https ports are published - the API, websocket, databases
+  and broker have no host ports and no public routes;
+- a `scenarios-prune` service deletes visitors' runs older than
+  `OASIS_PRUNE_DAYS` (showcase runs are kept).
+
+The installer refuses to deploy a public demo while `.env` still contains
+`CHANGE_ME` placeholders. Set `OASIS_ACME_EMAIL` to get a Let's Encrypt
+certificate for `OASIS_UI_HOSTNAME` (`docker-compose.acme.yml`; the hostname
+must resolve to the server and port 80 must be reachable).
+
+The `scenarios-setup` service runs on every deploy and is idempotent: it adds
+missing portfolios (`scenarios/portfolios.json`), updates the settings templates
+(`scenarios/a_settings.json`) and starts a showcase run for any scenario that
+doesn't have one (`scripts/add_showcase_analyses.py`).
+
+The **Docker Scenarios UI CD** workflow deploys to the hosted server by running
+`scenarios/deploy_scenarios_ui.sh` there, which uses `install.sh`. The server's
+`.env` must be a configured copy of `.env.scenarios`.
+
+To run the Scenarios app locally against an existing platform:
+
+```bash
+OASIS_UI_CONFIG=scenarios/ui-config.json streamlit run scenarios_app.py
+```
+
+The UI and setup scripts take the service account from
+`OASIS_SERVICE_USERNAME_OR_ID` / `OASIS_SERVICE_PASSWORD_OR_SECRET` (set by
+`install.sh` from `.env`), falling back to `.streamlit/secrets.toml`.

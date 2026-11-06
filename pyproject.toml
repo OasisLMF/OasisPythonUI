@@ -1,0 +1,22 @@
+# Code quality configuration, mirroring OasisLMF (.github/workflows/code-quality.yml).
+
+[tool.ruff]
+# ruff replaces flake8; autopep8 covers PEP8 formatting.
+line-length = 150
+exclude = [".git", ".venv", "venv", "OasisPiWind", "scenarios", "oidc", "certs"]
+# required for the DOC* (pydoclint) rules below, which are preview-only.
+preview = true
+
+[tool.ruff.lint]
+select = [
+    # All pyflakes checks (flake8's F rules): unused imports/variables, undefined names, ...
+    "F",
+    # Docstring style rules used by OasisLMF
+    "D200", "D201", "D202", "D206", "D207", "D208", "D209", "D210", "D212",
+    "D214", "D300", "D301", "D403", "D405", "D410", "D411", "D412", "D414",
+    "D416", "D417", "D419",
+    "DOC202", "DOC402",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]

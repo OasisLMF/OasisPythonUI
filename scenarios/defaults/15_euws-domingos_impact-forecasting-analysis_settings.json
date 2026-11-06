@@ -1,0 +1,18 @@
+{
+    "model_supplier_id": "ImpactForecasting",
+    "model_name_id": "EUWS-Domingos",
+    "number_of_samples": 10,
+    "model_settings": {
+        "event_set": "domingos"
+    },
+    "gul_output": true,
+    "gul_summaries": [
+        {
+            "id": 1,
+            "ord_output": {
+                "elt_moment": true
+            }
+        }
+    ],
+    "gul_threshold": 0
+}

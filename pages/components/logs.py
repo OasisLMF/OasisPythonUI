@@ -1,5 +1,6 @@
 import streamlit as st
 
+
 def display_traceback_file(tb_text, trace_type):
     fname = f'{trace_type}_traceback_file'
     n_lines = 20
@@ -11,5 +12,5 @@ def display_traceback_file(tb_text, trace_type):
     st.write(f'End of `{fname}`:')
     st.code(display_lines)
     fname += '.txt'
-    st.download_button(label=f'Download', data=tb_text, file_name=fname,
+    st.download_button(label='Download', data=tb_text, file_name=fname,
                        key=f'{fname}_download_button')

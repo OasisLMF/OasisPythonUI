@@ -10,7 +10,8 @@ def SidebarNav(no_client=False):
     with st.sidebar:
         if "client_interface" in st.session_state or no_client:
             for page_config in ui_config.pages:
-                st.page_link(page_config['path'], label=page_config['label'])
+                st.page_link(page_config['path'], label=page_config['label'],
+                             icon=page_config.get('icon'))
             if "client_interface" in st.session_state:
                 if get_auth_type() != 'simple':
                     id_token = st.session_state.get("id_token", "")
@@ -22,6 +23,13 @@ def SidebarNav(no_client=False):
                         logout()
         else:
             st.page_link('app.py', label="Login")
-    # Add logo
+    # Add logo. Streamlit's largest logo size (2rem) leaves the wide Oasis
+    # wordmark cramped, so enlarge it in the sidebar and collapsed header.
     st.logo(image="images/oasis_logo_bg.png",
             size="large")
+    st.html('''<style>
+        [data-testid="stSidebarLogo"], [data-testid="stHeaderLogo"] {
+            height: 3rem;
+            max-width: 100%;
+        }
+    </style>''')

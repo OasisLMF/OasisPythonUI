@@ -26,8 +26,6 @@ if [ -z "$SCENARIOS_PATH" ]; then
     exit 1
 fi
 
-# The scenarios set runs PiWind alongside the scenario models
-bash "$SCRIPT_DIR/get-piwind.sh"
 
 if [ -d "$SCENARIOS_PATH" ]; then
   echo "  -> Scenario models already checked out at $SCENARIOS_PATH"

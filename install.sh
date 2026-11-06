@@ -17,6 +17,7 @@ MODEL_SET_ARG=""
 BUILD_UI=false
 NO_PULL_UI=false
 UNINSTALL=false
+ASSUME_YES=false
 
 usage() {
     cat <<'USAGE'
@@ -30,6 +31,7 @@ Usage: ./install.sh [options]
   --build-ui                Rebuild the UI docker container.
   --no-pull-ui              Disable pulling UI docker container.
   -u, --uninstall           Bring the stack down and delete its volumes.
+  -y, --yes                 Redeploy over an existing installation without asking.
   -h, --help                Show this message.
 USAGE
 }
@@ -47,6 +49,7 @@ while [ $# -gt 0 ]; do
         --build-ui)    BUILD_UI=true; shift ;;
         --no-pull-ui)    NO_PULL_UI=true; shift ;;
         -u|--uninstall) UNINSTALL=true; shift ;;
+        -y|--yes)      ASSUME_YES=true; shift ;;
         -h|--help)     usage; exit 0 ;;
         *)             echo "ERROR: unknown option '$1'" >&2; usage >&2; exit 1 ;;
     esac
@@ -70,6 +73,8 @@ if [ "$UNINSTALL" = true ]; then
         -f "$SCRIPT_DIR/docker-compose.ui.yml" \
         -f "$SCRIPT_DIR/docker-compose.keycloak.yml" \
         -f "$SCRIPT_DIR/docker-compose.authentik.yml" \
+        -f "$SCRIPT_DIR/docker-compose.public.yml" \
+        -f "$SCRIPT_DIR/docker-compose.acme.yml" \
         "${MODEL_FILES[@]}" \
         down --remove-orphans -v 2>/dev/null
     # Also try old files in case of migration
@@ -151,6 +156,21 @@ echo ""
 # Set service account credentials based on auth type
 # ============================================================================
 
+echo "--- Configuring HTTPS ---"
+cert_fingerprint() { cat "$SCRIPT_DIR/certs/ui.crt" 2>/dev/null | sha256sum; }
+CERT_BEFORE="$(cert_fingerprint)"
+bash "$SCRIPT_DIR/scripts/generate-certs.sh"
+# Traefik only reloads certificates when its config changes, so restart it after deploy if needed
+[ "$(cert_fingerprint)" != "$CERT_BEFORE" ] && CERT_CHANGED=true || CERT_CHANGED=false
+if [ "$OASIS_PROTOCOL" = "https" ]; then
+    export OASIS_WEB_ENTRY_MIDDLEWARE="https-redirect@file"
+    echo "  -> Browsers using http:// are redirected to https://"
+else
+    export OASIS_WEB_ENTRY_MIDDLEWARE="http-passthrough@file"
+    echo "  -> Serving over http:// (https:// is also available)"
+fi
+echo ""
+
 echo "--- Configuring service credentials ---"
 
 if [ "$API_AUTH_TYPE" = "simple" ]; then
@@ -214,6 +234,27 @@ elif [ "$API_AUTH_TYPE" = "authentik" ]; then
     echo "  -> Including Authentik services"
 fi
 
+if [ "${OASIS_PUBLIC_DEMO:-false}" = "true" ]; then
+    if [ "$API_AUTH_TYPE" != "simple" ]; then
+        echo "ERROR: OASIS_PUBLIC_DEMO=true requires API_AUTH_TYPE=simple (see .env.scenarios)"
+        exit 1
+    fi
+    # Settings (not comments) still holding the .env.scenarios placeholder
+    PLACEHOLDERS=$(grep -v '^[[:space:]]*#' "$SCRIPT_DIR/.env" | grep "CHANGE_ME" | cut -d= -f1)
+    if [ -n "$PLACEHOLDERS" ]; then
+        echo "ERROR: .env still contains CHANGE_ME placeholders. Set real passwords before a public deployment:"
+        echo "$PLACEHOLDERS" | sed 's/^/    /'
+        exit 1
+    fi
+    COMPOSE_FILES="$COMPOSE_FILES -f $SCRIPT_DIR/docker-compose.public.yml"
+    echo "  -> Public demo: Scenarios app only, no public API or database ports"
+fi
+
+if [ -n "${OASIS_ACME_EMAIL:-}" ]; then
+    COMPOSE_FILES="$COMPOSE_FILES -f $SCRIPT_DIR/docker-compose.acme.yml"
+    echo "  -> Let's Encrypt certificate for $OASIS_UI_HOSTNAME"
+fi
+
 echo "  -> Compose files: $COMPOSE_FILES"
 echo ""
 
@@ -236,7 +277,7 @@ echo ""
 
 EXISTING_CONTAINERS=$(docker compose $COMPOSE_FILES ps -q 2>/dev/null | wc -l)
 
-if [ "$EXISTING_CONTAINERS" -gt 0 ]; then
+if [ "$EXISTING_CONTAINERS" -gt 0 ] && [ "$ASSUME_YES" != true ]; then
     MSG="Previous installation detected. Redeploy? (existing data will be preserved)"
     while true; do
         read -r -n 1 -p "${MSG} [y/n]: " REPLY
@@ -286,6 +327,11 @@ echo "--- Deploying services ---"
 # Start all services
 docker compose $COMPOSE_FILES up -d
 
+if [ "$CERT_CHANGED" = true ]; then
+    echo "  -> Certificate changed: restarting traefik to load it"
+    docker compose $COMPOSE_FILES restart traefik
+fi
+
 echo ""
 
 # ============================================================================
@@ -296,7 +342,16 @@ echo "--- Waiting for services to be healthy ---"
 
 # Wait for core services
 echo "  -> Waiting for server..."
-docker compose $COMPOSE_FILES exec -T server sh -c 'for i in $(seq 1 60); do curl -sf http://localhost:8000/healthcheck/ > /dev/null 2>&1 && exit 0; sleep 5; done; exit 1' || {
+# The api_server image (2.5.9+) has no shell or curl, so poll from the host using its python3.
+server_ready() {
+    for i in $(seq 1 60); do
+        docker compose $COMPOSE_FILES exec -T server python3 -c \
+            "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthcheck/')" > /dev/null 2>&1 && return 0
+        sleep 5
+    done
+    return 1
+}
+server_ready || {
     echo "  WARNING: Server health check timed out. Check logs with: docker compose $COMPOSE_FILES logs server"
 }
 
@@ -325,16 +380,20 @@ echo ""
 echo "  Auth type:     $API_AUTH_TYPE"
 echo "  Hostname:      $OASIS_UI_HOSTNAME"
 echo ""
-echo "  Access Points (via Traefik on port 80):"
-echo "    UI:          http://${OASIS_UI_HOSTNAME}/"
-echo "    API:         http://${OASIS_UI_HOSTNAME}/api/"
-echo "    API Docs:    http://${OASIS_UI_HOSTNAME}/api/swagger/"
+echo "  Access Points (via Traefik):"
+echo "    UI:          ${OASIS_PROTOCOL}://${OASIS_UI_HOSTNAME}/"
+if [ "${OASIS_PUBLIC_DEMO:-false}" = "true" ]; then
+    echo "    (public Scenarios demo: the API is not exposed)"
+else
+    echo "    API:         ${OASIS_PROTOCOL}://${OASIS_UI_HOSTNAME}/api/"
+    echo "    API Docs:    ${OASIS_PROTOCOL}://${OASIS_UI_HOSTNAME}/api/swagger/"
+fi
 
 if [ "$API_AUTH_TYPE" = "keycloak" ]; then
-    echo "    Keycloak:    http://${OASIS_UI_HOSTNAME}/auth/admin/"
+    echo "    Keycloak:    ${OASIS_PROTOCOL}://${OASIS_UI_HOSTNAME}/auth/admin/"
     echo "                 (${KEYCLOAK_ADMIN_USER} / ${KEYCLOAK_ADMIN_PASSWORD})"
 elif [ "$API_AUTH_TYPE" = "authentik" ]; then
-    echo "    Authentik:   http://${OASIS_UI_HOSTNAME}/authentik/"
+    echo "    Authentik:   ${OASIS_PROTOCOL}://${OASIS_UI_HOSTNAME}/authentik/"
     echo "                 (akadmin / ${AUTHENTIK_BOOTSTRAP_PASSWORD})"
 fi
 

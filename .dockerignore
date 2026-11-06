@@ -5,3 +5,9 @@ __pycache__
 *.pyd
 env
 .dockerignore
+# Not needed in the image (and secrets must not be baked in)
+scenarios/.streamlit
+.streamlit/secrets.toml
+OasisPiWind
+certs
+tests

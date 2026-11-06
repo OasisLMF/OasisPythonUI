@@ -1,20 +1,25 @@
 from streamlit.testing.v1 import AppTest
 import pytest
 from oasis_data_manager.errors import OasisException
+import tests.mocks as m
+
 
 @pytest.fixture(autouse=True)
 def no_requests(monkeypatch):
     """Remove requests.sessions.Session.request for all tests."""
     monkeypatch.delattr("requests.sessions.Session.request")
 
+
 @pytest.fixture()
 def at_before_login():
     return AppTest.from_file("app.py").run()
+
 
 def test_login_form_labels(at_before_login):
     at = at_before_login
     assert at.text_input(key="username").label == "Username"
     assert at.text_input(key="password").label == "Password"
+
 
 @pytest.mark.parametrize("user, password, err_fragment",
                          [("", "", "Username"),
@@ -28,8 +33,9 @@ def test_login_validation(at_before_login, user, password, err_fragment):
     at.button[0].click().run()
     assert err_fragment in at.error[0].value
 
+
 @pytest.fixture
-def mock_api_client(mocker):
+def mock_api_client(monkeypatch):
     class MockJsonObject:
         @staticmethod
         def json():
@@ -39,18 +45,23 @@ def mock_api_client(mocker):
         valid_user = "mock_user"
         valid_password = "mock_password"
 
-        def __init__(self, username="", password="", api_url=""):
+        def __init__(self, username="", password="", api_url="", **kwargs):
             if username != self.valid_user or password != self.valid_password:
                 raise OasisException("")
-            return None
+            # Endpoints wrapped by ClientInterface
+            self.portfolios = m.MockEndpoint()
+            self.analyses = m.MockEndpoint()
+            self.models = m.MockModelsEndpoint()
 
         @staticmethod
         def server_info():
             return MockJsonObject
-    return mocker.patch("modules.client.APIClient", MockApiClient)
+    monkeypatch.setattr("modules.client.APIClient", MockApiClient)
+    return MockApiClient
+
 
 @pytest.mark.parametrize("user, password, errors",
-                          [("mock_user", "mock_password", ()),
+                         [("mock_user", "mock_password", ()),
                           ("incorrect_user", "incorrect_password", ("Authentication Failed",))])
 def test_login_authentication(at_before_login, mock_api_client,
                               user, password, errors):

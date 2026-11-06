@@ -1,0 +1,14 @@
+# Middlewares for the plain HTTP (web) entrypoint of browser-facing routers.
+# install.sh selects one via OASIS_WEB_ENTRY_MIDDLEWARE:
+#   https-redirect@file   when OASIS_PROTOCOL=https (send browsers to HTTPS)
+#   http-passthrough@file when OASIS_PROTOCOL=http  (serve over HTTP as-is)
+http:
+  middlewares:
+    https-redirect:
+      redirectScheme:
+        scheme: https
+        permanent: true
+    http-passthrough:
+      headers:
+        customResponseHeaders:
+          X-Oasis-Entrypoint: http
