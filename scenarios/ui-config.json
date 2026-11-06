@@ -16,6 +16,9 @@
     "EUWS": [
       "euws-test"
     ],
+    "EUWS-Domingos": [
+      "euws-test"
+    ],
     "TREQ": [
       "treq-test"
     ],
