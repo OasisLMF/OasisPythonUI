@@ -7,6 +7,7 @@ name. Visitors see their own runs plus a curated set of showcase runs
 UI config.
 """
 import re
+from datetime import datetime, timezone
 import uuid
 from dataclasses import dataclass
 
@@ -17,6 +18,9 @@ _VISITOR_KEY = 'scenarios_visitor_id'
 _TAG_PATTERN = re.compile(r'\s*\[(showcase|v:[0-9a-f]+)\]\s*$')
 
 IN_PROGRESS = ['INPUTS_GENERATION_QUEUED', 'INPUTS_GENERATION_STARTED', 'RUN_QUEUED', 'RUN_STARTED']
+# Scenario runs are generate-and-run, which passes through READY between input
+# generation and the loss run; a READY run updated this recently is still active
+READY_GRACE_SECONDS = 120
 
 # Group-by choices offered to visitors, as (label, OED field)
 GROUP_BY_OPTIONS = [('Portfolio', 'PortNumber'), ('Country', 'CountryCode'), ('Location', 'LocNumber')]
@@ -97,9 +101,24 @@ def showcase_analyses(analyses, limits):
     return [a for a in analyses if is_showcase(a, limits)]
 
 
+def is_active(analysis, now=None):
+    """Whether a scenario run is still in progress (see READY_GRACE_SECONDS)."""
+    status = analysis.get('status')
+    if status in IN_PROGRESS:
+        return True
+    if status == 'READY' and analysis.get('modified'):
+        try:
+            modified = datetime.fromisoformat(analysis['modified'].replace('Z', '+00:00'))
+        except ValueError:
+            return False
+        now = now or datetime.now(timezone.utc)
+        return (now - modified).total_seconds() < READY_GRACE_SECONDS
+    return False
+
+
 def run_blocked_reason(analyses, vid, limits):
     """Why a new run can't start right now (None if it can)."""
-    active = [a for a in analyses if a.get('status') in IN_PROGRESS]
+    active = [a for a in analyses if is_active(a)]
     mine = [a for a in visitor_analyses(active, vid)]
     if len(mine) >= limits.max_active_runs_per_visitor:
         return (f'You already have {len(mine)} run(s) in progress. '

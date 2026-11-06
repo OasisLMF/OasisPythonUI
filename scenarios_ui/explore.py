@@ -6,7 +6,7 @@ import streamlit as st
 from oasis_data_manager.errors import OasisException
 from requests.exceptions import HTTPError
 
-from modules.scenarios import (GROUP_BY_OPTIONS, IN_PROGRESS, display_name, limit_processes, run_blocked_reason,
+from modules.scenarios import (GROUP_BY_OPTIONS, display_name, is_active, limit_processes, run_blocked_reason,
                                scenario_models, scenario_portfolios, tagged_name, visitor_analyses,
                                visitor_tag)
 from modules.ui import api_error_message, flash, show_flash
@@ -162,7 +162,7 @@ if not my_runs:
     st.caption('Runs you start appear here. They are kept for a few days.')
 else:
     snapshot = {a['id']: a['status'] for a in my_runs}
-    any_running = any(s in IN_PROGRESS for s in snapshot.values())
+    any_running = any(is_active(a) for a in my_runs)
 
     @st.fragment(run_every='3s' if any_running else None)
     def live_progress():
@@ -172,7 +172,7 @@ else:
         if {a['id']: a['status'] for a in fresh} != snapshot:
             st.rerun()
         for a in fresh:
-            if a['status'] in IN_PROGRESS:
+            if is_active(a):
                 fraction, detail = analysis_progress(a)
                 task = current_task(ci.analyses.sub_tasks(a['id']))
                 text = ' · '.join(x for x in [f"**{display_name(a['name'])}**", format_status(a['status']),

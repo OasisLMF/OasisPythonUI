@@ -223,3 +223,19 @@ def test_visitor_runs_are_process_limited(client):
     created = client.analyses.json_data[-1]
     computation = client.analyses.settings.data[created['id']]['computation_settings']
     assert computation == {'kernel_num_processes': 2, 'lookup_num_processes': 2}
+
+
+def test_is_active_includes_recent_ready():
+    from datetime import datetime, timedelta, timezone
+    now = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
+
+    def at(seconds_ago, status):
+        modified = (now - timedelta(seconds=seconds_ago)).isoformat().replace('+00:00', 'Z')
+        return {'status': status, 'modified': modified}
+
+    assert sc.is_active(at(5, 'RUN_STARTED'), now)
+    # generate-and-run passes through READY before the loss run starts
+    assert sc.is_active(at(30, 'READY'), now)
+    assert not sc.is_active(at(600, 'READY'), now)
+    assert not sc.is_active(at(5, 'RUN_COMPLETED'), now)
+    assert not sc.is_active({'status': 'READY'}, now)

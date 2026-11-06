@@ -24,9 +24,12 @@ from pathlib import Path
 
 from utils import LOG_LEVEL, initialise_client, parse_initialise_args
 
-from modules.scenarios import IN_PROGRESS, limit_processes
+from modules.scenarios import is_active, limit_processes
 
 FAILED = ['INPUTS_GENERATION_ERROR', 'INPUTS_GENERATION_CANCELLED', 'RUN_ERROR', 'RUN_CANCELLED']
+# A generate-and-run passes through READY between input generation and the
+# loss run, so only these statuses mean a showcase run has finished
+FINISHED = ['RUN_COMPLETED'] + FAILED
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=LOG_LEVEL)
@@ -62,7 +65,7 @@ def wait_for_slot(client, running, max_concurrent, timeout):
     while True:
         statuses = {i: client.analyses.get(i).json()['status'] for i in running}
         for i, status in statuses.items():
-            if status not in IN_PROGRESS:
+            if status in FINISHED:
                 logger.info(f'Showcase run {i} finished: {status}')
                 running.remove(i)
         if len(running) < max_concurrent:
@@ -99,7 +102,7 @@ def main():
     models = {m['model_id']: m for m in client.models.get().json()}
     portfolios = {p['name']: p for p in client.portfolios.get().json()}
     existing = [a for a in client.analyses.get().json() if a['name'].endswith(tag)]
-    running = [a['id'] for a in existing if a['status'] in IN_PROGRESS]
+    running = [a['id'] for a in existing if is_active(a)]
 
     for model_id, portfolio_names in model_map.items():
         if args['models'] and model_id not in args['models']:
