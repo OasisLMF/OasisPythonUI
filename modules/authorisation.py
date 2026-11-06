@@ -1,10 +1,12 @@
 """Module to handle authorisation."""
 import os
 import requests
+from oasis_data_manager.errors import OasisException
 from requests.exceptions import HTTPError
 from modules.config import retrieve_ui_config
 import streamlit as st
 from modules.client import ClientInterface
+from modules.credentials import service_client_kwargs
 import logging
 
 logger = logging.getLogger(__name__)
@@ -50,13 +52,7 @@ def handle_login(skip_login=False):
     if skip_login:
         with st.spinner("Loading platform..."):
             try:
-                auth_type = get_auth_type()
-                if auth_type != 'simple':
-                    st.session_state["client_interface"] = ClientInterface(
-                        auth_type="oidc", client_id=st.secrets["client_id"], client_secret=st.secrets["client_secret"])
-                else:
-                    st.session_state["client_interface"] = ClientInterface(
-                        auth_type="simple", username=st.secrets["user"], password=st.secrets["password"])
+                st.session_state["client_interface"] = ClientInterface(**service_client_kwargs())
             except HTTPError as e:
                 logger.error(e)
                 st.error("Loading platform failed.")
@@ -70,16 +66,10 @@ def quiet_login():
     if "client_interface" in st.session_state:
         return
 
-    auth_type = get_auth_type()
     try:
-        if auth_type != 'simple':
-            if "client_id" in st.secrets and "client_secret" in st.secrets:
-                st.session_state["client_interface"] = ClientInterface(
-                    auth_type="oidc", client_id=st.secrets["client_id"], client_secret=st.secrets["client_secret"])
-        elif "user" in st.secrets and "password" in st.secrets:
-            st.session_state["client_interface"] = ClientInterface(auth_type="simple", username=st.secrets["user"], password=st.secrets["password"])
-    except HTTPError as e:
-        logger.error(e)
+        st.session_state["client_interface"] = ClientInterface(**service_client_kwargs())
+    except (HTTPError, OasisException) as e:
+        logger.error(f'Service login failed: {e}')
     return
 
 

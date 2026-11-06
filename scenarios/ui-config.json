@@ -1,32 +1,59 @@
 {
-  "pages" : [
-    {"path": "pages/scenariosGuide.py", "label": "User Guide"},
-    {"path": "pages/scenarios.py", "label": "Scenarios"},
-    {"path": "pages/comparison.py", "label": "Comparison"}
-  ],
-  "post_login_page": "pages/scenariosGuide.py",
-  "model_map": {
-    "PiWind": ["piwind-small", "piwind-large"],
-    "MAEQ": ["maeq-test"],
-    "EUWS": ["euws-test"],
-    "TREQ": ["treq-test"],
-    "Philippines-Taiwan-Defended":   ["philippines-taiwan-typhoon-flat",  "phillippines-taiwan-comparison-test"],
-    "Philippines-Taiwan-Undefended": ["philippines-taiwan-typhoon-flat",  "phillippines-taiwan-comparison-test"],
-    "US-Hurricane": ["us-hurricane-flat"],
-    "Ghana-E635900": ["ghana-flood-flat"],
-    "Ghana-E689982": ["ghana-flood-flat"],
-    "Ghana-E760461": ["ghana-flood-flat"],
-    "Nepal-E151185": ["nepal-flood-flat"],
-    "Nepal-E432557": ["nepal-flood-flat"],
-    "Nepal-E505423": ["nepal-flood-flat"],
-    "France-Hail": ["france-hail-flat"]
+  "_comment": "Config for the public Scenarios app (scenarios_app.py). Pages are defined in scenarios_app.py. Scenario names and descriptions come from each model's settings; peril and countries from its exposure.",
+  "scenarios": {
+    "max_samples": 50,
+    "default_samples": 10,
+    "max_active_runs_per_visitor": 2,
+    "max_active_runs": 3,
+    "processes_per_run": 2,
+    "showcase_tag": "[showcase]",
+    "retention_days": 7
   },
-  "footer" : {
-    "path": "ui_assets/footer.md",
-    "pages": [
-      "scenarios",
-      "comparison"
+  "model_map": {
+    "MAEQ": [
+      "maeq-test"
+    ],
+    "EUWS": [
+      "euws-test"
+    ],
+    "TREQ": [
+      "treq-test"
+    ],
+    "Philippines-Taiwan-Defended": [
+      "philippines-taiwan-typhoon-flat",
+      "phillippines-taiwan-comparison-test"
+    ],
+    "Philippines-Taiwan-Undefended": [
+      "philippines-taiwan-typhoon-flat",
+      "phillippines-taiwan-comparison-test"
+    ],
+    "US-Hurricane": [
+      "us-hurricane-flat"
+    ],
+    "Ghana-E635900": [
+      "ghana-flood-flat"
+    ],
+    "Ghana-E689982": [
+      "ghana-flood-flat"
+    ],
+    "Ghana-E760461": [
+      "ghana-flood-flat"
+    ],
+    "Nepal-E151185": [
+      "nepal-flood-flat"
+    ],
+    "Nepal-E432557": [
+      "nepal-flood-flat"
+    ],
+    "Nepal-E505423": [
+      "nepal-flood-flat"
+    ],
+    "France-Hail": [
+      "france-hail-flat"
     ]
+  },
+  "footer": {
+    "path": "scenarios/assets/footer.md"
   },
   "skip_login": true
 }

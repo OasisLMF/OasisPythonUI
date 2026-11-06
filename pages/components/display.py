@@ -247,9 +247,19 @@ class MapView(View):
                 return 18
             return min(max(masked.iloc[0, :].name - 1, 0), 18)
 
-        lon_range = locations[self.longitude].max() - locations[self.longitude].min()
+        # Frame the map on the locations with a loss (all of them if none have one), ignoring
+        # missing coordinates and 0,0 ("not geocoded")
+        lon, lat = locations[self.longitude], locations[self.latitude]
+        placed = lon.notna() & lat.notna() & ((lon != 0) | (lat != 0))
+        framed = locations[placed & (locations[self.weight] > 0)]
+        if framed.empty:
+            framed = locations[placed] if placed.any() else locations
+        lon_min, lon_max = framed[self.longitude].min(), framed[self.longitude].max()
+        lat_min, lat_max = framed[self.latitude].min(), framed[self.latitude].max()
+        center = {'lon': (lon_min + lon_max) / 2, 'lat': (lat_min + lat_max) / 2}
 
-        zoom = find_zoom_level(lon_range)
+        # The map is about twice as wide as it is tall, so a north-south spread needs more room
+        zoom = find_zoom_level(max(lon_max - lon_min, 2 * (lat_max - lat_min)))
 
         format_weight = self.weight
         if len(format_weight) > 1:
@@ -262,6 +272,7 @@ class MapView(View):
                              color_continuous_scale="YlOrRd",
                              opacity=0.75,
                              zoom=zoom,
+                             center=center,
                              labels={self.weight: format_weight})
         fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
         fig.update_layout(coloraxis_colorbar=dict(

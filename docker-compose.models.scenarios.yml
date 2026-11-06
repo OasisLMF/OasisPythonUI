@@ -1,9 +1,10 @@
 # ============================================================================
-# PiWind demo model
+# Public scenario models
 # ============================================================================
-# The default model set, loaded by install.sh (MODEL_COMPOSE=piwind, or
-# --models piwind). Always used together with docker-compose.yml, which
-# provides the server, databases, broker and the filestore volume.
+# The scenarios model set (install.sh -m scenarios): one worker per disaster
+# scenario, with model data from ${SCENARIOS_PATH}. Always used together with
+# docker-compose.yml, which provides the server, databases, broker and the
+# filestore volume.
 #
 
 x-shared-env: &worker-env
@@ -17,6 +18,10 @@ x-shared-env: &worker-env
 
   # Where workers report events completed, shown as run progress in the UI
   OASIS_ANALYSIS_STATUS_URL: http://server:8000/analysis-status/
+
+  # One task at a time per worker (Celery defaults to one process per CPU, and
+  # with 13 workers that alone uses a lot of memory)
+  OASIS_CELERY_CONCURRENCY: ${OASIS_WORKER_CONCURRENCY:-1}
 
   # Authentication configuration
   OASIS_SERVER_API_AUTH_TYPE: ${API_AUTH_TYPE:-simple}
@@ -63,6 +68,9 @@ x-shared-env: &worker-env
 x-worker: &worker
   restart: always
   image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
+  # Cap each worker so a run that outgrows it is killed inside its container
+  # rather than exhausting the host's memory
+  mem_limit: ${OASIS_WORKER_MEM_LIMIT:-6g}
   depends_on:
     server:
       condition: service_healthy
@@ -73,18 +81,6 @@ x-worker: &worker
 
 
 services:
-  piwind-worker:
-    <<: *worker
-    environment:
-      <<: *worker-env
-      OASIS_MODEL_SUPPLIER_ID: OasisLMF
-      OASIS_MODEL_ID: PiWind
-      OASIS_MODEL_VERSION_ID: 'v2'
-      OASIS_RUN_MODE: v2
-    volumes:
-      - ./OasisPiWind/:/home/worker/model
-      - filestore-data:/shared-fs:rw
-
   maeq-worker:
     <<: *worker
     environment:
@@ -250,3 +246,25 @@ services:
     volumes:
       - ${SCENARIOS_PATH}/IPE/FranceHail/:/home/worker/model
       - filestore-data:/shared-fs:rw
+
+  # Loads the scenario portfolios, settings templates and showcase analyses
+  # (scripts/scenarios_setup.sh). Idempotent, so it runs on every deploy.
+  scenarios-setup:
+    image: ${PYTHONUI_IMG:-coreoasis/oasispythonui_app}:${VERS_UI:-latest}
+    restart: "no"
+    entrypoint: ["bash", "scripts/scenarios_setup.sh"]
+    environment:
+      - API_URL=http://server:8000
+      - API_AUTH_TYPE=${API_AUTH_TYPE:-simple}
+      - OASIS_SERVICE_USERNAME_OR_ID=${OASIS_SERVICE_USERNAME_OR_ID:-}
+      - OASIS_SERVICE_PASSWORD_OR_SECRET=${OASIS_SERVICE_PASSWORD_OR_SECRET:-}
+      - SCENARIOS_UI_CONFIG=scenarios/ui-config.json
+      # Number of model workers in this file: setup waits for all to register
+      - SCENARIOS_MIN_MODELS=13
+    volumes:
+      # Portfolio paths in scenarios/portfolios.json are relative to /usr/src/app
+      - ${SCENARIOS_PATH}:/usr/src/Scenarios:ro
+      - ${UI_STREAMLIT:-./.streamlit/}:/usr/src/app/.streamlit:ro
+    depends_on:
+      server:
+        condition: service_healthy

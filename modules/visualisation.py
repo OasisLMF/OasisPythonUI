@@ -33,6 +33,19 @@ class OutputInterface:
         return self._request_to_summary_info_fname(level, perspective, self.file_prefixes.get(perspective, '')) \
             in self.output_file_dict
 
+    def has_output(self, perspective, output_type, summary_level=None):
+        """Whether the output file for `output_type` exists for the selected level and prefix."""
+        level = summary_level or self.summary_level(perspective)
+        prefix = self.file_prefixes.get(perspective, '')
+        return self._file(self._request_to_fname(level, perspective, output_type, prefix=prefix)) is not None
+
+    def _file(self, csv_name):
+        """Output file by its `.csv` name, or its `.parquet` equivalent (ORD parquet_format)."""
+        df = self.output_file_dict.get(csv_name)
+        if df is None and csv_name.endswith('.csv'):
+            df = self.output_file_dict.get(csv_name[:-4] + '.parquet')
+        return df
+
     def fields_available(self, perspective, oed_fields, summary_level=None):
         """Whether outputs can be broken down by `oed_fields`: either a
         summary-info file exists, or the outputs already contain the fields
@@ -108,15 +121,14 @@ class OutputInterface:
         prefix = self.file_prefixes.get(perspective, '')
         fname = self._request_to_fname(summary_level, perspective, output_type, prefix=prefix,
                                        **kwargs)
-        results = self.output_file_dict.get(fname)
+        results = self._file(fname)
         if results is None:
             logger.error(f'Failed to find output file: {fname}')
             raise OasisException('Output file not found.')
 
         oed_fields = self.oed_fields.get(perspective, None)
         if oed_fields:
-            summary_info = self.output_file_dict.get(
-                self._request_to_summary_info_fname(summary_level, perspective, prefix))
+            summary_info = self._file(self._request_to_summary_info_fname(summary_level, perspective, prefix))
             results = self.add_oed_fields(results, summary_info, oed_fields)
             missing = [f for f in oed_fields if f not in results.columns]
             if missing:

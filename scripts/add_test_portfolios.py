@@ -13,8 +13,11 @@ def add_portfolio(client, input_args):
     existing_names = [r['name'] for r in client.portfolios.get().json()]
     logger.info('Adding portfolios...')
 
+    missing = [v for k, v in input_args.items() if k.endswith('_fp') and v and not Path(v).is_file()]
     if input_args.get('portfolio_name') in existing_names:
         logger.info(f'Skipping {input_args["portfolio_name"]}')
+    elif missing:
+        logger.warning(f'Skipping {input_args["portfolio_name"]}: files not found: {missing}')
     else:
         logger.info(f'Adding {input_args["portfolio_name"]}')
         client.upload_inputs(**input_args)

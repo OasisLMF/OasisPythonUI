@@ -1,4 +1,5 @@
 """File containig some common methods for `pages/`."""
+from modules.status import IN_PROGRESS_STATUSES, is_active  # noqa: F401 - re-exported
 import streamlit as st
 from urllib.parse import urlparse
 from pathlib import PurePosixPath
@@ -46,8 +47,6 @@ STATUS_ICONS = {
     'RUN_ERROR': '❌',
 }
 
-IN_PROGRESS_STATUSES = ['INPUTS_GENERATION_QUEUED', 'INPUTS_GENERATION_STARTED',
-                        'RUN_QUEUED', 'RUN_STARTED']
 ERROR_STATUSES = ['INPUTS_GENERATION_ERROR', 'RUN_ERROR']
 
 
@@ -57,6 +56,13 @@ def format_status(status):
         return ''
     label = status.replace('_', ' ').capitalize()
     return f"{STATUS_ICONS.get(status, '')} {label}".strip()
+
+
+def status_label(analysis):
+    """Status label for an analysis, showing the READY gap of a generate-and-run as starting."""
+    if analysis.get('status') == 'READY' and is_active(analysis):
+        return '⏳ Inputs ready, starting run'
+    return format_status(analysis.get('status'))
 
 
 def analysis_progress(analysis):

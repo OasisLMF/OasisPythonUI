@@ -17,6 +17,7 @@ MODEL_SET_ARG=""
 BUILD_UI=false
 NO_PULL_UI=false
 UNINSTALL=false
+ASSUME_YES=false
 
 usage() {
     cat <<'USAGE'
@@ -30,6 +31,7 @@ Usage: ./install.sh [options]
   --build-ui                Rebuild the UI docker container.
   --no-pull-ui              Disable pulling UI docker container.
   -u, --uninstall           Bring the stack down and delete its volumes.
+  -y, --yes                 Redeploy over an existing installation without asking.
   -h, --help                Show this message.
 USAGE
 }
@@ -47,6 +49,7 @@ while [ $# -gt 0 ]; do
         --build-ui)    BUILD_UI=true; shift ;;
         --no-pull-ui)    NO_PULL_UI=true; shift ;;
         -u|--uninstall) UNINSTALL=true; shift ;;
+        -y|--yes)      ASSUME_YES=true; shift ;;
         -h|--help)     usage; exit 0 ;;
         *)             echo "ERROR: unknown option '$1'" >&2; usage >&2; exit 1 ;;
     esac
@@ -70,6 +73,8 @@ if [ "$UNINSTALL" = true ]; then
         -f "$SCRIPT_DIR/docker-compose.ui.yml" \
         -f "$SCRIPT_DIR/docker-compose.keycloak.yml" \
         -f "$SCRIPT_DIR/docker-compose.authentik.yml" \
+        -f "$SCRIPT_DIR/docker-compose.public.yml" \
+        -f "$SCRIPT_DIR/docker-compose.acme.yml" \
         "${MODEL_FILES[@]}" \
         down --remove-orphans -v 2>/dev/null
     # Also try old files in case of migration
@@ -229,6 +234,27 @@ elif [ "$API_AUTH_TYPE" = "authentik" ]; then
     echo "  -> Including Authentik services"
 fi
 
+if [ "${OASIS_PUBLIC_DEMO:-false}" = "true" ]; then
+    if [ "$API_AUTH_TYPE" != "simple" ]; then
+        echo "ERROR: OASIS_PUBLIC_DEMO=true requires API_AUTH_TYPE=simple (see .env.scenarios)"
+        exit 1
+    fi
+    # Settings (not comments) still holding the .env.scenarios placeholder
+    PLACEHOLDERS=$(grep -v '^[[:space:]]*#' "$SCRIPT_DIR/.env" | grep "CHANGE_ME" | cut -d= -f1)
+    if [ -n "$PLACEHOLDERS" ]; then
+        echo "ERROR: .env still contains CHANGE_ME placeholders. Set real passwords before a public deployment:"
+        echo "$PLACEHOLDERS" | sed 's/^/    /'
+        exit 1
+    fi
+    COMPOSE_FILES="$COMPOSE_FILES -f $SCRIPT_DIR/docker-compose.public.yml"
+    echo "  -> Public demo: Scenarios app only, no public API or database ports"
+fi
+
+if [ -n "${OASIS_ACME_EMAIL:-}" ]; then
+    COMPOSE_FILES="$COMPOSE_FILES -f $SCRIPT_DIR/docker-compose.acme.yml"
+    echo "  -> Let's Encrypt certificate for $OASIS_UI_HOSTNAME"
+fi
+
 echo "  -> Compose files: $COMPOSE_FILES"
 echo ""
 
@@ -251,7 +277,7 @@ echo ""
 
 EXISTING_CONTAINERS=$(docker compose $COMPOSE_FILES ps -q 2>/dev/null | wc -l)
 
-if [ "$EXISTING_CONTAINERS" -gt 0 ]; then
+if [ "$EXISTING_CONTAINERS" -gt 0 ] && [ "$ASSUME_YES" != true ]; then
     MSG="Previous installation detected. Redeploy? (existing data will be preserved)"
     while true; do
         read -r -n 1 -p "${MSG} [y/n]: " REPLY
@@ -356,8 +382,12 @@ echo "  Hostname:      $OASIS_UI_HOSTNAME"
 echo ""
 echo "  Access Points (via Traefik):"
 echo "    UI:          ${OASIS_PROTOCOL}://${OASIS_UI_HOSTNAME}/"
-echo "    API:         ${OASIS_PROTOCOL}://${OASIS_UI_HOSTNAME}/api/"
-echo "    API Docs:    ${OASIS_PROTOCOL}://${OASIS_UI_HOSTNAME}/api/swagger/"
+if [ "${OASIS_PUBLIC_DEMO:-false}" = "true" ]; then
+    echo "    (public Scenarios demo: the API is not exposed)"
+else
+    echo "    API:         ${OASIS_PROTOCOL}://${OASIS_UI_HOSTNAME}/api/"
+    echo "    API Docs:    ${OASIS_PROTOCOL}://${OASIS_UI_HOSTNAME}/api/swagger/"
+fi
 
 if [ "$API_AUTH_TYPE" = "keycloak" ]; then
     echo "    Keycloak:    ${OASIS_PROTOCOL}://${OASIS_UI_HOSTNAME}/auth/admin/"

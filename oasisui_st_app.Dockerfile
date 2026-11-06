@@ -23,6 +23,11 @@ COPY ./modules ./modules
 COPY ./app.py ./app.py
 COPY ./pages ./pages
 COPY ./assets/ ./assets
+# Scenarios app (run with `streamlit run scenarios_app.py`) and its setup scripts
+COPY ./scenarios_app.py ./scenarios_app.py
+COPY ./scenarios_ui ./scenarios_ui
+COPY ./scenarios ./scenarios
+COPY ./scripts ./scripts
 
 # Run streamlit
 EXPOSE 8501

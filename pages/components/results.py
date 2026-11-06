@@ -2,7 +2,6 @@
 import re
 
 import streamlit as st
-from oasis_data_manager.errors import OasisException
 
 from modules.schemas import PERSPECTIVE_LABELS, PERSPECTIVES
 from modules.visualisation import OutputInterface
@@ -25,45 +24,46 @@ def _sections(summary, locations):
     ord_settings = summary.get('ord_output', {})
     sections = []
 
-    def add(enabled, title, render):
+    def add(enabled, title, render, output_type=None):
         if enabled:
-            sections.append((title, render))
+            sections.append((title, render, output_type))
 
     # ORD outputs
     add(ord_settings.get('elt_sample'), 'Sample event loss table (SELT)',
-        lambda p, vis: generate_selt_fragment(p, vis, locations=locations))
+        lambda p, vis: generate_selt_fragment(p, vis, locations=locations), output_type='elt_sample')
     add(ord_settings.get('elt_moment'), 'Moment event loss table (MELT)',
-        lambda p, vis: generate_melt_fragment(p, vis, locations=locations))
+        lambda p, vis: generate_melt_fragment(p, vis, locations=locations), output_type='elt_moment')
     add(ord_settings.get('elt_quantile'), 'Quantile event loss table (QELT)',
-        lambda p, vis: generate_qelt_fragment(p, vis, locations=locations))
-    add(ord_settings.get('plt_sample'), 'Sample period loss table (SPLT)', generate_splt_fragment)
-    add(ord_settings.get('plt_moment'), 'Moment period loss table (MPLT)', generate_mplt_fragment)
-    add(ord_settings.get('plt_quantile'), 'Quantile period loss table (QPLT)', generate_qplt_fragment)
+        lambda p, vis: generate_qelt_fragment(p, vis, locations=locations), output_type='elt_quantile')
+    add(ord_settings.get('plt_sample'), 'Sample period loss table (SPLT)', generate_splt_fragment, output_type='plt_sample')
+    add(ord_settings.get('plt_moment'), 'Moment period loss table (MPLT)', generate_mplt_fragment, output_type='plt_moment')
+    add(ord_settings.get('plt_quantile'), 'Quantile period loss table (QPLT)', generate_qplt_fragment, output_type='plt_quantile')
     add(ord_settings.get('alt_meanonly'), 'Average loss table, mean only (ALT)',
-        lambda p, vis: generate_alt_fragment(p, vis, 'alt_meanonly'))
+        lambda p, vis: generate_alt_fragment(p, vis, 'alt_meanonly'), output_type='alt_meanonly')
     add(ord_settings.get('alt_period'), 'Period average loss table (PALT)',
-        lambda p, vis: generate_alt_fragment(p, vis, 'alt_period'))
-    add(ord_settings.get('alct_convergence'), 'Average loss convergence table (ALCT)', generate_alct_fragment)
-    add(any(ord_settings.get(e) for e in EPT_FLAGS), 'Exceedance probability table (EPT)', generate_ept_fragment)
-    add(any(ord_settings.get(e) for e in PSEPT_FLAGS), 'Per-sample EPT (PSEPT)', generate_psept_fragment)
+        lambda p, vis: generate_alt_fragment(p, vis, 'alt_period'), output_type='alt_period')
+    add(ord_settings.get('alct_convergence'), 'Average loss convergence table (ALCT)', generate_alct_fragment, output_type='alct_convergence')
+    add(any(ord_settings.get(e) for e in EPT_FLAGS), 'Exceedance probability table (EPT)', generate_ept_fragment, output_type='ept')
+    add(any(ord_settings.get(e) for e in PSEPT_FLAGS), 'Per-sample EPT (PSEPT)', generate_psept_fragment, output_type='psept')
 
     # Legacy ktools outputs
     add(summary.get('eltcalc'), 'ELT (legacy)',
-        lambda p, vis: generate_eltcalc_fragment(p, vis, locations=locations, map=True))
-    add(summary.get('aalcalc'), 'AAL (legacy)', generate_aalcalc_fragment)
+        lambda p, vis: generate_eltcalc_fragment(p, vis, locations=locations, map=True), output_type='eltcalc')
+    add(summary.get('aalcalc'), 'AAL (legacy)', generate_aalcalc_fragment, output_type='aalcalc')
     add(summary.get('lec_output'), 'Loss exceedance curve (legacy)',
-        lambda p, vis: generate_leccalc_fragment(p, vis, summary.get('leccalc')))
-    add(summary.get('pltcalc'), 'PLT (legacy)', generate_pltcalc_fragment)
+        lambda p, vis: generate_leccalc_fragment(p, vis, summary.get('leccalc')), output_type=None)
+    add(summary.get('pltcalc'), 'PLT (legacy)', generate_pltcalc_fragment, output_type='pltcalc')
     return sections
 
 
-def render_results(settings, outputs, locations=None):
+def render_results(settings, outputs, locations=None, key=None):
     """Visualise analysis outputs.
 
     Args:
         settings: the analysis settings used for the run.
         outputs: `{filename: DataFrame}` from the analysis output file.
         locations: optional location DataFrame used for maps.
+        key: identifies the analysis (e.g. its id), so widgets reset when switching analyses.
     """
     if not outputs:
         st.info('No output files were found for this analysis.')
@@ -88,7 +88,7 @@ def render_results(settings, outputs, locations=None):
             if len(levels) > 1:
                 level_id = st.selectbox(
                     'Summary level', list(levels), format_func=lambda i: level_label(levels[i]),
-                    key=f'results_level_{p}',
+                    key=f'results_level_{p}' + (f'_{key}' if key is not None else ''),
                     help='Each summary level groups losses differently. Choose which one to view.')
             else:
                 st.caption(level_label(levels[level_id]))
@@ -114,12 +114,13 @@ def render_results(settings, outputs, locations=None):
             sections = _sections(summary, locations)
             if not sections:
                 st.info('No outputs were selected for this summary level.')
-            for i, (title, render) in enumerate(sections):
+            for i, (title, render, output_type) in enumerate(sections):
                 with st.expander(title, expanded=i == 0):
-                    try:
-                        render(p, vis)
-                    except OasisException:
+                    # Check first: the views are fragments, which show their own errors
+                    if output_type and not vis.has_output(p, output_type):
                         st.info('This output was requested in the settings but the run did not produce it.')
+                    else:
+                        render(p, vis)
 
 
 def level_label(level):

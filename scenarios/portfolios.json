@@ -1,18 +1,4 @@
 {
-  "piwind_small": {
-    "portfolio_name": "piwind-small",
-    "location_fp": "./OasisPiWind/tests/inputs/SourceLocOEDPiWind10.csv",
-    "accounts_fp": "./OasisPiWind/tests/inputs/SourceAccOEDPiWind.csv",
-    "ri_info_fp": "./OasisPiWind/tests/inputs/SourceReinsInfoOEDPiWind.csv",
-    "ri_scope_fp": "./OasisPiWind/tests/inputs/SourceReinsScopeOEDPiWind.csv"
-  },
-  "piwind_large": {
-    "portfolio_name": "piwind-large",
-    "location_fp": "./OasisPiWind/tests/inputs/SourceLocOEDPiWind.csv",
-    "accounts_fp": "./OasisPiWind/tests/inputs/SourceAccOEDPiWind.csv",
-    "ri_info_fp": "./OasisPiWind/tests/inputs/SourceReinsInfoOEDPiWind.csv",
-    "ri_scope_fp": "./OasisPiWind/tests/inputs/SourceReinsScopeOEDPiWind.csv"
-  },
   "maeq": {
     "portfolio_name": "maeq-test",
     "location_fp": "../Scenarios/ImpactForecasting/MAEQ/1.0.0/tests/MAEQ_100_oasis.csv",

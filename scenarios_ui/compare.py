@@ -1,83 +1,61 @@
-from modules.authorisation import validate_page, handle_login
-from modules.visualisation import OutputInterface
-import streamlit as st
+"""Compare: results of two runs side by side (showcase runs and your own runs)."""
 import pandas as pd
-from modules.nav import SidebarNav
-from modules.config import retrieve_ui_config
-from modules.validation import LenValidation, NotNoneValidation, ValidationGroup
+import streamlit as st
+
+from modules.scenarios import showcase_analyses, visitor_analyses
+from modules.visualisation import OutputInterface
 from pages.components.common import PERSPECTIVES_MAP
-from pages.components.footer import generate_footer
-from pages.components.output import generate_aalcalc_comparison_fragment, generate_leccalc_comparison_fragment
-from pages.components.output import generate_eltcalc_comparison_fragment, summarise_inputs
-from pages.components.output import generate_pltcalc_comparison_fragment
-from pages.components.output import generate_alt_comparison_fragment, EP_CALC_LABELS
+from pages.components.output import (EP_CALC_LABELS, generate_aalcalc_comparison_fragment,
+                                     generate_alt_comparison_fragment, generate_eltcalc_comparison_fragment,
+                                     generate_leccalc_comparison_fragment, generate_pltcalc_comparison_fragment,
+                                     summarise_inputs)
+from scenarios_ui.common import Context, footer
 
-##########################################################################################
-# Header
-##########################################################################################
-
-ui_config = retrieve_ui_config()
-validate_page("Comparison")
-
-st.set_page_config(
-    page_title="Comparison",
-    layout="centered"
-)
-
-cols = st.columns([0.1, 0.8, 0.1])
-with cols[1]:
-    st.image("images/oasis_logo.png")
-
-##########################################################################################
-# Page
-##########################################################################################
-
-# Retrieve client
-handle_login(ui_config.skip_login)
-
-SidebarNav()
-
-client_interface = st.session_state["client_interface"]
+ctx = Context()
+ui_config = ctx.ui_config
+client_interface = ctx.ci
 client = client_interface.client
 
-'## Compare two scenario loss estimates'
-'This tool enables two analyses to be compared to look at the difference in, for example - change in exposure, hazard or vulnerability.'
-'A use case for this, would be to compare loss from flood in an area defended by a different level of flood protection, or no flood protection.'
-'It can also be used to test the impact of two different hazard scenarios, different vulnerability of the buildings in the portfolio, or of a different value/number of buildings in that portfolio.'
+st.title('Compare')
+st.markdown(
+    'Compare the results of two runs side by side: for example a flood with and without defences, two '
+    'different scenarios, or the same scenario with different settings. Choose from the showcase runs and '
+    'your own completed runs.')
 
-"First, select two analyses, from the precomputed set. To add an analysis to the list, run it in the 'Scenario' tool."
-'Currently, it is not possible to add your own scenarios directly; please describe any scenario you would like to add, here: https://github.com/OasisLMF/OasisPythonUI/issues'
-
-
-analyses = sorted(client_interface.analyses.search(metadata={'status': 'RUN_COMPLETED'}), key=lambda x: x['id'], reverse=True)
-cols = st.columns(2)
-selected = []
-with cols[0]:
-    selected_analysis = st.selectbox("Select Analysis 1", options=analyses,
-                                     format_func=lambda x: x['name'], index=None)
-    if selected_analysis:
-        selected.append(selected_analysis)
-with cols[1]:
-    selected_analysis = st.selectbox("Select Analysis 2", options=analyses,
-                                     format_func=lambda x: x['name'], index=None)
-    if selected_analysis:
-        selected.append(selected_analysis)
+all_analyses = client_interface.analyses.get()
+models_by_id = {m['id']: m for m in client_interface.models.get()}
+showcase = {a['id'] for a in showcase_analyses(all_analyses, ctx.limits, list(models_by_id.values()), ui_config)}
+mine = {a['id'] for a in visitor_analyses(all_analyses, ctx.vid)}
+analyses = sorted([a for a in all_analyses if a['status'] == 'RUN_COMPLETED' and a['id'] in showcase | mine],
+                  key=lambda a: (a['id'] not in mine, ctx.run_title(a, models_by_id).lower()))
 
 
-validations = ValidationGroup()
-none_validation = NotNoneValidation()
-none_validation.message = 'Select 2 analyses.'
-validations.add_validation(none_validation, selected)
-len_validation = LenValidation()
-len_validation.message = 'Select 2 analyses.'
-validations.add_validation(len_validation, selected, 2)
+def option_label(analysis):
+    source = 'your run' if analysis['id'] in mine else 'showcase'
+    return f"{ctx.run_title(analysis, models_by_id)} ({source})"
 
-if not validations.is_valid():
-    st.info(validations.message)
-    generate_footer(ui_config)
+
+if len(analyses) < 2:
+    st.info('You need at least two completed runs to compare. Run a scenario, or check the showcase.')
+    footer(ui_config)
     st.stop()
 
+cols = st.columns(2)
+selected = []
+for i, col in enumerate(cols):
+    choice = col.selectbox(f'Run {i + 1}', options=analyses, format_func=option_label, index=None,
+                           placeholder='Choose a run', key=f'compare_run_{i}')
+    if choice:
+        selected.append(choice)
+
+if len(selected) != 2:
+    st.info('Select 2 runs.')
+    footer(ui_config)
+    st.stop()
+
+titles = [ctx.run_title(a, models_by_id) for a in selected]
 selected = pd.DataFrame(selected)
+selected['name'] = titles
 
 analysis_ids = [selected['id'][i] for i in range(2)]
 model_ids = [selected['model'][i] for i in range(2)]
@@ -215,11 +193,15 @@ for p in perspectives:
         if oed_fields is not None:
             output.set_oed_fields(p, oed_fields)
 
-    if all([s.get('aalcalc', False) for s in summaries]):
+    def produced(output_type, p=p, outputs=outputs):
+        """Both runs produced this output (requested outputs can be missing)."""
+        return all(o.has_output(p, output_type) for o in outputs)
+
+    if all([s.get('aalcalc', False) for s in summaries]) and produced('aalcalc'):
         st.write("### Mean loss comparison chart")
         generate_aalcalc_comparison_fragment(p, outputs, names)
 
-    if all([s.get('eltcalc', False) for s in summaries]):
+    if all([s.get('eltcalc', False) for s in summaries]) and produced('eltcalc'):
         st.write("### Per-location loss estimates")
         locations = [get_locations_file(id) for id in analysis_ids]
         locations = merge_locations(*locations)
@@ -238,7 +220,7 @@ for p in perspectives:
         generate_leccalc_comparison_fragment(p, outputs, names=names,
                                              lec_outputs=lec_outputs)
 
-    if all(o.get('elt_moment', False) for o in ord_settings):
+    if all(o.get('elt_moment', False) for o in ord_settings) and produced('elt_moment'):
         st.write("### MELT Output")
         locations = [get_locations_file(id) for id in analysis_ids]
         locations = merge_locations(*locations)
@@ -254,7 +236,7 @@ for p in perspectives:
                                                  'MaxImpactedExposure': 'Max Impacted Exposure',
                                              })
 
-    if all(o.get('elt_quantile', False) for o in ord_settings):
+    if all(o.get('elt_quantile', False) for o in ord_settings) and produced('elt_quantile'):
         st.write("### QELT Output")
         locations = [get_locations_file(id) for id in analysis_ids]
         locations = merge_locations(*locations)
@@ -267,7 +249,7 @@ for p in perspectives:
                                              data_cols=['Loss'],
                                              event_id='EventId')
 
-    if all(o.get('plt_moment', False) for o in ord_settings):
+    if all(o.get('plt_moment', False) for o in ord_settings) and produced('plt_moment'):
         st.write("### MPLT Output")
         generate_pltcalc_comparison_fragment(p, outputs, names=names,
                                              output_type='plt_moment',
@@ -276,7 +258,7 @@ for p in perspectives:
                                                                 'MeanImpactedExposure',
                                                                 'MaxImpactedExposure'])
 
-    if all(o.get('plt_quantile', False) for o in ord_settings):
+    if all(o.get('plt_quantile', False) for o in ord_settings) and produced('plt_quantile'):
         st.write("### QPLT Output")
         generate_pltcalc_comparison_fragment(p, outputs, names=names,
                                              output_type='plt_quantile',
@@ -285,15 +267,15 @@ for p in perspectives:
                                              filter_format_func=lambda x: '{:.2f}'.format(x),
                                              value_col='Loss')
 
-    if all(o.get('alt_meanonly', False) for o in ord_settings):
+    if all(o.get('alt_meanonly', False) for o in ord_settings) and produced('alt_meanonly'):
         st.write("### ALT MeanOnly Output")
         generate_alt_comparison_fragment(p, outputs, 'alt_meanonly', names=names)
 
-    if all(o.get('alt_period', False) for o in ord_settings):
+    if all(o.get('alt_period', False) for o in ord_settings) and produced('alt_period'):
         st.write("### PALT Output")
         generate_alt_comparison_fragment(p, outputs, 'alt_period', names=names)
 
-    if all(any(o.get(e, False) for e in ept_settings) for o in ord_settings):
+    if all(any(o.get(e, False) for e in ept_settings) for o in ord_settings) and produced('ept'):
         st.write("### EPT Output")
         ep_type_map = {1: 'OEP', 2: 'OEP TVAR', 3: 'AEP', 4: 'AEP TVAR'}
         ep_calc_map = EP_CALC_LABELS
@@ -306,4 +288,4 @@ for p in perspectives:
                                              return_period_col='ReturnPeriod', loss_col='Loss',
                                              group_col_default='SummaryId')
 
-generate_footer(ui_config)
+footer(ui_config)

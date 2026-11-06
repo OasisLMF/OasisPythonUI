@@ -245,3 +245,40 @@ def test_choropleth_warns_when_no_countries_match():
     assert len(at.exception) == 0
     assert len(at.warning) == 1
     assert len(at.get("plotly_chart")) == 0
+
+
+def test_melt_defaults_to_sample_and_filters_events():
+    at = AppTest.from_file("tests/fixtures/melt_events_app.py").run()
+    assert len(at.exception) == 0, [e.value for e in at.exception]
+
+    results = at.radio(key='melt_gul_type_filter')
+    assert results.options == ['Sample', 'Analytical']
+    assert results.value == 'Sample'
+
+    events = at.selectbox(key='melt_gul_event_filter')
+    # All events first, then events by loss (largest first)
+    assert events.options == ['All events', 'Event 2 (loss 420)', 'Event 1 (loss 110)']
+    assert sorted(at.dataframe[0].value['MeanLoss']) == [110.0, 420.0]
+
+    events.set_value(2).run()
+    assert list(at.dataframe[0].value['MeanLoss']) == [420.0]
+    # Not grouped by location or country, so there is nothing to map and no Map tab
+    assert [t.label for t in at.tabs] == ['Table']
+
+
+def test_map_type_for():
+    import pandas as pd
+    from pages.components.output import map_type_for
+    located = pd.DataFrame({'LocNumber': [1, 2], 'Latitude': [51.5, 48.8], 'Longitude': [-0.1, 2.3]})
+    not_geocoded = located.assign(Latitude=0.0, Longitude=0.0)
+    assert map_type_for(['LocNumber'], located) == 'heatmap'
+    assert map_type_for(['LocNumber'], not_geocoded) is None
+    assert map_type_for(['LocNumber'], None) is None
+    assert map_type_for(['CountryCode'], None) == 'choropleth'
+    assert map_type_for([], located) is None
+
+
+def test_order_sample_types():
+    from pages.components.output import order_sample_types
+    assert order_sample_types(['Analytical', 'Sample']) == ['Sample', 'Analytical']
+    assert order_sample_types(['Sample']) == ['Sample']

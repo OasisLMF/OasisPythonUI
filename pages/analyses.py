@@ -12,7 +12,8 @@ from modules.ui import flash, page_setup, show_api_error
 from pages.components.common import (ERROR_STATUSES, IN_PROGRESS_STATUSES, MODELS_PAGE,
                                      NEW_ANALYSIS_DEFAULTS, PORTFOLIOS_PAGE, SELECTED_ANALYSIS,
                                      SELECTED_MODEL, SELECTED_PORTFOLIO, analysis_progress, current_task,
-                                     format_status, open_record, selectable_table)
+                                     format_status, is_active, open_record, selectable_table,
+                                     status_label)
 from pages.components.data import (analyses_df, analysis_files, analysis_settings,
                                    cached_model_settings, model_label, models_df, portfolio_file_df,
                                    session_cached)
@@ -245,7 +246,7 @@ def edit_settings_view(analysis):
                                                          portfolio_fields(portfolio))
 
     st.divider()
-    in_progress = analysis['status'] in IN_PROGRESS_STATUSES
+    in_progress = is_active(analysis)
     if in_progress:
         st.caption(':orange[The analysis is running. Settings can be changed once it finishes.]')
     elif problems:
@@ -308,7 +309,7 @@ def results_tab(analysis, settings):
         outputs = analysis_files(ci, analysis, 'output_file')
         inputs = analysis_files(ci, analysis, 'input_file')
     locations = inputs.get('location.csv', inputs.get('location.parquet'))
-    render_results(settings, outputs, locations)
+    render_results(settings, outputs, locations, key=analysis['id'])
 
     st.divider()
     st.markdown('**Output files**')
@@ -366,7 +367,7 @@ def analysis_detail(analysis):
     status = analysis['status']
     portfolio = portfolios_by_id.get(analysis['portfolio'], {})
     model = models_by_id.get(analysis['model'], {})
-    in_progress = status in IN_PROGRESS_STATUSES
+    in_progress = is_active(analysis)
 
     title_col, *btn_cols = st.columns([0.52, 0.12, 0.12, 0.12, 0.12], vertical_alignment='bottom')
     title_col.subheader(analysis['name'])
@@ -491,7 +492,7 @@ def list_view():
                                    height=min(38 + 35 * max(len(table), 1), 400))
 
     snapshot = {a['id']: a['status'] for a in analyses}
-    any_running = any(s in IN_PROGRESS_STATUSES for s in snapshot.values())
+    any_running = any(is_active(a) for a in analyses)
 
     @st.fragment(run_every='2s' if any_running else None)
     def live_status():
@@ -501,11 +502,11 @@ def list_view():
         if {a['id']: a['status'] for a in fresh} != snapshot:
             st.rerun()  # A status changed: refresh the whole page
         for a in fresh:
-            if a['status'] not in IN_PROGRESS_STATUSES:
+            if not is_active(a):
                 continue
             fraction, detail = analysis_progress(a)
             task = current_task(ci.analyses.sub_tasks(a['id']))
-            text = ' · '.join(x for x in [f"**{a['name']}**", format_status(a['status']), task, detail] if x)
+            text = ' · '.join(x for x in [f"**{a['name']}**", status_label(a), task, detail] if x)
             st.progress(fraction or 0.0, text=text)
 
     live_status()
