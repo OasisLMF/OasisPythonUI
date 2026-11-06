@@ -4,6 +4,10 @@
     "settings_path": "./scenarios/defaults/3_euws_impact-forecasting-analysis_settings.json"
   },
   {
+    "model_name_id": "EUWS-Domingos",
+    "settings_path": "./scenarios/defaults/15_euws-domingos_impact-forecasting-analysis_settings.json"
+  },
+  {
     "model_name_id": "MAEQ",
     "settings_path": "./scenarios/defaults/2_maeq_impact-forecasting-analysis_settings.json"
   },

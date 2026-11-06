@@ -20,7 +20,7 @@ x-shared-env: &worker-env
   OASIS_ANALYSIS_STATUS_URL: http://server:8000/analysis-status/
 
   # One task at a time per worker (Celery defaults to one process per CPU, and
-  # with 13 workers that alone uses a lot of memory)
+  # with 14 workers that alone uses a lot of memory)
   OASIS_CELERY_CONCURRENCY: ${OASIS_WORKER_CONCURRENCY:-1}
 
   # Authentication configuration
@@ -101,6 +101,22 @@ services:
       OASIS_MODEL_ID: EUWS
       OASIS_MODEL_VERSION_ID: 'v2'
       OASIS_RUN_MODE: v2
+    volumes:
+      - ${SCENARIOS_PATH}/ImpactForecasting/EUWS/1.0.0/:/home/worker/model
+      - filestore-data:/shared-fs:rw
+
+  # Storm Domingos: the EUWS model data with its other event set, using the
+  # Domingos config and model settings from the same folder
+  euws-domingos-worker:
+    <<: *worker
+    environment:
+      <<: *worker-env
+      OASIS_MODEL_SUPPLIER_ID: Impact Forecasting
+      OASIS_MODEL_ID: EUWS-Domingos
+      OASIS_MODEL_VERSION_ID: 'v2'
+      OASIS_RUN_MODE: v2
+      OASIS_OASISLMF_CONFIG: /home/worker/model/oasislmf_domingos.json
+      OASIS_MODEL_SETTINGS_FILE: /home/worker/model/meta-data/model_settings_domingos.json
     volumes:
       - ${SCENARIOS_PATH}/ImpactForecasting/EUWS/1.0.0/:/home/worker/model
       - filestore-data:/shared-fs:rw
@@ -260,7 +276,7 @@ services:
       - OASIS_SERVICE_PASSWORD_OR_SECRET=${OASIS_SERVICE_PASSWORD_OR_SECRET:-}
       - SCENARIOS_UI_CONFIG=scenarios/ui-config.json
       # Number of model workers in this file: setup waits for all to register
-      - SCENARIOS_MIN_MODELS=13
+      - SCENARIOS_MIN_MODELS=14
     volumes:
       # Portfolio paths in scenarios/portfolios.json are relative to /usr/src/app
       - ${SCENARIOS_PATH}:/usr/src/Scenarios:ro
