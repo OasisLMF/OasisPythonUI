@@ -6,7 +6,7 @@ import streamlit as st
 from oasis_data_manager.errors import OasisException
 from requests.exceptions import HTTPError
 
-from modules.scenarios import (GROUP_BY_OPTIONS, IN_PROGRESS, display_name, run_blocked_reason,
+from modules.scenarios import (GROUP_BY_OPTIONS, IN_PROGRESS, display_name, limit_processes, run_blocked_reason,
                                scenario_models, scenario_portfolios, tagged_name, visitor_analyses,
                                visitor_tag)
 from modules.ui import api_error_message, flash, show_flash
@@ -140,7 +140,8 @@ if model is not None and portfolio is not None:
         name = f"{ctx.scenario_name(model)} – {portfolio['name']} ({datetime.now(timezone.utc):%d %b %H:%M} UTC)"
         try:
             with st.spinner('Starting run...'):
-                settings = run_settings(ci, model, samples, group_fields)
+                settings = limit_processes(run_settings(ci, model, samples, group_fields),
+                                           limits.processes_per_run)
                 analysis = ci.create_analysis(portfolio['id'], model['id'], tagged_name(name, visitor_tag(ctx.vid)))
                 ci.upload_settings(analysis['id'], settings)
                 ci.generate_and_run(analysis['id'])

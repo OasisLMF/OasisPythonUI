@@ -6,8 +6,12 @@ using the model's settings template, and tags the analysis name with the
 showcase tag (e.g. `[showcase]`) so the app lists it on the Showcase page
 and the prune job keeps it.
 
-Idempotent: models that already have a showcase analysis are skipped
-(use --force to add another). Runs are queued and not waited for.
+Runs one scenario at a time (--max-concurrent), waiting for each to finish,
+and caps each run's processes (scenarios.processes_per_run): starting every
+scenario at once can exhaust the host's memory.
+
+Idempotent: scenarios with a completed or in-progress showcase run are
+skipped; failed or cancelled showcase runs are replaced.
 
 Usage:
     python scripts/add_showcase_analyses.py -c scenarios/ui-config.json [--retry]
@@ -15,9 +19,14 @@ Usage:
 import argparse
 import json
 import logging
+import time
 from pathlib import Path
 
 from utils import LOG_LEVEL, initialise_client, parse_initialise_args
+
+from modules.scenarios import IN_PROGRESS, limit_processes
+
+FAILED = ['INPUTS_GENERATION_ERROR', 'INPUTS_GENERATION_CANCELLED', 'RUN_ERROR', 'RUN_CANCELLED']
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=LOG_LEVEL)
@@ -47,6 +56,22 @@ def showcase_settings(template, model, samples):
     return settings
 
 
+def wait_for_slot(client, running, max_concurrent, timeout):
+    """Block until fewer than `max_concurrent` of `running` are in progress."""
+    start = time.time()
+    while True:
+        statuses = {i: client.analyses.get(i).json()['status'] for i in running}
+        for i, status in statuses.items():
+            if status not in IN_PROGRESS:
+                logger.info(f'Showcase run {i} finished: {status}')
+                running.remove(i)
+        if len(running) < max_concurrent:
+            return
+        if time.time() - start > timeout:
+            raise SystemExit(f'Timed out waiting for showcase runs {running}')
+        time.sleep(15)
+
+
 def main():
     parser = argparse.ArgumentParser(description='Create and run Scenarios showcase analyses')
     parser.add_argument('-c', '--config', default='./scenarios/ui-config.json', type=Path,
@@ -54,6 +79,9 @@ def main():
     parser.add_argument('-s', '--samples', default=10, type=int, help='Number of samples per run')
     parser.add_argument('--models', nargs='+', default=None, help='Only these model ids (default: all)')
     parser.add_argument('--force', action='store_true', help='Add a run even if one exists')
+    parser.add_argument('--max-concurrent', default=1, type=int,
+                        help='Showcase runs in progress at once (default 1)')
+    parser.add_argument('--timeout', default=3600, type=int, help='Seconds to wait for a run to finish')
     parser.add_argument('-r', '--retry', action='store_true', help='Retry initialising client')
     parser.add_argument('-m', '--max-retries', default=10, type=int, help='Max number of retries')
     parser.add_argument('-i', '--retry_interval', default=10, type=int, help='Seconds between retries')
@@ -61,6 +89,7 @@ def main():
 
     config = json.loads(args['config'].read_text())
     tag = config.get('scenarios', {}).get('showcase_tag', '[showcase]')
+    processes = config.get('scenarios', {}).get('processes_per_run', 2)
     model_map = config.get('model_map', {})
 
     client = initialise_client(*parse_initialise_args(**args))
@@ -70,6 +99,7 @@ def main():
     models = {m['model_id']: m for m in client.models.get().json()}
     portfolios = {p['name']: p for p in client.portfolios.get().json()}
     existing = [a for a in client.analyses.get().json() if a['name'].endswith(tag)]
+    running = [a['id'] for a in existing if a['status'] in IN_PROGRESS]
 
     for model_id, portfolio_names in model_map.items():
         if args['models'] and model_id not in args['models']:
@@ -79,21 +109,32 @@ def main():
         if model is None or portfolio is None:
             logger.info(f'Skipping {model_id}: model or portfolio not on the platform')
             continue
-        if not args['force'] and any(a['model'] == model['id'] for a in existing):
+        mine = [a for a in existing if a['model'] == model['id']]
+        if not args['force'] and any(a['status'] not in FAILED for a in mine):
             logger.info(f'Skipping {model_id}: showcase analysis already exists')
             continue
+        for failed in [a for a in mine if a['status'] in FAILED]:
+            logger.info(f"Replacing failed showcase run {failed['id']} ({failed['status']}) for {model_id}")
+            client.analyses.delete(failed['id'])
 
         template = settings_template(client, model)
         if template is None:
             logger.warning(f'Skipping {model_id}: no settings template (run add_settings_template.py first)')
             continue
 
+        wait_for_slot(client, running, args['max_concurrent'], args['timeout'])
         name = model_settings(client, model).get('name') or model_id
         analysis = client.create_analysis(portfolio_id=portfolio['id'], model_id=model['id'],
                                           analysis_name=f"{name} – {portfolio['name']} {tag}")
-        client.upload_settings(analysis['id'], showcase_settings(template, model, args['samples']))
+        settings = limit_processes(showcase_settings(template, model, args['samples']), processes)
+        client.upload_settings(analysis['id'], settings)
         client.analyses.generate_and_run(analysis['id'])
+        running.append(analysis['id'])
         logger.info(f"Started showcase run {analysis['id']} for {model_id} on {portfolio['name']}")
+
+    # Wait for the last runs so setup only finishes when the showcase is ready
+    wait_for_slot(client, running, 1, args['timeout'])
+    logger.info('Showcase runs complete')
 
 
 if __name__ == '__main__':

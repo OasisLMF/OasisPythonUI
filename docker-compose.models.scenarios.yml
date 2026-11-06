@@ -18,6 +18,10 @@ x-shared-env: &worker-env
   # Where workers report events completed, shown as run progress in the UI
   OASIS_ANALYSIS_STATUS_URL: http://server:8000/analysis-status/
 
+  # One task at a time per worker (Celery defaults to one process per CPU, and
+  # with 14 workers that alone uses a lot of memory)
+  OASIS_CELERY_CONCURRENCY: ${OASIS_WORKER_CONCURRENCY:-1}
+
   # Authentication configuration
   OASIS_SERVER_API_AUTH_TYPE: ${API_AUTH_TYPE:-simple}
   OASIS_SERVER_ALLOWED_OIDC_AUTH_PROVIDERS: ${OASIS_SERVER_ALLOWED_OIDC_AUTH_PROVIDERS}
@@ -63,6 +67,9 @@ x-shared-env: &worker-env
 x-worker: &worker
   restart: always
   image: ${WORKER_IMG:-coreoasis/model_worker}:${VERS_WORKER:-latest}
+  # Cap each worker so a run that outgrows it is killed inside its container
+  # rather than exhausting the host's memory
+  mem_limit: ${OASIS_WORKER_MEM_LIMIT:-6g}
   depends_on:
     server:
       condition: service_healthy

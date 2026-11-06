@@ -206,3 +206,20 @@ def test_standard_ui_pages_are_not_reachable(client, page):
     at.switch_page(page).run()
     assert not at.exception
     assert [t.value for t in at.title] == ['Run a scenario']
+
+
+def test_limit_processes():
+    settings = sc.limit_processes({'gul_output': True}, 2)
+    assert settings['computation_settings'] == {'kernel_num_processes': 2, 'lookup_num_processes': 2}
+    # Values the template already sets are kept
+    kept = sc.limit_processes({'computation_settings': {'kernel_num_processes': 8}}, 2)
+    assert kept['computation_settings'] == {'kernel_num_processes': 8, 'lookup_num_processes': 2}
+    assert 'computation_settings' not in sc.limit_processes({}, 0)
+
+
+def test_visitor_runs_are_process_limited(client):
+    at = app(client, state={'sc_model_id': 1})
+    [b for b in at.button if b.label == 'Run scenario'][0].click().run()
+    created = client.analyses.json_data[-1]
+    computation = client.analyses.settings.data[created['id']]['computation_settings']
+    assert computation == {'kernel_num_processes': 2, 'lookup_num_processes': 2}

@@ -29,7 +29,8 @@ class ScenarioLimits:
     max_samples: int = 50
     default_samples: int = 10
     max_active_runs_per_visitor: int = 2
-    max_active_runs: int = 10
+    max_active_runs: int = 3
+    processes_per_run: int = 2
     showcase_tag: str = '[showcase]'
 
     @classmethod
@@ -39,6 +40,20 @@ class ScenarioLimits:
         limits = cls(**known)
         limits.default_samples = min(limits.default_samples, limits.max_samples)
         return limits
+
+
+def limit_processes(settings, processes):
+    """Cap the model processes a run uses (oasislmf computation settings).
+
+    oasislmf defaults to one process per CPU for both the lookup and the loss
+    calculation, so several concurrent runs on one host can exhaust its memory.
+    Values already set in the settings (e.g. by the template) are kept.
+    """
+    if processes and processes > 0:
+        computation = settings.setdefault('computation_settings', {})
+        computation.setdefault('kernel_num_processes', processes)
+        computation.setdefault('lookup_num_processes', processes)
+    return settings
 
 
 def visitor_id():

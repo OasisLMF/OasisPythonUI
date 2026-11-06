@@ -4,7 +4,8 @@
     "max_samples": 50,
     "default_samples": 10,
     "max_active_runs_per_visitor": 2,
-    "max_active_runs": 10,
+    "max_active_runs": 3,
+    "processes_per_run": 2,
     "showcase_tag": "[showcase]",
     "retention_days": 7
   },
