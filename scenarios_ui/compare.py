@@ -23,7 +23,7 @@ st.markdown(
     'your own completed runs.')
 
 all_analyses = client_interface.analyses.get()
-showcase = {a['id'] for a in showcase_analyses(all_analyses, ctx.limits)}
+showcase = {a['id'] for a in showcase_analyses(all_analyses, ctx.limits, client_interface.models.get(), ui_config)}
 mine = {a['id'] for a in visitor_analyses(all_analyses, ctx.vid)}
 analyses = sorted([a for a in all_analyses if a['status'] == 'RUN_COMPLETED' and a['id'] in showcase | mine],
                   key=lambda a: (a['id'] not in mine, display_name(a['name'])))

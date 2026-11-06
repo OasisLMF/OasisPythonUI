@@ -96,8 +96,16 @@ def visitor_analyses(analyses, vid):
     return [a for a in analyses if (a.get('name') or '').endswith(tag)]
 
 
-def showcase_analyses(analyses, limits):
-    return [a for a in analyses if is_showcase(a, limits)]
+def showcase_analyses(analyses, limits, models=None, ui_config=None):
+    """Showcase runs, limited to configured scenario models when `models` and `ui_config` are given.
+
+    Runs left over from scenarios since removed from the config are then not shown.
+    """
+    runs = [a for a in analyses if is_showcase(a, limits)]
+    if models is not None and ui_config is not None:
+        configured = {m['id'] for m in models if m.get('model_id') in (ui_config.model_map or {})}
+        runs = [a for a in runs if a.get('model') in configured]
+    return runs
 
 
 def run_blocked_reason(analyses, vid, limits):

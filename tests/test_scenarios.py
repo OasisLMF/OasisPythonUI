@@ -309,3 +309,14 @@ def test_has_coordinates():
     assert not has_coordinates(pd.DataFrame({'Latitude': [None, 'x'], 'Longitude': [1, 2]}))
     assert not has_coordinates(pd.DataFrame({'LocNumber': [1]}))
     assert not has_coordinates(None)
+
+
+def test_showcase_only_configured_models():
+    from types import SimpleNamespace
+    limits = sc.ScenarioLimits()
+    models = [{'id': 1, 'model_id': 'PiWind'}, {'id': 2, 'model_id': 'EUWS'}]
+    runs = [{'id': 8, 'name': 'PiWind [showcase]', 'model': 1}, {'id': 43, 'name': 'EUWS [showcase]', 'model': 2},
+            {'id': 50, 'name': 'EUWS run', 'model': 2}]
+    config = SimpleNamespace(model_map={'EUWS': ['euws-test']})
+    assert [a['id'] for a in sc.showcase_analyses(runs, limits, models, config)] == [43]
+    assert [a['id'] for a in sc.showcase_analyses(runs, limits)] == [8, 43]

@@ -8,9 +8,10 @@ from scenarios_ui.common import Context, analysis_results, footer
 ctx = Context()
 ci = ctx.ci
 
-models_by_id = {m['id']: m for m in ci.models.get()}
+models = ci.models.get()
+models_by_id = {m['id']: m for m in models}
 portfolios_by_id = {p['id']: p for p in ci.portfolios.get()}
-showcase = [a for a in showcase_analyses(ci.analyses.get(), ctx.limits) if a['status'] == 'RUN_COMPLETED']
+showcase = [a for a in showcase_analyses(ci.analyses.get(), ctx.limits, models, ctx.ui_config) if a['status'] == 'RUN_COMPLETED']
 
 st.title('Showcase')
 st.markdown('Results from scenarios we have already run for you, so you can explore what Oasis produces '
