@@ -1,7 +1,7 @@
 """Showcase: curated, pre-computed scenario runs that anyone can explore without waiting."""
 import streamlit as st
 
-from modules.scenarios import VISITOR_PARAM, display_name, showcase_analyses
+from modules.scenarios import VISITOR_PARAM, showcase_analyses
 from pages.components.data import cached_model_settings
 from scenarios_ui.common import Context, analysis_results, footer
 
@@ -22,10 +22,11 @@ if not showcase:
     footer(ctx.ui_config)
     st.stop()
 
-showcase.sort(key=lambda a: display_name(a['name']))
+titles = {a['id']: ctx.run_title(a, models_by_id) for a in showcase}
+showcase.sort(key=lambda a: titles[a['id']].lower())
 ids = [a['id'] for a in showcase]
 by_id = {a['id']: a for a in showcase}
-selected_id = st.selectbox('Scenario', ids, format_func=lambda i: display_name(by_id[i]['name']),
+selected_id = st.selectbox('Scenario', ids, format_func=lambda i: titles[i],
                            key='showcase_selected')
 analysis = by_id[selected_id]
 

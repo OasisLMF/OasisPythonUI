@@ -45,9 +45,9 @@ def client():
                   analysis(3, f'Someone else [v:{OTHER}]'),
                   analysis(4, 'Standard UI analysis')])
     client.portfolios.location_file.files[1] = pd.DataFrame({
-        'LocNumber': ['1', '2'], 'CountryCode': ['GB', 'GB'], 'Latitude': [52.1, 52.2],
-        'Longitude': [-1.1, -1.2], 'BuildingTIV': [1000.0, 2000.0], 'LocPerilsCovered': ['WTC', 'WTC']})
-    client.models.settings.data[1] = {'name': 'Oasis test European wind model - Paris',
+        'LocNumber': ['1', '2'], 'CountryCode': ['MA', 'MA'], 'Latitude': [31.1, 31.2],
+        'Longitude': [-8.4, -8.5], 'BuildingTIV': [1000.0, 2000.0], 'LocPerilsCovered': ['QEQ', 'QEQ']})
+    client.models.settings.data[1] = {'name': 'Morocco earthquake, Sep 2023',
                                       'description': 'Morocco earthquake test model'}
     for i in (1, 2, 3):
         client.analyses.settings.data[i] = SETTINGS
@@ -133,10 +133,10 @@ def test_explore_lists_only_mapped_scenarios(client):
     assert not at.exception, [e.value for e in at.exception]
     assert at.title[0].value == 'Run a scenario'
     table = at.dataframe[0].value
-    # Curated title and details from scenario_info; NotAScenario has no portfolio in model_map
+    # Title from the model settings, peril and country from the exposure; NotAScenario has no portfolio in model_map
     assert table.to_dict('records') == [{
-        'id': 1, 'Scenario': 'Morocco (Al Haouz) earthquake, Sep 2023', 'Peril': 'Earthquake',
-        'Country': 'Morocco', 'Type': 'Historical event', 'Provider': 'Impact Forecasting'}]
+        'id': 1, 'Scenario': 'Morocco earthquake, Sep 2023', 'Peril': 'Earthquake',
+        'Country': 'Morocco', 'Provider': 'Impact Forecasting'}]
 
 
 def test_scenario_filters(client):
@@ -147,8 +147,8 @@ def test_scenario_filters(client):
     assert 'No scenarios match these filters.' in [i.value for i in at.info]
 
 
-def test_catalogue_falls_back_to_exposure():
-    config = type('C', (), {'model_map': {'Q': ['p1']}, 'scenario_info': {}})()
+def test_catalogue_from_settings_and_exposure():
+    config = type('C', (), {'model_map': {'Q': ['p1']}})()
     models = [{'id': 7, 'model_id': 'Q', 'supplier_id': 'Acme'}]
     portfolios = [{'id': 3, 'name': 'p1'}]
     locations = pd.DataFrame({'countrycode': ['NP', 'NP'], 'LocPerilsCovered': ['ORF;OSF', 'OO1']})
@@ -199,14 +199,15 @@ def test_run_blocked_at_visitor_limit(client):
 def test_showcase_page(client):
     at = app(client, 'scenarios_ui/showcase.py')
     assert not at.exception, [e.value for e in at.exception]
-    assert at.selectbox[0].options == ['Morocco quake – maeq-test']
-    assert at.subheader[0].value == 'Morocco quake – maeq-test'
+    # Showcase runs are named by their scenario's name from the model settings, not the run name
+    assert at.selectbox[0].options == ['Morocco earthquake, Sep 2023']
+    assert at.subheader[0].value == 'Morocco earthquake, Sep 2023'
 
 
 def test_compare_offers_own_and_showcase_runs(client):
     at = app(client, 'scenarios_ui/compare.py')
     assert not at.exception, [e.value for e in at.exception]
-    assert at.selectbox[0].options == ['My earlier run (your run)', 'Morocco quake – maeq-test (showcase)']
+    assert at.selectbox[0].options == ['My earlier run (your run)', 'Morocco earthquake, Sep 2023 (showcase)']
 
     showcase, mine = client.analyses.json_data[0], client.analyses.json_data[1]
     at.selectbox[0].set_value(mine)

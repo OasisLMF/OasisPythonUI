@@ -9,7 +9,7 @@ from oasis_data_manager.errors import OasisException
 from requests.exceptions import HTTPError
 
 from modules.config import retrieve_ui_config
-from modules.scenarios import GROUP_BY_OPTIONS, ScenarioLimits, display_name, visitor_id
+from modules.scenarios import GROUP_BY_OPTIONS, ScenarioLimits, display_name, is_showcase, visitor_id
 from modules.schemas import PERSPECTIVES
 from modules.settings import get_analyses_settings
 from pages.components.common import format_status
@@ -30,8 +30,18 @@ class Context:
         self.vid = visitor_id()
 
     def scenario_name(self, model):
-        info = (self.ui_config.scenario_info or {}).get(model.get('model_id'), {})
-        return info.get('title') or cached_model_settings(self.ci, model).get('name') or model['model_id']
+        return cached_model_settings(self.ci, model).get('name') or model['model_id']
+
+    def run_title(self, analysis, models_by_id):
+        """How to name a run: showcase runs by their scenario's name, others by their run name.
+
+        The scenario name comes from the model settings, so a renamed scenario doesn't need its
+        showcase rebuilt.
+        """
+        model = models_by_id.get(analysis.get('model'))
+        if model is not None and is_showcase(analysis, self.limits):
+            return self.scenario_name(model)
+        return display_name(analysis['name'])
 
 
 def footer(ui_config):
@@ -106,7 +116,7 @@ def run_summary(ctx, analysis, settings, models_by_id, portfolios_by_id):
 
 def analysis_results(ctx, analysis, models_by_id, portfolios_by_id, key):
     """Summary, results and downloads for a completed analysis."""
-    st.subheader(display_name(analysis['name']))
+    st.subheader(ctx.run_title(analysis, models_by_id))
     if analysis['status'] != 'RUN_COMPLETED':
         st.info(f"{format_status(analysis['status'])}. Results appear here when the run completes.")
         return

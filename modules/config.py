@@ -37,7 +37,6 @@ class UIConfig():
         # Scenarios app settings (run limits, showcase tag, ...): see modules/scenarios.py
         self.scenarios = config.get('scenarios', {})
         # Curated scenario details (title, peril, countries, type), keyed by model id
-        self.scenario_info = config.get('scenario_info', {})
 
 
 def retrieve_ui_config():

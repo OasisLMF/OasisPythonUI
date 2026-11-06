@@ -2,7 +2,7 @@
 import pandas as pd
 import streamlit as st
 
-from modules.scenarios import display_name, showcase_analyses, visitor_analyses
+from modules.scenarios import showcase_analyses, visitor_analyses
 from modules.visualisation import OutputInterface
 from pages.components.common import PERSPECTIVES_MAP
 from pages.components.output import (EP_CALC_LABELS, generate_aalcalc_comparison_fragment,
@@ -23,15 +23,16 @@ st.markdown(
     'your own completed runs.')
 
 all_analyses = client_interface.analyses.get()
-showcase = {a['id'] for a in showcase_analyses(all_analyses, ctx.limits, client_interface.models.get(), ui_config)}
+models_by_id = {m['id']: m for m in client_interface.models.get()}
+showcase = {a['id'] for a in showcase_analyses(all_analyses, ctx.limits, list(models_by_id.values()), ui_config)}
 mine = {a['id'] for a in visitor_analyses(all_analyses, ctx.vid)}
 analyses = sorted([a for a in all_analyses if a['status'] == 'RUN_COMPLETED' and a['id'] in showcase | mine],
-                  key=lambda a: (a['id'] not in mine, display_name(a['name'])))
+                  key=lambda a: (a['id'] not in mine, ctx.run_title(a, models_by_id).lower()))
 
 
 def option_label(analysis):
     source = 'your run' if analysis['id'] in mine else 'showcase'
-    return f"{display_name(analysis['name'])} ({source})"
+    return f"{ctx.run_title(analysis, models_by_id)} ({source})"
 
 
 if len(analyses) < 2:
@@ -52,8 +53,9 @@ if len(selected) != 2:
     footer(ui_config)
     st.stop()
 
+titles = [ctx.run_title(a, models_by_id) for a in selected]
 selected = pd.DataFrame(selected)
-selected['name'] = selected['name'].map(display_name)
+selected['name'] = titles
 
 analysis_ids = [selected['id'][i] for i in range(2)]
 model_ids = [selected['model'][i] for i in range(2)]

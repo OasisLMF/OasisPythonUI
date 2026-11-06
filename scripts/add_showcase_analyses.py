@@ -133,7 +133,6 @@ def main():
     tag = config.get('scenarios', {}).get('showcase_tag', '[showcase]')
     processes = config.get('scenarios', {}).get('processes_per_run', 2)
     model_map = config.get('model_map', {})
-    scenario_info = config.get('scenario_info', {})
 
     client = initialise_client(*parse_initialise_args(**args))
     if client is None:
@@ -171,8 +170,7 @@ def main():
             continue
 
         wait_for_slot(client, running, args['max_concurrent'], args['timeout'])
-        title = scenario_info.get(model_id, {}).get('title')
-        name = title or model_settings(client, model).get('name') or model_id
+        name = model_settings(client, model).get('name') or model_id
         analysis = client.create_analysis(portfolio_id=portfolio['id'], model_id=model['id'],
                                           analysis_name=f"{name} – {portfolio['name']} {tag}")
         group_field = map_field(client, portfolio)
