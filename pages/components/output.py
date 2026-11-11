@@ -911,15 +911,19 @@ def generate_aalcalc_fragment(p, vis):
     group_field = ['type']
 
     if breakdown_field:
-        result[breakdown_field] = result[breakdown_field].astype(str)
         group_field += [breakdown_field]
 
     result = result.loc[:, group_field + ['mean']]
-    result = result.groupby(group_field, as_index=False).agg({'mean': 'sum'})
+    result = result.groupby(group_field, as_index=False, dropna=False).agg({'mean': 'sum'})
+    if breakdown_field:
+        # Group on the raw values so numeric fields sort numerically, then
+        # label each bar with its own value
+        result[breakdown_field] = result[breakdown_field].astype(str)
 
     graph = px.bar(result, x=breakdown_field or 'type', y='mean',
                    labels={'type': 'Type', 'mean': 'Mean'},
                    color_discrete_sequence=px.colors.sequential.RdBu)
+    graph.update_xaxes(type='category')
 
     if breakdown_field_invalid:
         st.error("Too many values in group field.")
@@ -948,17 +952,21 @@ def generate_alt_fragment(p, vis, output_type='alt_meanonly'):
     group_field = [type_field]
 
     if breakdown_field:
-        result[breakdown_field] = result[breakdown_field].astype(str)
         group_field += [breakdown_field]
 
     result = result.loc[:, group_field + [mean_field]]
-    result = result.groupby(group_field, as_index=False).agg({mean_field: 'sum'})
+    result = result.groupby(group_field, as_index=False, dropna=False).agg({mean_field: 'sum'})
+    if breakdown_field:
+        # Group on the raw values so numeric fields sort numerically, then
+        # label each bar with its own value
+        result[breakdown_field] = result[breakdown_field].astype(str)
 
     type_formatted = type_field[0] + type_field[1:]
     mean_formatted = mean_field[0] + mean_field[1:]
     graph = px.bar(result, x=breakdown_field or type_field, y=mean_field,
                    labels={type_field: type_formatted, mean_field: mean_formatted},
                    color_discrete_sequence=px.colors.sequential.RdBu)
+    graph.update_xaxes(type='category')
 
     if breakdown_field_invalid:
         st.error("Too many values in group field.")

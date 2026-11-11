@@ -135,6 +135,21 @@ def test_alct_fragment_renders_convergence_chart_and_table():
                                    'StandardError', 'RelativeError']
 
 
+def test_palt_breakdown_by_numeric_field_labels_each_bar():
+    '''
+    A numeric OED field such as PiWind's LocNumber gets one labelled bar
+    per value, in numeric order, rather than a continuous axis.
+    '''
+    at = AppTest.from_file("tests/fixtures/palt_fragment_app.py")
+    at.session_state["alt_period_gul_oed_filter"] = "LocNumber"
+    at.run()
+
+    assert len(at.exception) == 0
+    spec = _plotly_spec(at.get("plotly_chart")[0])
+    assert spec['layout']['xaxis']['type'] == 'category'
+    assert [x for trace in spec['data'] for x in trace['x']] == ['1', '2', '10']
+
+
 def test_psept_fragment_renders_ep_curve():
     at = AppTest.from_file("tests/fixtures/psept_fragment_app.py").run()
 
