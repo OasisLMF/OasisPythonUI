@@ -3,20 +3,24 @@ def validate_not_none(param, paramName='parameter'):
         return False, f'{paramName} is not set.'
     return True, ""
 
+
 def validate_name(name, paramName="Name"):
     if not name or len(name) == 0:
         return False, f"{paramName} is required."
     return True, ""
+
 
 def validate_key_vals(df, key, vals):
     if df is not None and df[key] in vals:
         return True, ""
     return False, f"{key} has incorrect value."
 
+
 def validate_key_is_not_null(df, col):
     if df[col] is None:
         return False, f"{col} is None."
     return True, ""
+
 
 def process_validations(validations):
     valid = True
@@ -50,7 +54,7 @@ class Validation:
         return self.message
 
     def validate(self, *args, **kwargs):
-        self.valid =  self.validation_func(*args, **kwargs)
+        self.valid = self.validation_func(*args, **kwargs)
 
         if not self.valid:
             raise ValidationError(self.message)
@@ -127,6 +131,7 @@ class KeyInValuesValidation(Validation):
     def validation_func(map, key, value_list):
         return map[key] in value_list
 
+
 class LenValidation(Validation):
     def __init__(self, pname="Parameter"):
         self.message = f'{pname} is incorrect size.'
@@ -179,13 +184,13 @@ class ValidationGroup:
 
 
 class ValidationError(Exception):
-    """
-    Custom exception class for validation errors.
+    """Custom exception class for validation errors.
 
     Attributes
     ----------
         message: explanation of error
     """
+
     def __init__(self, message):
         self.message = message
         super().__init__(self.message)

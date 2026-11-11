@@ -1,7 +1,5 @@
 from oasis_data_manager.errors import OasisException
-import plotly.express as px
 import logging
-import streamlit as st
 
 logger = logging.getLogger(__name__)
 
@@ -10,28 +8,74 @@ TYPE_MAP = {
     2: 'Sample'
 }
 
+
 class OutputInterface:
     def __init__(self, output_file_dict):
-        '''
-        Parameters
+        """Parameters
         ----------
         output_file_dict : dict
                            Dictionary of output files as pd.DataFrames with the
                            key as the output file name.
-        '''
+        """
         self.output_file_dict = output_file_dict
         self.oed_fields = {}
+        self.summary_levels = {}
+        self.file_prefixes = {}
+
+    def set_file_prefix(self, perspective, prefix):
+        """Inuring priority prefix for a perspective's files, e.g. `IP1_` for
+        `rl_IP1_S1_selt.csv`. `''` (default) is the final/only priority.
+        """
+        self.file_prefixes[perspective] = prefix
+
+    def has_summary_info(self, perspective, summary_level=None):
+        level = summary_level or self.summary_level(perspective)
+        return self._request_to_summary_info_fname(level, perspective, self.file_prefixes.get(perspective, '')) \
+            in self.output_file_dict
+
+    def has_output(self, perspective, output_type, summary_level=None):
+        """Whether the output file for `output_type` exists for the selected level and prefix."""
+        level = summary_level or self.summary_level(perspective)
+        prefix = self.file_prefixes.get(perspective, '')
+        return self._file(self._request_to_fname(level, perspective, output_type, prefix=prefix)) is not None
+
+    def _file(self, csv_name):
+        """Output file by its `.csv` name, or its `.parquet` equivalent (ORD parquet_format)."""
+        df = self.output_file_dict.get(csv_name)
+        if df is None and csv_name.endswith('.csv'):
+            df = self.output_file_dict.get(csv_name[:-4] + '.parquet')
+        return df
+
+    def fields_available(self, perspective, oed_fields, summary_level=None):
+        """Whether outputs can be broken down by `oed_fields`: either a
+        summary-info file exists, or the outputs already contain the fields
+        (written by pytools join-summary-info).
+        """
+        if self.has_summary_info(perspective, summary_level):
+            return True
+        level = summary_level or self.summary_level(perspective)
+        stem = f"{perspective}_{self.file_prefixes.get(perspective, '')}S{level}_"
+        files = [df for name, df in self.output_file_dict.items()
+                 if name.startswith(stem) and not name.endswith('summary-info.csv')]
+        return bool(files) and all(set(oed_fields) <= set(df.columns) for df in files)
 
     def set_oed_fields(self, perspective, oed_fields):
         self.oed_fields[perspective] = oed_fields
 
+    def set_summary_level(self, perspective, summary_level):
+        """Select which summary level (`S<n>` files) to visualise for a perspective."""
+        self.summary_levels[perspective] = summary_level
+
+    def summary_level(self, perspective):
+        return self.summary_levels.get(perspective, 1)
+
     def get(self, summary_level, perspective, output_type, **kwargs):
-        '''
-        Generate graph from the output file.
+        """Generate graph from the output file.
 
         Parameters
         ----------
         summary_level : int
+                        Summary level (`S<n>` in the output file names).
         perspective : str
                       One of the following
                       - `gul` : ground up loss
@@ -60,7 +104,7 @@ class OutputInterface:
         Returns
         -------
         plotly.Figure
-        '''
+        """
         supported_outputs = ['eltcalc', 'aalcalc', 'leccalc', 'pltcalc',
                              'elt_sample', 'elt_moment', 'elt_quantile',
                              'plt_sample', 'plt_moment', 'plt_quantile',
@@ -68,30 +112,34 @@ class OutputInterface:
                              'ept', 'psept'
                              ]
         assert output_type in supported_outputs, 'Output type not supported'
-        assert perspective in ['gul', 'il', 'ri'], 'Perspective not valid'
+        assert perspective in ['gul', 'il', 'ri', 'rl'], 'Perspective not valid'
 
         if output_type == "leccalc":
             assert kwargs.get("analysis_type") in ["full_uncertainty", "sample_mean", "wheatsheaf", "wheatsheaf_mean"], "Analysis type not supported."
             assert kwargs.get("loss_type") in ["aep", "oep"], "Loss type not supported."
 
-        fname = self._request_to_fname(summary_level, perspective, output_type,
-                                           **kwargs)
-        results = self.output_file_dict.get(fname)
+        prefix = self.file_prefixes.get(perspective, '')
+        fname = self._request_to_fname(summary_level, perspective, output_type, prefix=prefix,
+                                       **kwargs)
+        results = self._file(fname)
         if results is None:
             logger.error(f'Failed to find output file: {fname}')
             raise OasisException('Output file not found.')
 
         oed_fields = self.oed_fields.get(perspective, None)
         if oed_fields:
-            summary_info = self.output_file_dict.get(self._request_to_summary_info_fname(summary_level, perspective))
+            summary_info = self._file(self._request_to_summary_info_fname(summary_level, perspective, prefix))
             results = self.add_oed_fields(results, summary_info, oed_fields)
+            missing = [f for f in oed_fields if f not in results.columns]
+            if missing:
+                logger.warning(f'{fname}: no summary info for {missing}')
             kwargs['oed_fields'] = oed_fields
 
         result = getattr(self, f'generate_{output_type}')(results, **kwargs)
         return result
 
     @staticmethod
-    def _request_to_fname(summary_level, perspective, output_type, **kwargs):
+    def _request_to_fname(summary_level, perspective, output_type, prefix='', **kwargs):
         if output_type[:4] in ['elt_', 'plt_']:
             output_type = output_type[4] + output_type[:3]
 
@@ -106,18 +154,26 @@ class OutputInterface:
         if output_type[:4] == 'alct':
             output_type = 'alct'
 
-        fname = f'{perspective}_S{summary_level}_{output_type}'
+        fname = f'{perspective}_{prefix}S{summary_level}_{output_type}'
         if output_type == 'leccalc':
             fname += f'_{kwargs.get("analysis_type")}_{kwargs.get("loss_type")}'
         fname += '.csv'
         return fname
 
     @staticmethod
-    def _request_to_summary_info_fname(summary_level, perspective):
-        return f'{perspective}_S{summary_level}_summary-info.csv'
+    def _request_to_summary_info_fname(summary_level, perspective, prefix=''):
+        return f'{perspective}_{prefix}S{summary_level}_summary-info.csv'
 
     @staticmethod
     def add_oed_fields(results, summary_info, oed_fields):
+        """Join OED group fields onto `results` from the summary-info file.
+
+        Fields already in `results` (joined by pytools join-summary-info) are
+        left as they are; without a summary-info file nothing is joined.
+        """
+        oed_fields = [f for f in oed_fields if f not in results.columns]
+        if not oed_fields or summary_info is None:
+            return results
         summary_info = summary_info.set_index('summary_id')
         summary_info = summary_info[oed_fields]
         if 'summary_id' in results.columns:

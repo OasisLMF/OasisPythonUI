@@ -183,3 +183,6 @@ cython_debug/
 
 # Generated OIDC configurations
 oidc/*/generated/
+
+# Locally generated TLS certificates
+certs/

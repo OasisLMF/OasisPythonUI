@@ -5,22 +5,22 @@ import streamlit as st
 import pydeck as pdk
 import plotly.express as px
 import geopandas
-from streamlit import column_config
 
 from modules.logging import get_session_logger
 from pages.components.common import STATUS_COLORS
 
 logger = get_session_logger()
 
+
 class View:
-    '''
-    Base class to create a view component.
+    """Base class to create a view component.
 
     Parameters
     ----------
     data : pd.DataFrame
            Pandas DataFrame containing the data to visualise.
-    '''
+    """
+
     def __init__(self, data):
         self.data = data
 
@@ -30,8 +30,7 @@ class View:
 
 
 class DataframeView(View):
-    '''
-    Visualise dataframe.
+    """Visualise dataframe.
 
     Basic Usage:
 
@@ -51,7 +50,8 @@ class DataframeView(View):
                  If `single` then single row is selectable. If `multi` then multiple rows selctable.
     display_cols : list[str]
                    The names of the columns to display. By default displays all the columns.
-    '''
+    """
+
     def __init__(self, data=None, selectable=False, display_cols=None, hide_index=True,
                  column_config=None):
         if data is None:
@@ -79,11 +79,8 @@ class DataframeView(View):
             else:
                 self.column_config[c] = st.column_config.TextColumn(self.format_column_heading(c))
 
-
     def display(self, max_rows=1000, key=None):
-        '''
-        Show the dataframe.
-        '''
+        """Show the dataframe."""
         if self.data.empty:
             st.dataframe(pd.DataFrame(columns=self.display_cols),
                          hide_index=self.hide_index, column_config=self.column_config,
@@ -100,8 +97,8 @@ class DataframeView(View):
         }
 
         if self.selectable:
-            args['selection_mode']="single-row"
-            args['on_select']="rerun"
+            args['selection_mode'] = "single-row"
+            args['on_select'] = "rerun"
 
             if self.selectable == 'multi':
                 args['selection_mode'] = "multi-row"
@@ -112,7 +109,6 @@ class DataframeView(View):
         # Limit if too many rows
         if n_rows > max_rows:
             data_styled = data_styled.iloc[:max_rows, :]
-
 
         def format_status(status):
             return status.replace('_', ' ').title()
@@ -163,9 +159,8 @@ class DataframeView(View):
 
 class MapView(View):
     def __init__(self, data, longitude="Longitude", latitude="Latitude",
-                 weight=None, map_type = "scatter", country="CountryCode"):
-        '''
-        Class to visualise data on a map.
+                 weight=None, map_type="scatter", country="CountryCode"):
+        """Class to visualise data on a map.
 
         Parameters
         ----------
@@ -187,7 +182,7 @@ class MapView(View):
                    - `scatter`
                    - `heatmap`
                    - `choropleth` - currently only supports countries.
-        '''
+        """
         self.data = data
         self.longitude = longitude
         self.latitude = latitude
@@ -208,7 +203,6 @@ class MapView(View):
         else:
             raise OasisException("Map type not recognised")
 
-
     def generate_location_map(self):
         locations = self.data
 
@@ -216,11 +210,11 @@ class MapView(View):
             'ScatterplotLayer',
             locations,
             get_position=[self.longitude, self.latitude],
-            get_line_color = [0, 0, 0],
-            get_fill_color = [255, 140, 0],
-            radius_min_pixels = 1,
-            radius_max_pixels = 50,
-            radius_scale = 2,
+            get_line_color=[0, 0, 0],
+            get_fill_color=[255, 140, 0],
+            radius_min_pixels=1,
+            radius_max_pixels=50,
+            radius_scale=2,
             pickable=True,
             stroked=True,
             get_line_width=0.5,
@@ -231,7 +225,6 @@ class MapView(View):
         # Prevent over zooming
         if viewstate.zoom > 18:
             viewstate.zoom = 18
-
 
         tooltip = {'text': ''}
         if 'LocPerilsCovered' in locations.columns:
@@ -254,24 +247,34 @@ class MapView(View):
                 return 18
             return min(max(masked.iloc[0, :].name - 1, 0), 18)
 
-        lon_range = locations[self.longitude].max() - locations[self.longitude].min()
+        # Frame the map on the locations with a loss (all of them if none have one), ignoring
+        # missing coordinates and 0,0 ("not geocoded")
+        lon, lat = locations[self.longitude], locations[self.latitude]
+        placed = lon.notna() & lat.notna() & ((lon != 0) | (lat != 0))
+        framed = locations[placed & (locations[self.weight] > 0)]
+        if framed.empty:
+            framed = locations[placed] if placed.any() else locations
+        lon_min, lon_max = framed[self.longitude].min(), framed[self.longitude].max()
+        lat_min, lat_max = framed[self.latitude].min(), framed[self.latitude].max()
+        center = {'lon': (lon_min + lon_max) / 2, 'lat': (lat_min + lat_max) / 2}
 
-        zoom = find_zoom_level(lon_range)
+        # The map is about twice as wide as it is tall, so a north-south spread needs more room
+        zoom = find_zoom_level(max(lon_max - lon_min, 2 * (lat_max - lat_min)))
 
         format_weight = self.weight
         if len(format_weight) > 1:
             format_weight = format_weight[0].upper() + format_weight[1:]
 
-
         fig = px.density_map(locations,
-                             lat = self.latitude,
-                             lon = self.longitude,
-                             z = self.weight,
+                             lat=self.latitude,
+                             lon=self.longitude,
+                             z=self.weight,
                              color_continuous_scale="YlOrRd",
                              opacity=0.75,
-                             zoom = zoom,
+                             zoom=zoom,
+                             center=center,
                              labels={self.weight: format_weight})
-        fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+        fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
         fig.update_layout(coloraxis_colorbar=dict(
             orientation='h',
             yanchor='top',
@@ -315,8 +318,8 @@ class MapView(View):
         if len(locations) == 1:
             range_color = [0, max(locations[self.weight])]
         else:
-            offset = 0.1*(locations[self.weight].max() - locations[self.weight].min())
-            range_color = [locations[self.weight].min() - offset, locations[self.weight].max() + 2*offset]
+            offset = 0.1 * (locations[self.weight].max() - locations[self.weight].min())
+            range_color = [locations[self.weight].min() - offset, locations[self.weight].max() + 2 * offset]
 
         format_weight = self.weight
         if len(format_weight) > 1:
@@ -333,7 +336,7 @@ class MapView(View):
                                 range_color=range_color,
                                 labels={self.weight: format_weight})
 
-        fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+        fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
         fig.update_layout(coloraxis_colorbar=dict(
             orientation='h',
             yanchor='top',

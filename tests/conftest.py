@@ -1,7 +1,9 @@
+import pandas as pd
 import pytest
 from modules.client import ClientInterface
 from tests.mocks import MockApiClient
 from streamlit.testing.v1 import AppTest
+
 
 @pytest.fixture(autouse=True)
 def no_requests(monkeypatch):
@@ -12,11 +14,12 @@ def no_requests(monkeypatch):
 def pytest_configure(config):
     config.portfolio_ID = 2
     config.portfolios_data = [{
-        'id' : config.portfolio_ID,
+        'id': config.portfolio_ID,
         'name': 'string',
         "created": "2023-05-26T06:48:52.524821Z",
         "modified": "2023-05-26T06:48:52.524821Z",
-        "storage_links": f"http://localhost:8000/v1/portfolios/{config.portfolio_ID}/storage_links/"
+        "storage_links": f"http://localhost:8000/v1/portfolios/{config.portfolio_ID}/storage_links/",
+        "location_file": {"name": "location.csv", "stored": "abc.csv"},
     }]
 
     config.model_ID = 1
@@ -45,24 +48,37 @@ def pytest_configure(config):
         }
     ]
 
+
 @pytest.fixture()
 def mock_api_client(request):
     config = request.config
-    return MockApiClient(portfolios=config.portfolios_data,
-                         analyses=config.analyses_data,
-                         models=config.models_data)
+    client = MockApiClient(portfolios=config.portfolios_data,
+                           analyses=config.analyses_data,
+                           models=config.models_data)
+    client.portfolios.location_file.files[config.portfolio_ID] = pd.DataFrame({
+        'LocNumber': ['1', '2'], 'CountryCode': ['GB', 'GB'],
+        'Latitude': [52.1, 52.2], 'Longitude': [-1.1, -1.2],
+        'BuildingTIV': [1000.0, 2000.0], 'LocPerilsCovered': ['WTC', 'WTC'],
+    })
+    return client
+
 
 @pytest.fixture()
 def mock_client_interface(mock_api_client):
-    return ClientInterface(client = mock_api_client)
+    return ClientInterface(client=mock_api_client)
+
+
+def page_app(path, client, state=None):
+    """AppTest of a page logged in with `client`, with optional session state."""
+    at = AppTest.from_file("app.py", default_timeout=30)
+    at.session_state["client"] = client
+    at.session_state["client_interface"] = ClientInterface(client=client)
+    for k, v in (state or {}).items():
+        at.session_state[k] = v
+    at.switch_page(path)
+    return at.run()
 
 
 @pytest.fixture()
-def mock_app_test(mock_api_client, mock_client_interface):
-    at = AppTest.from_file("app.py")
-    at.session_state["client"]  = mock_api_client
-    at.session_state["client_interface"] = mock_client_interface
-    at.switch_page("pages/analyses.py")
-    at.run()
-    return at
-
+def mock_app_test(mock_api_client):
+    return page_app("pages/analyses.py", mock_api_client)

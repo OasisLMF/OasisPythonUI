@@ -20,4 +20,4 @@ locations = pd.DataFrame({
 })
 
 eltcalc_map(map_df, locations, oed_fields=['LocNumber'], map_type='heatmap',
-           intensity_col='MeanLoss')
+            intensity_col='MeanLoss')

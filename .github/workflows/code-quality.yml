@@ -1,0 +1,63 @@
+# Code quality and tests, following OasisLMF's code-quality workflow:
+#   - ruff: pyflakes checks and docstring style (rules in pyproject.toml)
+#   - PEP8: fails if autopep8 would change any file
+#   - tests: the pytest suite
+#
+# To fix formatting locally:
+#   autopep8 --in-place --recursive --max-line-length 150 --ignore E402 --exclude OasisPiWind .
+#   ruff check --fix .
+
+name: Code Quality
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - stable**
+
+env:
+  max_line_length: 150
+  python_version: "3.12"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.python_version }}
+
+      - name: Install code quality tools
+        run: pip install --upgrade autopep8 ruff
+
+      - name: Lint (ruff)
+        if: ${{ ! cancelled() }}
+        run: ruff check --output-format full .
+
+      - name: Check PEP8 compliance
+        if: ${{ ! cancelled() }}
+        run: |
+          autopep8 --diff --exit-code --recursive --max-line-length ${{ env.max_line_length }} \
+            --ignore E402 --exclude OasisPiWind .
+
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.python_version }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest
+
+      - name: Run tests
+        run: python -m pytest -q
